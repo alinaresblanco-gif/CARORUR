@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CARORUR</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===== PANTALLA DE INICIO ===== -->
+  <div id="pantalla-inicio" class="pantalla activa">
+
+    <!-- Imagen de fondo a pantalla completa -->
+    <div class="imagen-contenedor">
+      <img
+        src="imagenes/imagen_index.png"
+        alt="Inicio CARORUR"
+        id="imagen-inicio"
+        class="imagen-principal"
+      />
+
+      <!-- =====================================================
+           ZONAS CLICABLES
+           Cada zona se posiciona con porcentajes sobre la imagen.
+           Atributos:
+             data-vista  → ruta del archivo HTML a cargar
+             data-label  → nombre visible en modo edición
+           Ajusta top / left / width / height en style.css
+           o directamente aquí como estilo inline.
+      ====================================================== -->
+
+      <div
+        class="zona-clic"
+        id="zona-1"
+        data-vista="vistas/vista1.html"
+        data-label="Vista 1"
+        style="top: 20%; left: 10%; width: 25%; height: 15%;"
+      ></div>
+
+      <div
+        class="zona-clic"
+        id="zona-2"
+        data-vista="vistas/vista2.html"
+        data-label="Vista 2"
+        style="top: 20%; left: 65%; width: 25%; height: 15%;"
+      ></div>
+
+      <div
+        class="zona-clic"
+        id="zona-3"
+        data-vista="vistas/vista3.html"
+        data-label="Vista 3"
+        style="top: 60%; left: 37%; width: 25%; height: 15%;"
+      ></div>
+
+    </div><!-- /imagen-contenedor -->
+
+    <!-- Botón para activar/desactivar modo edición de zonas -->
+    <button id="btn-edicion" title="Mostrar/ocultar zonas clicables">⚙</button>
+
+  </div><!-- /pantalla-inicio -->
+
+
+  <!-- ===== CONTENEDOR DE VISTAS ===== -->
+  <!--
+    Las vistas se cargarán aquí dinámicamente.
+    Permanece oculto hasta que se seleccione una zona.
+  -->
+  <div id="contenedor-vista" class="oculto">
+    <button id="btn-volver" title="Volver al inicio">← Inicio</button>
+    <iframe id="iframe-vista" src="" frameborder="0"></iframe>
+  </div>
+
+
+  <script src="js/app.js"></script>
+</body>
+</html>
