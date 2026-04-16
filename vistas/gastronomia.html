@@ -264,6 +264,14 @@
 		.btn-agregar-dia:active { background: rgba(72, 36, 10, 0.82); }
 
 		/* ---- Botón Borrar Menú ---- */
+		.acciones-menu {
+			display: inline-flex;
+			align-items: center;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+
+		.btn-guardar-menu,
 		.btn-borrar-menu {
 			display: inline-flex;
 			flex-direction: column;
@@ -275,20 +283,30 @@
 			padding: 4px 2px;
 			color: rgba(245, 232, 208, 0.75);
 			-webkit-tap-highlight-color: transparent;
-			flexshrink: 0;
+			flex-shrink: 0;
 			transition: color 0.18s;
 		}
 
+		.btn-guardar-menu span.icono,
 		.btn-borrar-menu span.icono {
 			font-size: 1.3rem;
 			line-height: 1;
 		}
 
+		.btn-guardar-menu span.texto,
 		.btn-borrar-menu span.texto {
 			font-family: 'Crimson Text', serif;
 			font-size: 0.72rem;
 			letter-spacing: 0.04em;
 			white-space: nowrap;
+		}
+
+		.btn-guardar-menu:hover,
+		.btn-guardar-menu:active { color: #b4ffd0; }
+
+		.btn-guardar-menu[disabled] {
+			opacity: 0.5;
+			cursor: wait;
 		}
 
 		.btn-borrar-menu:hover,
@@ -301,11 +319,17 @@
 			<a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio">
 				<img src="../iconos/volver.png" alt="Volver" />
 			</a>
-			<h1 style="text-transform:uppercase;">Nuestro Menú</h1>
-			<button class="btn-borrar-menu" id="btn-borrar-menu" type="button" title="Borrar todo el menú">
-				<span class="icono">🗑️</span>
-				<span class="texto">Borrar Menú</span>
-			</button>
+			<h1 style="text-transform:uppercase;">NUESTRO MENÚ</h1>
+			<div class="acciones-menu">
+				<button class="btn-guardar-menu" id="btn-guardar-menu" type="button" title="Guardar menú en Google Sheets">
+					<span class="icono">💾</span>
+					<span class="texto">Guardar Menú</span>
+				</button>
+				<button class="btn-borrar-menu" id="btn-borrar-menu" type="button" title="Borrar todo el menú">
+					<span class="icono">🗑️</span>
+					<span class="texto">Borrar Menú</span>
+				</button>
+			</div>
 		</header>
 
 		<main class="vista-contenido" id="contenido-gastronomia">
@@ -318,12 +342,16 @@
 	(function () {
 		'use strict';
 
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyAwDvr5yoiCkArUvxvxlyE8czZ_0fnC6XDW50ov0xyimZsAiHmJFDl0cki4uFzx1w7/exec';
+		var MENU_ID = 'principal';
+		var UPDATED_BY = 'carorur-app';
 		var STORAGE_KEY  = 'carorur_gastronomia';
 		var MOMENTOS     = ['DESAYUNO', 'APERITIVO', 'COMIDA', 'CENA'];
 		var DIAS_SEMANA  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
 		var acordeon   = document.getElementById('acordeon');
 		var btnAgregar = document.getElementById('btn-agregar-dia');
+		var btnGuardar = document.getElementById('btn-guardar-menu');
 		var btnBorrar  = document.getElementById('btn-borrar-menu');
 		var contenido  = document.getElementById('contenido-gastronomia');
 		var seleccionActiva = null;
@@ -373,6 +401,112 @@
 
 		function guardarDatos() {
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(days));
+		}
+
+		function serializarFilasParaSheet() {
+			var rows = [];
+			days.forEach(function (dia) {
+				MOMENTOS.forEach(function (momento) {
+					var comidas = dia.comidas[momento] || [];
+					var fotos = dia.fotos[momento] || [];
+					var semana = formatearFecha(dia.fecha).diaSemana || '';
+
+					comidas.forEach(function (txt, idx) {
+						var comida = (txt || '').trim();
+						if (!comida) return;
+						rows.push({
+							dia_id: String(dia.id),
+							fecha_iso: dia.fecha || '',
+							dia_semana: semana,
+							momento: momento,
+							item_orden: idx + 1,
+							comida: comida,
+							foto_url: /^https?:\/\//i.test(fotos[idx] || '') ? fotos[idx] : '',
+							deleted: false
+						});
+					});
+				});
+			});
+			return rows;
+		}
+
+		function reconstruirDesdeFilas(rows) {
+			var mapa = {};
+			var ordenIds = [];
+
+			(rows || []).forEach(function (r) {
+				if (!r || !r.dia_id) return;
+				if (!mapa[r.dia_id]) {
+					var nuevo = crearDia();
+					nuevo.id = r.dia_id;
+					nuevo.fecha = r.fecha_iso || '';
+					nuevo.abierto = false;
+					MOMENTOS.forEach(function (m) {
+						nuevo.comidas[m] = [];
+						nuevo.fotos[m] = [];
+					});
+					mapa[r.dia_id] = nuevo;
+					ordenIds.push(r.dia_id);
+				}
+
+				var dia = mapa[r.dia_id];
+				var momento = MOMENTOS.indexOf(r.momento) >= 0 ? r.momento : 'COMIDA';
+				dia.comidas[momento].push(r.comida || '');
+				dia.fotos[momento].push(r.foto_url || '');
+			});
+
+			var reconstruido = ordenIds.map(function (id) { return mapa[id]; });
+			reconstruido.forEach(function (dia) {
+				MOMENTOS.forEach(function (momento) {
+					if (dia.comidas[momento].length === 0) {
+						dia.comidas[momento].push('');
+						dia.fotos[momento].push('');
+					}
+				});
+			});
+
+			return reconstruido.length ? reconstruido : [crearDia(), crearDia(), crearDia()];
+		}
+
+		async function postAppsScript(payload) {
+			var res = await fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+				body: JSON.stringify(payload)
+			});
+			var data = await res.json();
+			if (!data.ok) throw new Error(data.error || 'Error en Apps Script');
+			return data;
+		}
+
+		async function cargarMenuNube() {
+			var url = APPS_SCRIPT_URL + '?action=getMenu&menu_id=' + encodeURIComponent(MENU_ID);
+			var res = await fetch(url);
+			var data = await res.json();
+			if (!data.ok) throw new Error(data.error || 'No se pudo cargar menú');
+			days = reconstruirDesdeFilas(data.rows || []);
+			guardarDatos();
+		}
+
+		async function guardarMenuNube() {
+			btnGuardar.disabled = true;
+			try {
+				await postAppsScript({
+					action: 'saveMenu',
+					menu_id: MENU_ID,
+					updated_by: UPDATED_BY,
+					rows: serializarFilasParaSheet()
+				});
+				alert('Menú guardado en Google Sheets.');
+			} catch (err) {
+				alert('No se pudo guardar en la nube: ' + err.message);
+			} finally {
+				btnGuardar.disabled = false;
+			}
+		}
+
+		async function borrarMenuNube() {
+			await postAppsScript({ action: 'clearMenu', menu_id: MENU_ID });
 		}
 
 		function formatearFecha(isoDate) {
@@ -653,15 +787,27 @@
 			contenido.scrollTop = contenido.scrollHeight;
 		});
 
-		btnBorrar.addEventListener('click', function () {
+		btnGuardar.addEventListener('click', function () {
+			guardarMenuNube();
+		});
+
+		btnBorrar.addEventListener('click', async function () {
 			if (!confirm('¿Seguro que quieres borrar todo el menú? Esta acción no se puede deshacer.')) return;
 			days = [crearDia(), crearDia(), crearDia()];
 			seleccionActiva = null;
 			guardarDatos();
 			render();
+			try {
+				await borrarMenuNube();
+				alert('Menú borrado en Google Sheets.');
+			} catch (err) {
+				alert('Se borró en el móvil, pero falló en la nube: ' + err.message);
+			}
 		});
 
-		render();
+		cargarMenuNube()
+			.then(function () { render(); })
+			.catch(function () { render(); });
 	})();
 	</script>
 </body>
