@@ -1,0 +1,20 @@
+{
+  "name": "CARORUR",
+  "short_name": "CARORUR",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#8d6a3b",
+  "theme_color": "#8d6a3b",
+  "icons": [
+    {
+      "src": "imagenes/logo_carorur.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "imagenes/logo_carorur.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

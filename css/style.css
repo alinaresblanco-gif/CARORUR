@@ -7,11 +7,23 @@
   padding: 0;
 }
 
+:root {
+  --papel-claro: #cda56b;
+  --papel-medio: #b28650;
+  --papel-oscuro: #7d542d;
+  --tinta-rural: #4d2f18;
+  --sombra-papel: rgba(75, 45, 18, 0.28);
+  --altura-cabecera: clamp(92px, 14vh, 150px);
+  --altura-pie: clamp(96px, 16vh, 170px);
+  --separacion-vertical: clamp(10px, 1.8vh, 18px);
+  --espacio-lateral: clamp(12px, 2vw, 28px);
+}
+
 html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: sans-serif;
+  font-family: 'Crimson Text', serif;
   background: #000;
 }
 
@@ -34,9 +46,92 @@ html, body {
 }
 
 #pantalla-inicio.activa {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--separacion-vertical);
+  align-items: stretch;
+  justify-items: stretch;
+  padding: clamp(8px, 1.5vh, 16px) var(--espacio-lateral);
+}
+
+.franja-decorativa {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  color: var(--tinta-rural);
+  background:
+    linear-gradient(180deg, rgba(255, 242, 214, 0.34), rgba(141, 106, 59, 0.1)),
+    linear-gradient(135deg, #d5b37b 0%, var(--papel-claro) 42%, var(--papel-medio) 100%);
+  border: 1px solid rgba(93, 58, 28, 0.24);
+  box-shadow: 0 10px 22px var(--sombra-papel);
+  overflow: hidden;
+}
+
+.franja-decorativa::before,
+.franja-decorativa::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.franja-decorativa::before {
+  background: radial-gradient(circle at top, rgba(255, 248, 229, 0.3), transparent 54%);
+}
+
+.franja-decorativa::after {
+  background: linear-gradient(90deg, rgba(120, 73, 34, 0.18), transparent 10%, transparent 90%, rgba(120, 73, 34, 0.18));
+}
+
+.franja-superior {
+  min-height: var(--altura-cabecera);
+  border-radius: 28px 28px 20px 20px;
+  padding: 14px 20px;
+}
+
+.franja-inferior {
+  min-height: var(--altura-pie);
+  border-radius: 20px 20px 28px 28px;
+  padding: 16px 24px;
+}
+
+.titulo-principal {
+  font-family: 'Special Elite', serif;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #5a3418;
+  text-shadow: 0 1px 0 rgba(255, 245, 223, 0.35);
+}
+
+.subtitulo-principal {
+  margin-top: 6px;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #6b4322;
+}
+
+.lema-principal {
+  max-width: 1100px;
+  font-size: clamp(1rem, 2vw, 1.3rem);
+  line-height: 1.45;
+  color: #5a3418;
+  text-wrap: balance;
+}
+
+.escenario-inicio {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 0;
 }
 
 /* ============================================================
@@ -44,17 +139,26 @@ html, body {
    ============================================================ */
 .imagen-contenedor {
   position: relative;
-  width: min(100vw, calc(100vh * 848 / 1264));
-  height: min(100vh, calc(100vw * 1264 / 848));
+  width: min(
+    calc(100vw - (var(--espacio-lateral) * 2)),
+    calc((100vh - var(--altura-cabecera) - var(--altura-pie) - (var(--separacion-vertical) * 2) - 32px) * 848 / 1264)
+  );
+  height: min(
+    calc(100vh - var(--altura-cabecera) - var(--altura-pie) - (var(--separacion-vertical) * 2) - 32px),
+    calc((100vw - (var(--espacio-lateral) * 2)) * 1264 / 848)
+  );
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .imagen-principal {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: fill;
   display: block;
   user-select: none;
   -webkit-user-drag: none;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.22));
 }
 
 /* ============================================================
@@ -109,7 +213,7 @@ html, body {
   position: fixed;
   bottom: 14px;
   right: 14px;
-  z-index: 100;
+  z-index: 110;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   border: 1px solid rgba(255,255,255,0.3);
@@ -160,4 +264,25 @@ html, body {
   flex: 1;
   width: 100%;
   border: none;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --altura-cabecera: clamp(92px, 16vh, 128px);
+    --altura-pie: clamp(110px, 19vh, 170px);
+    --separacion-vertical: 8px;
+  }
+
+  .franja-superior,
+  .franja-inferior {
+    border-radius: 18px;
+  }
+
+  .titulo-principal {
+    letter-spacing: 0.12em;
+  }
+
+  .lema-principal {
+    font-size: 1rem;
+  }
 }
