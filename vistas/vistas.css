@@ -64,22 +64,30 @@ body {
 }
 
 .btn-volver {
-  width: clamp(42px, 8vw, 64px);
-  height: clamp(42px, 8vw, 64px);
-  border-radius: 50%;
-  border: 1px solid rgba(85, 50, 23, 0.5);
-  background: rgba(255, 245, 220, 0.6);
-  box-shadow: 0 4px 10px rgba(60, 34, 14, 0.2);
+  width: clamp(48px, 10vw, 72px);
+  height: clamp(48px, 10vw, 72px);
+  border: none;
+  background: transparent;
+  box-shadow: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-volver img {
-  width: 68%;
-  height: 68%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(60, 34, 14, 0.35));
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.btn-volver:active img,
+.btn-volver:hover img {
+  transform: scale(1.12);
+  filter: drop-shadow(0 4px 8px rgba(60, 34, 14, 0.5));
 }
 
 .header-espaciador {
