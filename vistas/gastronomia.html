@@ -126,6 +126,27 @@
 		.btn-eliminar-dia:hover,
 		.btn-eliminar-dia:active { color: #ff9977; }
 
+		.btn-foto-dia {
+			background: rgba(255,255,255,0.13);
+			border: 1px solid rgba(255,245,220,0.28);
+			border-radius: 5px;
+			color: #f5e8d0;
+			width: 32px;
+			height: 32px;
+			font-size: 1rem;
+			cursor: pointer;
+			flex-shrink: 0;
+		}
+
+		.btn-foto-dia:hover,
+		.btn-foto-dia:active {
+			background: rgba(255,255,255,0.22);
+		}
+
+		.input-foto-dia {
+			display: none;
+		}
+
 		/* ---- Cuerpo del día ---- */
 		.dia-body {
 			display: none;
@@ -179,6 +200,48 @@
 
 		.comida-input::placeholder { color: rgba(90,52,24,0.38); }
 
+		.ingrediente-item {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			padding: 2px 0;
+		}
+
+		.ingrediente-item.seleccionado .comida-input {
+			border-color: #7d542d;
+			box-shadow: 0 0 0 2px rgba(125, 84, 45, 0.16);
+		}
+
+		.foto-box {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 8px;
+			align-items: center;
+			background: rgba(121, 82, 44, 0.1);
+			border: 1px solid rgba(121, 82, 44, 0.25);
+			border-radius: 6px;
+			padding: 6px;
+		}
+
+		.foto-preview {
+			width: 100%;
+			max-height: 160px;
+			object-fit: cover;
+			border-radius: 4px;
+			border: 1px solid rgba(60, 33, 14, 0.25);
+		}
+
+		.btn-quitar-foto {
+			border: 1px solid rgba(60, 33, 14, 0.25);
+			background: #fff;
+			color: #5a3418;
+			border-radius: 4px;
+			padding: 5px 8px;
+			font-family: 'Crimson Text', serif;
+			font-size: 0.95rem;
+			cursor: pointer;
+		}
+
 		/* ---- Botón añadir día ---- */
 		.btn-agregar-dia {
 			display: block;
@@ -228,17 +291,44 @@
 		var acordeon   = document.getElementById('acordeon');
 		var btnAgregar = document.getElementById('btn-agregar-dia');
 		var contenido  = document.getElementById('contenido-gastronomia');
+		var seleccionActiva = null;
 
 		/* ---- Datos ---- */
-		var days = cargarDatos();
+		var days = cargarDatos().map(normalizarDia);
 		if (days.length === 0) {
 			days = [crearDia(), crearDia(), crearDia()];
 		}
 
 		function crearDia() {
 			var comidas = {};
-			MOMENTOS.forEach(function (m) { comidas[m] = ['']; });
-			return { id: Date.now() + Math.random(), fecha: '', abierto: false, comidas: comidas };
+			var fotos = {};
+			MOMENTOS.forEach(function (m) {
+				comidas[m] = [''];
+				fotos[m] = [''];
+			});
+			return { id: Date.now() + Math.random(), fecha: '', abierto: false, comidas: comidas, fotos: fotos };
+		}
+
+		function normalizarDia(dia) {
+			if (!dia || typeof dia !== 'object') return crearDia();
+			if (!dia.comidas || typeof dia.comidas !== 'object') dia.comidas = {};
+			if (!dia.fotos || typeof dia.fotos !== 'object') dia.fotos = {};
+
+			MOMENTOS.forEach(function (momento) {
+				if (!Array.isArray(dia.comidas[momento])) dia.comidas[momento] = [''];
+				if (!Array.isArray(dia.fotos[momento])) dia.fotos[momento] = [];
+
+				dia.comidas[momento] = dia.comidas[momento].map(function (txt) {
+					return typeof txt === 'string' ? txt : '';
+				});
+
+				if (dia.comidas[momento].length === 0) dia.comidas[momento].push('');
+				while (dia.fotos[momento].length < dia.comidas[momento].length) dia.fotos[momento].push('');
+			});
+
+			if (typeof dia.abierto !== 'boolean') dia.abierto = false;
+			if (typeof dia.fecha !== 'string') dia.fecha = '';
+			return dia;
 		}
 
 		function cargarDatos() {
@@ -313,10 +403,23 @@
 			btnEliminar.title       = 'Eliminar día';
 			btnEliminar.textContent = '✕';
 
+			var btnFoto = document.createElement('button');
+			btnFoto.className = 'btn-foto-dia';
+			btnFoto.type = 'button';
+			btnFoto.title = 'Añadir foto al ingrediente seleccionado';
+			btnFoto.textContent = '📷';
+
+			var inputFoto = document.createElement('input');
+			inputFoto.type = 'file';
+			inputFoto.accept = 'image/*';
+			inputFoto.className = 'input-foto-dia';
+
 			header.appendChild(chevron);
 			header.appendChild(etiqueta);
 			header.appendChild(pickerWrap);
+			header.appendChild(btnFoto);
 			header.appendChild(btnEliminar);
+			header.appendChild(inputFoto);
 
 			/* Cuerpo */
 			var body = document.createElement('div');
@@ -327,7 +430,7 @@
 
 			/* Eventos */
 			header.addEventListener('click', function (e) {
-				if (pickerWrap.contains(e.target) || e.target === btnEliminar) return;
+				if (pickerWrap.contains(e.target) || e.target === btnEliminar || e.target === btnFoto) return;
 				days[idx].abierto = !days[idx].abierto;
 				guardarDatos();
 				card.classList.toggle('abierto', days[idx].abierto);
@@ -345,8 +448,41 @@
 				e.stopPropagation();
 				if (days.length <= 1) return;
 				days.splice(idx, 1);
+				if (seleccionActiva && seleccionActiva.diaIdx === idx) seleccionActiva = null;
 				guardarDatos();
 				render();
+			});
+
+			btnFoto.addEventListener('click', function (e) {
+				e.stopPropagation();
+				if (!seleccionActiva || seleccionActiva.diaIdx !== idx) {
+					alert('Selecciona primero un ingrediente de este día para adjuntar la foto.');
+					return;
+				}
+				inputFoto.click();
+			});
+
+			inputFoto.addEventListener('change', function () {
+				var file = inputFoto.files && inputFoto.files[0];
+				if (!file) return;
+				if (!seleccionActiva || seleccionActiva.diaIdx !== idx) {
+					inputFoto.value = '';
+					return;
+				}
+
+				var momentoSel = seleccionActiva.momento;
+				var itemSel = seleccionActiva.iItem;
+				var arrFotos = days[idx].fotos[momentoSel];
+				while (arrFotos.length <= itemSel) arrFotos.push('');
+
+				var reader = new FileReader();
+				reader.onload = function (ev) {
+					arrFotos[itemSel] = ev.target.result || '';
+					guardarDatos();
+					render();
+				};
+				reader.readAsDataURL(file);
+				inputFoto.value = '';
 			});
 
 			if (dia.abierto) renderBody(body, dia, idx);
@@ -358,7 +494,12 @@
 			body.innerHTML = '';
 			MOMENTOS.forEach(function (momento) {
 				var arr = dia.comidas[momento];
-				if (arr[arr.length - 1] !== '') arr.push('');
+				var arrFotos = dia.fotos[momento];
+				while (arrFotos.length < arr.length) arrFotos.push('');
+				if (arr[arr.length - 1] !== '') {
+					arr.push('');
+					arrFotos.push('');
+				}
 
 				var section = document.createElement('div');
 				section.className      = 'momento';
@@ -370,14 +511,22 @@
 				section.appendChild(titulo);
 
 				arr.forEach(function (val, iItem) {
-					section.appendChild(crearInput(dia, idx, momento, iItem, val, body));
+					section.appendChild(crearInput(dia, idx, momento, iItem, val, arrFotos[iItem], body));
 				});
 
 				body.appendChild(section);
 			});
 		}
 
-		function crearInput(dia, idx, momento, iItem, val, body) {
+		function crearInput(dia, idx, momento, iItem, val, fotoVal, body) {
+			var item = document.createElement('div');
+			item.className = 'ingrediente-item';
+			item.dataset.momento = momento;
+			item.dataset.item = String(iItem);
+			if (seleccionActiva && seleccionActiva.diaIdx === idx && seleccionActiva.momento === momento && seleccionActiva.iItem === iItem) {
+				item.classList.add('seleccionado');
+			}
+
 			var input = document.createElement('input');
 			input.type      = 'text';
 			input.className = 'comida-input';
@@ -388,18 +537,20 @@
 
 			input.addEventListener('input', function () {
 				var arr = dia.comidas[momento];
+				var arrFotos = dia.fotos[momento];
 				arr[iItem] = input.value;
 
 				/* Auto-añadir campo si escribe en el último */
 				if (iItem === arr.length - 1 && input.value.trim() !== '') {
 					arr.push('');
+					arrFotos.push('');
 					guardarDatos();
 					var section = body.querySelector('[data-momento="' + momento + '"]');
 					var titulo  = section.querySelector('.momento-titulo');
 					section.innerHTML = '';
 					section.appendChild(titulo);
 					arr.forEach(function (v, i) {
-						section.appendChild(crearInput(dia, idx, momento, i, v, body));
+						section.appendChild(crearInput(dia, idx, momento, i, v, arrFotos[i], body));
 					});
 					var inputs = section.querySelectorAll('.comida-input');
 					if (inputs[iItem]) inputs[iItem].focus();
@@ -408,15 +559,56 @@
 				}
 			});
 
+			input.addEventListener('focus', function () {
+				seleccionActiva = { diaIdx: idx, momento: momento, iItem: iItem };
+				var items = body.querySelectorAll('.ingrediente-item');
+				items.forEach(function (el) { el.classList.remove('seleccionado'); });
+				item.classList.add('seleccionado');
+			});
+
 			input.addEventListener('blur', function () {
 				var arr = dia.comidas[momento];
+				var arrFotos = dia.fotos[momento];
 				while (arr.length > 1 && arr[arr.length-1] === '' && arr[arr.length-2] === '') {
 					arr.pop();
+					arrFotos.pop();
 				}
 				guardarDatos();
 			});
 
-			return input;
+			item.appendChild(input);
+
+			if (fotoVal) {
+				var fotoBox = document.createElement('div');
+				fotoBox.className = 'foto-box';
+
+				var img = document.createElement('img');
+				img.className = 'foto-preview';
+				img.src = fotoVal;
+				img.alt = 'Foto del ingrediente';
+
+				var btnQuitarFoto = document.createElement('button');
+				btnQuitarFoto.type = 'button';
+				btnQuitarFoto.className = 'btn-quitar-foto';
+				btnQuitarFoto.textContent = 'Quitar foto';
+				btnQuitarFoto.addEventListener('click', function () {
+					dia.fotos[momento][iItem] = '';
+					guardarDatos();
+					var section = body.querySelector('[data-momento="' + momento + '"]');
+					var titulo = section.querySelector('.momento-titulo');
+					section.innerHTML = '';
+					section.appendChild(titulo);
+					dia.comidas[momento].forEach(function (v, i) {
+						section.appendChild(crearInput(dia, idx, momento, i, v, dia.fotos[momento][i], body));
+					});
+				});
+
+				fotoBox.appendChild(img);
+				fotoBox.appendChild(btnQuitarFoto);
+				item.appendChild(fotoBox);
+			}
+
+			return item;
 		}
 
 		btnAgregar.addEventListener('click', function () {
