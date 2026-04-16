@@ -64,16 +64,22 @@ body {
 }
 
 .btn-volver {
-  border: none;
-  background: transparent;
-  box-shadow: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
-  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  padding: clamp(6px, 1.5vw, 10px) clamp(14px, 3vw, 22px);
+  background: #7d542d;
+  color: #f5e8d0;
+  border: 2px solid #5a3418;
+  border-radius: 6px;
+  font-family: 'Special Elite', serif;
+  font-size: clamp(0.95rem, 2.8vw, 1.3rem);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
 }
 
 /* Ocultar la imagen PNG */
@@ -81,45 +87,16 @@ body {
   display: none;
 }
 
-/* Punta de flecha — un poco más grande y centrada con el texto */
-.btn-volver::before {
-  content: '';
-  display: block;
-  flex-shrink: 0;
-  width: clamp(18px, 4.5vw, 28px);
-  height: clamp(18px, 4.5vw, 28px);
-  border-left: 4px solid #5a3418;
-  border-bottom: 4px solid #5a3418;
-  border-radius: 2px 0 2px 0;
-  transform: rotate(45deg);
-  /* translateY ajusta el centrado óptico respecto al texto */
-  margin-bottom: 2px;
-}
-
-/* Texto "Volver" como cuerpo de la flecha */
+/* Texto del botón */
 .btn-volver::after {
   content: 'Volver';
-  font-family: 'Special Elite', serif;
-  font-size: clamp(1.1rem, 3.2vw, 1.5rem);
-  color: #5a3418;
-  letter-spacing: 0.06em;
-  text-shadow: 0 1px 0 rgba(255, 245, 223, 0.4);
-  line-height: 1;
 }
 
 .btn-volver:hover,
 .btn-volver:active {
-  transform: translateX(-3px);
-}
-
-.btn-volver:hover::before,
-.btn-volver:active::before {
+  background: #5a3418;
+  color: #fff8ee;
   border-color: #3d1f0c;
-}
-
-.btn-volver:hover::after,
-.btn-volver:active::after {
-  color: #3d1f0c;
 }
 
 .header-espaciador {
