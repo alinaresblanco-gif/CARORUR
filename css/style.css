@@ -13,8 +13,8 @@
   --papel-oscuro: #7d542d;
   --tinta-rural: #4d2f18;
   --sombra-papel: rgba(75, 45, 18, 0.22);
-  --altura-cabecera: clamp(86px, calc(9vh + 20px), 124px);
-  --altura-pie: clamp(94px, calc(10vh + 20px), 136px);
+  --altura-cabecera: clamp(106px, calc(9vh + 40px), 144px);
+  --altura-pie: clamp(114px, calc(10vh + 40px), 156px);
   --separacion-vertical: clamp(4px, 1vh, 10px);
   --espacio-lateral: clamp(3px, 1.2vw, 13px);
 }
@@ -73,7 +73,7 @@ html, body {
   border: 1px solid rgba(108, 72, 38, 0.26);
   box-shadow: 0 8px 18px var(--sombra-papel);
   overflow: hidden;
-  width: calc(100% - 22px);
+  width: calc(100% - 14px);
   margin: 0 auto;
 }
 
@@ -280,8 +280,8 @@ html, body {
 
 @media (max-width: 640px) {
   :root {
-    --altura-cabecera: clamp(78px, calc(8vh + 20px), 106px);
-    --altura-pie: clamp(88px, calc(9vh + 20px), 118px);
+    --altura-cabecera: clamp(98px, calc(8vh + 40px), 126px);
+    --altura-pie: clamp(108px, calc(9vh + 40px), 138px);
     --separacion-vertical: 4px;
     --espacio-lateral: 1px;
   }
