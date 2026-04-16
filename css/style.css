@@ -30,19 +30,25 @@ html, body {
   display: block;
 }
 
+#pantalla-inicio.activa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ============================================================
    IMAGEN PRINCIPAL
    ============================================================ */
 .imagen-contenedor {
   position: relative;
-  width: 100%;
-  height: 100%;
+  width: min(100vw, calc(100vh * 848 / 1264));
+  height: min(100vh, calc(100vw * 1264 / 848));
 }
 
 .imagen-principal {
   width: 100%;
   height: 100%;
-  object-fit: cover;   /* rellena sin deformar */
+  object-fit: contain;
   display: block;
   user-select: none;
   -webkit-user-drag: none;
