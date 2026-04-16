@@ -390,8 +390,38 @@
 			});
 
 			if (typeof dia.abierto !== 'boolean') dia.abierto = false;
-			if (typeof dia.fecha !== 'string') dia.fecha = '';
+			dia.fecha = normalizarFechaIso(dia.fecha);
 			return dia;
+		}
+
+		function normalizarFechaIso(valor) {
+			if (!valor) return '';
+
+			var txt = String(valor).trim();
+
+			if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) return txt;
+
+			if (/^\d{4}-\d{2}-\d{2}T/.test(txt)) {
+				return txt.slice(0, 10);
+			}
+
+			var mEs = txt.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+			if (mEs) {
+				var d = mEs[1].padStart(2, '0');
+				var m = mEs[2].padStart(2, '0');
+				var y = mEs[3];
+				return y + '-' + m + '-' + d;
+			}
+
+			var dt = new Date(txt);
+			if (!isNaN(dt.getTime())) {
+				var y2 = String(dt.getFullYear());
+				var m2 = String(dt.getMonth() + 1).padStart(2, '0');
+				var d2 = String(dt.getDate()).padStart(2, '0');
+				return y2 + '-' + m2 + '-' + d2;
+			}
+
+			return '';
 		}
 
 		function cargarDatos() {
@@ -439,7 +469,7 @@
 				if (!mapa[r.dia_id]) {
 					var nuevo = crearDia();
 					nuevo.id = r.dia_id;
-					nuevo.fecha = r.fecha_iso || '';
+					nuevo.fecha = normalizarFechaIso(r.fecha_iso);
 					nuevo.abierto = false;
 					MOMENTOS.forEach(function (m) {
 						nuevo.comidas[m] = [];
@@ -510,8 +540,9 @@
 		}
 
 		function formatearFecha(isoDate) {
-			if (!isoDate) return { texto: '', diaSemana: '' };
-			var p = isoDate.split('-');
+			var fechaIso = normalizarFechaIso(isoDate);
+			if (!fechaIso) return { texto: '', diaSemana: '' };
+			var p = fechaIso.split('-');
 			var fecha = new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10));
 			return {
 				texto:     String(fecha.getDate()).padStart(2,'0') + '/' +
@@ -608,7 +639,7 @@
 			});
 
 			inputFecha.addEventListener('change', function () {
-				days[idx].fecha = inputFecha.value;
+				days[idx].fecha = normalizarFechaIso(inputFecha.value);
 				guardarDatos();
 				render();
 			});
