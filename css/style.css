@@ -16,7 +16,7 @@
   --altura-cabecera: clamp(66px, 9vh, 104px);
   --altura-pie: clamp(74px, 10vh, 116px);
   --separacion-vertical: clamp(4px, 1vh, 10px);
-  --espacio-lateral: clamp(8px, 1.6vw, 18px);
+  --espacio-lateral: clamp(3px, 1.2vw, 13px);
 }
 
 html, body {
@@ -73,6 +73,8 @@ html, body {
   border: 1px solid rgba(108, 72, 38, 0.26);
   box-shadow: 0 8px 18px var(--sombra-papel);
   overflow: hidden;
+  width: calc(100% - 30px);
+  margin: 0 auto;
 }
 
 .franja-decorativa::before,
@@ -99,13 +101,13 @@ html, body {
 
 .franja-superior {
   min-height: var(--altura-cabecera);
-  border-radius: 0 0 18px 18px;
+  border-radius: 0;
   padding: 10px 20px 12px;
 }
 
 .franja-inferior {
   min-height: var(--altura-pie);
-  border-radius: 18px 18px 0 0;
+  border-radius: 0;
   padding: 10px 20px 12px;
 }
 
@@ -281,7 +283,7 @@ html, body {
     --altura-cabecera: clamp(58px, 8vh, 86px);
     --altura-pie: clamp(68px, 9vh, 98px);
     --separacion-vertical: 4px;
-    --espacio-lateral: 6px;
+    --espacio-lateral: 1px;
   }
 
   .franja-superior,
