@@ -70,16 +70,12 @@ body {
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
-  padding: clamp(6px, 1.5vw, 10px) clamp(14px, 3vw, 22px);
-  background: #7d542d;
-  color: #f5e8d0;
-  border: 2px solid #5a3418;
-  border-radius: 6px;
-  font-family: 'Special Elite', serif;
-  font-size: clamp(0.95rem, 2.8vw, 1.3rem);
-  letter-spacing: 0.06em;
+  width: clamp(36px, 8vw, 52px);
+  height: clamp(36px, 8vw, 52px);
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  transition: transform 0.18s;
 }
 
 /* Ocultar la imagen PNG */
@@ -87,15 +83,29 @@ body {
   display: none;
 }
 
-/* Texto del botón */
+/* Icono flecha izquierda */
+.btn-volver::before {
+  content: '';
+  display: block;
+  width: clamp(22px, 5vw, 32px);
+  height: clamp(22px, 5vw, 32px);
+  border-left: 4px solid #7d542d;
+  border-bottom: 4px solid #7d542d;
+  border-radius: 2px 0 2px 0;
+  transform: rotate(45deg);
+}
+
 .btn-volver::after {
-  content: 'Volver';
+  content: none;
 }
 
 .btn-volver:hover,
 .btn-volver:active {
-  background: #5a3418;
-  color: #fff8ee;
+  transform: translateX(-4px);
+}
+
+.btn-volver:hover::before,
+.btn-volver:active::before {
   border-color: #3d1f0c;
 }
 
