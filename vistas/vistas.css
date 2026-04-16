@@ -1,0 +1,171 @@
+/* Estilo comun para todas las vistas internas de CARORUR */
+:root {
+  --papel-claro: #d8bb86;
+  --papel-medio: #c29a62;
+  --papel-oscuro: #7d542d;
+  --tinta-rural: #4d2f18;
+  --tinta-rural-suave: #6b4322;
+  --sombra-papel: rgba(75, 45, 18, 0.22);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Crimson Text', serif;
+  color: var(--tinta-rural);
+  background-image: linear-gradient(rgba(41, 26, 12, 0.2), rgba(41, 26, 12, 0.2)), url('../imagenes/fondo_vistas.png');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.vista-app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+.vista-header {
+  min-height: clamp(88px, 12vh, 126px);
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 246, 227, 0.36), transparent 20%),
+    radial-gradient(circle at 82% 30%, rgba(143, 95, 48, 0.12), transparent 24%),
+    repeating-linear-gradient(0deg, rgba(118, 80, 42, 0.035) 0 2px, transparent 2px 6px),
+    linear-gradient(180deg, rgba(255, 245, 220, 0.34), rgba(141, 106, 59, 0.08)),
+    linear-gradient(135deg, #e1c693 0%, var(--papel-claro) 38%, var(--papel-medio) 100%);
+  border-bottom: 1px solid rgba(108, 72, 38, 0.26);
+  box-shadow: 0 6px 16px var(--sombra-papel);
+  animation: headerReveal 620ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.vista-header h1 {
+  margin: 0;
+  text-align: center;
+  font-family: 'Special Elite', serif;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: 0.08em;
+  color: #5a3418;
+  text-shadow: 0 1px 0 rgba(255, 245, 223, 0.35);
+}
+
+.btn-volver {
+  width: clamp(42px, 8vw, 64px);
+  height: clamp(42px, 8vw, 64px);
+  border-radius: 50%;
+  border: 1px solid rgba(85, 50, 23, 0.5);
+  background: rgba(255, 245, 220, 0.6);
+  box-shadow: 0 4px 10px rgba(60, 34, 14, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn-volver img {
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
+}
+
+.header-espaciador {
+  width: clamp(42px, 8vw, 64px);
+  height: clamp(42px, 8vw, 64px);
+}
+
+.vista-contenido {
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 3vw, 28px);
+}
+
+.tarjeta-construccion {
+  width: min(92vw, 760px);
+  padding: clamp(18px, 4vw, 36px);
+  background: rgba(255, 247, 229, 0.82);
+  border: 1px solid rgba(99, 61, 31, 0.32);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  animation: cardReveal 700ms cubic-bezier(0.2, 0.7, 0.2, 1) 140ms both;
+}
+
+.tarjeta-construccion h2 {
+  margin: 0 0 8px;
+  font-family: 'Special Elite', serif;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  color: #5a3418;
+}
+
+.tarjeta-construccion p {
+  margin: 0;
+  font-size: clamp(1rem, 2.6vw, 1.3rem);
+  color: var(--tinta-rural-suave);
+}
+
+.img-rustica {
+  margin-top: 16px;
+  width: min(100%, 520px);
+  height: auto;
+  border: 1px solid rgba(98, 62, 34, 0.34);
+  box-shadow: 0 8px 18px rgba(64, 39, 17, 0.24);
+}
+
+@keyframes headerReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px);
+    filter: saturate(0.86);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: saturate(1);
+  }
+}
+
+@keyframes cardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vista-header,
+  .tarjeta-construccion {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .vista-header {
+    min-height: 86px;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+  }
+
+  .vista-header h1 {
+    font-size: clamp(1.55rem, 6.4vw, 2.25rem);
+    letter-spacing: 0.04em;
+  }
+}
