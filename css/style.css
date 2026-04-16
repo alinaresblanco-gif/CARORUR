@@ -13,8 +13,8 @@
   --papel-oscuro: #7d542d;
   --tinta-rural: #4d2f18;
   --sombra-papel: rgba(75, 45, 18, 0.22);
-  --altura-cabecera: clamp(114px, calc(9vh + 48px), 152px);
-  --altura-pie: clamp(122px, calc(10vh + 48px), 164px);
+  --altura-cabecera: clamp(134px, calc(9vh + 68px), 172px);
+  --altura-pie: clamp(142px, calc(10vh + 68px), 184px);
   --separacion-vertical: clamp(4px, 1vh, 10px);
   --espacio-lateral: clamp(3px, 1.2vw, 13px);
 }
@@ -73,7 +73,7 @@ html, body {
   border: 1px solid rgba(108, 72, 38, 0.26);
   box-shadow: 0 8px 18px var(--sombra-papel);
   overflow: hidden;
-  width: calc(100% - 6px);
+  width: 100%;
   margin: 0 auto;
 }
 
@@ -280,10 +280,17 @@ html, body {
 
 @media (max-width: 640px) {
   :root {
-    --altura-cabecera: clamp(106px, calc(8vh + 48px), 134px);
-    --altura-pie: clamp(116px, calc(9vh + 48px), 146px);
+    --altura-cabecera: clamp(126px, calc(8vh + 68px), 154px);
+    --altura-pie: clamp(136px, calc(9vh + 68px), 166px);
     --separacion-vertical: 4px;
     --espacio-lateral: 1px;
+  }
+
+  .imagen-contenedor {
+    width: calc(100vw - (var(--espacio-lateral) * 2));
+    height: calc((100vw - (var(--espacio-lateral) * 2)) * 1264 / 848);
+    max-width: none;
+    max-height: none;
   }
 
   .franja-superior,
