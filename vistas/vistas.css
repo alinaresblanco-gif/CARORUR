@@ -64,8 +64,8 @@ body {
 }
 
 .btn-volver {
-  width: clamp(48px, 10vw, 72px);
-  height: clamp(48px, 10vw, 72px);
+  width: clamp(66px, 14vw, 96px);
+  height: clamp(66px, 14vw, 96px);
   border: none;
   background: transparent;
   box-shadow: none;
@@ -80,14 +80,14 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(60, 34, 14, 0.35));
-  transition: transform 0.18s ease, filter 0.18s ease;
+  mix-blend-mode: multiply;
+  transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
 .btn-volver:active img,
 .btn-volver:hover img {
-  transform: scale(1.12);
-  filter: drop-shadow(0 4px 8px rgba(60, 34, 14, 0.5));
+  transform: scale(1.14);
+  opacity: 0.8;
 }
 
 .header-espaciador {
