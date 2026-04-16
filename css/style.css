@@ -17,6 +17,8 @@
   --altura-pie: clamp(142px, calc(10vh + 68px), 184px);
   --separacion-vertical: clamp(4px, 1vh, 10px);
   --espacio-lateral: clamp(3px, 1.2vw, 13px);
+  --offset-cabecera: -10px;
+  --offset-banner: 10px;
 }
 
 html, body {
@@ -103,12 +105,14 @@ html, body {
   min-height: var(--altura-cabecera);
   border-radius: 0;
   padding: 10px 20px 12px;
+  transform: translateY(var(--offset-cabecera));
 }
 
 .franja-inferior {
   min-height: var(--altura-pie);
   border-radius: 0;
   padding: 10px 20px 12px;
+  transform: translateY(var(--offset-banner));
 }
 
 .titulo-principal {
