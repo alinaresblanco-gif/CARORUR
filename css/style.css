@@ -8,15 +8,15 @@
 }
 
 :root {
-  --papel-claro: #cda56b;
-  --papel-medio: #b28650;
+  --papel-claro: #d8bb86;
+  --papel-medio: #c29a62;
   --papel-oscuro: #7d542d;
   --tinta-rural: #4d2f18;
-  --sombra-papel: rgba(75, 45, 18, 0.28);
-  --altura-cabecera: clamp(92px, 14vh, 150px);
-  --altura-pie: clamp(96px, 16vh, 170px);
-  --separacion-vertical: clamp(10px, 1.8vh, 18px);
-  --espacio-lateral: clamp(12px, 2vw, 28px);
+  --sombra-papel: rgba(75, 45, 18, 0.22);
+  --altura-cabecera: clamp(66px, 9vh, 104px);
+  --altura-pie: clamp(74px, 10vh, 116px);
+  --separacion-vertical: clamp(4px, 1vh, 10px);
+  --espacio-lateral: clamp(8px, 1.6vw, 18px);
 }
 
 html, body {
@@ -51,7 +51,7 @@ html, body {
   gap: var(--separacion-vertical);
   align-items: stretch;
   justify-items: stretch;
-  padding: clamp(8px, 1.5vh, 16px) var(--espacio-lateral);
+  padding: clamp(4px, 1vh, 10px) 0;
 }
 
 .franja-decorativa {
@@ -65,10 +65,13 @@ html, body {
   width: 100%;
   color: var(--tinta-rural);
   background:
-    linear-gradient(180deg, rgba(255, 242, 214, 0.34), rgba(141, 106, 59, 0.1)),
-    linear-gradient(135deg, #d5b37b 0%, var(--papel-claro) 42%, var(--papel-medio) 100%);
-  border: 1px solid rgba(93, 58, 28, 0.24);
-  box-shadow: 0 10px 22px var(--sombra-papel);
+    radial-gradient(circle at 18% 22%, rgba(255, 246, 227, 0.36), transparent 20%),
+    radial-gradient(circle at 82% 30%, rgba(143, 95, 48, 0.12), transparent 24%),
+    repeating-linear-gradient(0deg, rgba(118, 80, 42, 0.035) 0 2px, transparent 2px 6px),
+    linear-gradient(180deg, rgba(255, 245, 220, 0.34), rgba(141, 106, 59, 0.08)),
+    linear-gradient(135deg, #e1c693 0%, var(--papel-claro) 38%, var(--papel-medio) 100%);
+  border: 1px solid rgba(108, 72, 38, 0.26);
+  box-shadow: 0 8px 18px var(--sombra-papel);
   overflow: hidden;
 }
 
@@ -81,46 +84,52 @@ html, body {
 }
 
 .franja-decorativa::before {
-  background: radial-gradient(circle at top, rgba(255, 248, 229, 0.3), transparent 54%);
+  inset: 3px;
+  border: 1px solid rgba(255, 242, 215, 0.18);
+  border-radius: inherit;
+  background: radial-gradient(circle at top, rgba(255, 248, 229, 0.2), transparent 58%);
 }
 
 .franja-decorativa::after {
-  background: linear-gradient(90deg, rgba(120, 73, 34, 0.18), transparent 10%, transparent 90%, rgba(120, 73, 34, 0.18));
+  background:
+    linear-gradient(90deg, rgba(120, 73, 34, 0.16), transparent 8%, transparent 92%, rgba(120, 73, 34, 0.16)),
+    linear-gradient(180deg, rgba(96, 60, 28, 0.08), transparent 24%, transparent 76%, rgba(96, 60, 28, 0.08));
+  mix-blend-mode: multiply;
 }
 
 .franja-superior {
   min-height: var(--altura-cabecera);
-  border-radius: 28px 28px 20px 20px;
-  padding: 14px 20px;
+  border-radius: 0 0 18px 18px;
+  padding: 10px 20px 12px;
 }
 
 .franja-inferior {
   min-height: var(--altura-pie);
-  border-radius: 20px 20px 28px 28px;
-  padding: 16px 24px;
+  border-radius: 18px 18px 0 0;
+  padding: 10px 20px 12px;
 }
 
 .titulo-principal {
   font-family: 'Special Elite', serif;
-  font-size: clamp(2rem, 5vw, 3.4rem);
-  letter-spacing: 0.16em;
+  font-size: clamp(1.55rem, 4vw, 2.7rem);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #5a3418;
   text-shadow: 0 1px 0 rgba(255, 245, 223, 0.35);
 }
 
 .subtitulo-principal {
-  margin-top: 6px;
-  font-size: clamp(1rem, 2vw, 1.35rem);
+  margin-top: 2px;
+  font-size: clamp(0.88rem, 1.6vw, 1.1rem);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: #6b4322;
 }
 
 .lema-principal {
   max-width: 1100px;
-  font-size: clamp(1rem, 2vw, 1.3rem);
-  line-height: 1.45;
+  font-size: clamp(0.92rem, 1.7vw, 1.08rem);
+  line-height: 1.25;
   color: #5a3418;
   text-wrap: balance;
 }
@@ -132,6 +141,7 @@ html, body {
   align-items: center;
   justify-content: center;
   min-height: 0;
+  padding: 0 var(--espacio-lateral);
 }
 
 /* ============================================================
@@ -141,10 +151,10 @@ html, body {
   position: relative;
   width: min(
     calc(100vw - (var(--espacio-lateral) * 2)),
-    calc((100vh - var(--altura-cabecera) - var(--altura-pie) - (var(--separacion-vertical) * 2) - 32px) * 848 / 1264)
+    calc((100vh - var(--altura-cabecera) - var(--altura-pie) - (var(--separacion-vertical) * 2) - 12px) * 848 / 1264)
   );
   height: min(
-    calc(100vh - var(--altura-cabecera) - var(--altura-pie) - (var(--separacion-vertical) * 2) - 32px),
+    calc(100vh - var(--altura-cabecera) - var(--altura-pie) - (var(--separacion-vertical) * 2) - 12px),
     calc((100vw - (var(--espacio-lateral) * 2)) * 1264 / 848)
   );
   max-width: 100%;
@@ -268,21 +278,28 @@ html, body {
 
 @media (max-width: 640px) {
   :root {
-    --altura-cabecera: clamp(92px, 16vh, 128px);
-    --altura-pie: clamp(110px, 19vh, 170px);
-    --separacion-vertical: 8px;
+    --altura-cabecera: clamp(58px, 8vh, 86px);
+    --altura-pie: clamp(68px, 9vh, 98px);
+    --separacion-vertical: 4px;
+    --espacio-lateral: 6px;
   }
 
   .franja-superior,
   .franja-inferior {
-    border-radius: 18px;
+    padding-inline: 14px;
   }
 
   .titulo-principal {
-    letter-spacing: 0.12em;
+    font-size: clamp(1.35rem, 7vw, 2rem);
+    letter-spacing: 0.1em;
+  }
+
+  .subtitulo-principal {
+    font-size: 0.82rem;
   }
 
   .lema-principal {
-    font-size: 1rem;
+    font-size: 0.85rem;
+    line-height: 1.18;
   }
 }
