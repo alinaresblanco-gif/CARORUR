@@ -64,43 +64,60 @@ body {
 }
 
 .btn-volver {
-  width: clamp(56px, 12vw, 80px);
-  height: clamp(56px, 12vw, 80px);
   border: none;
   background: transparent;
   box-shadow: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-/* Ocultar la imagen PNG, la flecha se dibuja en CSS */
+/* Ocultar la imagen PNG */
 .btn-volver img {
   display: none;
 }
 
-/* Flecha izquierda dibujada en CSS, estilo rustico */
+/* Punta de flecha */
 .btn-volver::before {
   content: '';
   display: block;
-  width: clamp(28px, 6.5vw, 42px);
-  height: clamp(28px, 6.5vw, 42px);
-  border-left: 5px solid #5a3418;
-  border-bottom: 5px solid #5a3418;
-  border-radius: 3px 0 3px 0;
-  transform: rotate(45deg) translateX(5px);
-  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1),
-              border-color 0.2s ease;
   flex-shrink: 0;
+  width: clamp(14px, 3.5vw, 22px);
+  height: clamp(14px, 3.5vw, 22px);
+  border-left: 4px solid #5a3418;
+  border-bottom: 4px solid #5a3418;
+  border-radius: 2px 0 2px 0;
+  transform: rotate(45deg) translateX(4px);
+}
+
+/* Texto "Volver" como cuerpo de la flecha */
+.btn-volver::after {
+  content: 'Volver';
+  font-family: 'Special Elite', serif;
+  font-size: clamp(1.1rem, 3.2vw, 1.5rem);
+  color: #5a3418;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 0 rgba(255, 245, 223, 0.4);
+  line-height: 1;
+}
+
+.btn-volver:hover,
+.btn-volver:active {
+  transform: translateX(-3px);
 }
 
 .btn-volver:hover::before,
 .btn-volver:active::before {
-  transform: rotate(45deg) translateX(-1px);
   border-color: #3d1f0c;
+}
+
+.btn-volver:hover::after,
+.btn-volver:active::after {
+  color: #3d1f0c;
 }
 
 .header-espaciador {
