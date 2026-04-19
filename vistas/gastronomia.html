@@ -143,9 +143,18 @@
 			background: rgba(255,255,255,0.22);
 		}
 
-		.input-foto-dia {
-			display: none;
+		.btn-foto-dia.cargando {
+			opacity: 0.6;
+			cursor: wait;
+			animation: fotoSpin 0.9s linear infinite;
 		}
+
+		@keyframes fotoSpin {
+			from { transform: rotate(0deg); }
+			to   { transform: rotate(360deg); }
+		}
+
+		.input-foto-dia { display: none; }
 
 		/* ---- Cuerpo del día ---- */
 		.dia-body {
@@ -342,7 +351,7 @@
 	(function () {
 		'use strict';
 
-		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyAwDvr5yoiCkArUvxvxlyE8czZ_0fnC6XDW50ov0xyimZsAiHmJFDl0cki4uFzx1w7/exec';
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyKFqlhtRY0WVdH814QXqGjF5gQ2AXDDg48RtEfuoXJOqCtTH9WkFuAJ12qgmqfFJzt/exec';
 		var MENU_ID = 'principal';
 		var UPDATED_BY = 'carorur-app';
 		var STORAGE_KEY  = 'carorur_gastronomia';
@@ -606,7 +615,7 @@
 			var btnFoto = document.createElement('button');
 			btnFoto.className = 'btn-foto-dia';
 			btnFoto.type = 'button';
-			btnFoto.title = 'Añadir foto al ingrediente seleccionado';
+			btnFoto.title = 'Subir foto de la galería a Drive';
 			btnFoto.textContent = '📷';
 
 			var inputFoto = document.createElement('input');
@@ -656,7 +665,7 @@
 			btnFoto.addEventListener('click', function (e) {
 				e.stopPropagation();
 				if (!seleccionActiva || seleccionActiva.diaIdx !== idx) {
-					alert('Selecciona primero un ingrediente de este día para adjuntar la foto.');
+					alert('Selecciona primero un ingrediente de este día para añadir la foto.');
 					return;
 				}
 				inputFoto.click();
@@ -671,18 +680,39 @@
 				}
 
 				var momentoSel = seleccionActiva.momento;
-				var itemSel = seleccionActiva.iItem;
-				var arrFotos = days[idx].fotos[momentoSel];
+				var itemSel    = seleccionActiva.iItem;
+				var arrFotos   = days[idx].fotos[momentoSel];
 				while (arrFotos.length <= itemSel) arrFotos.push('');
 
+				/* Leer como base64 y subir a Drive via Apps Script */
 				var reader = new FileReader();
-				reader.onload = function (ev) {
-					arrFotos[itemSel] = ev.target.result || '';
-					guardarDatos();
-					render();
+				reader.onload = async function (ev) {
+					var dataUrl = ev.target.result || '';
+					/* dataUrl = "data:image/jpeg;base64,XXXX" → extraer solo la parte base64 */
+					var base64 = dataUrl.split(',')[1] || '';
+
+					btnFoto.classList.add('cargando');
+					btnFoto.disabled = true;
+
+					try {
+						var data = await postAppsScript({
+							action:   'uploadImage',
+							data:     base64,
+							mimeType: file.type,
+							name:     file.name
+						});
+						arrFotos[itemSel] = data.url || '';
+						guardarDatos();
+						render();
+					} catch (err) {
+						alert('No se pudo subir la foto: ' + err.message);
+					} finally {
+						btnFoto.classList.remove('cargando');
+						btnFoto.disabled = false;
+						inputFoto.value = '';
+					}
 				};
 				reader.readAsDataURL(file);
-				inputFoto.value = '';
 			});
 
 			if (dia.abierto) renderBody(body, dia, idx);
