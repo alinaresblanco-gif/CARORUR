@@ -320,6 +320,48 @@
 
 		.btn-borrar-menu:hover,
 		.btn-borrar-menu:active { color: #ff9977; }
+
+		.nota-chefs {
+			margin: 12px 0 2px;
+			padding: 10px;
+			border-radius: 8px;
+			background: rgba(72, 36, 10, 0.24);
+			border: 1px solid rgba(72, 36, 10, 0.3);
+			display: grid;
+			gap: 8px;
+			justify-items: center;
+		}
+
+		.nota-chefs img {
+			width: min(92%, 420px);
+			height: auto;
+			display: block;
+			border-radius: 6px;
+			border: 1px solid rgba(72, 36, 10, 0.25);
+		}
+
+		.nota-chefs p {
+			margin: 0;
+			font-family: 'Crimson Text', serif;
+			font-size: 0.98rem;
+			line-height: 1.25;
+			color: #4a2a12;
+			text-align: center;
+		}
+
+		body.modo-lectura .btn-agregar-dia,
+		body.modo-lectura .btn-guardar-menu,
+		body.modo-lectura .btn-borrar-menu,
+		body.modo-lectura .btn-eliminar-dia,
+		body.modo-lectura .btn-foto-dia,
+		body.modo-lectura .btn-quitar-foto,
+		body.modo-lectura .input-fecha-overlay {
+			opacity: 0.78;
+		}
+
+		body.modo-lectura .comida-input {
+			background: rgba(244, 239, 229, 0.95);
+		}
 	</style>
 </head>
 <body>
@@ -344,6 +386,10 @@
 		<main class="vista-contenido" id="contenido-gastronomia">
 			<div class="acordeon" id="acordeon"></div>
 			<button class="btn-agregar-dia" id="btn-agregar-dia">+ Añadir día</button>
+			<div class="nota-chefs">
+				<img src="../imagenes/CHEFS.png" alt="Chefs Toni y Javi" />
+				<p id="texto-acceso-chefs">Esta página solo puede ser modificada por los Chefs Toni y Javi.</p>
+			</div>
 		</main>
 	</div>
 
@@ -356,6 +402,8 @@
 		var MENU_ID = 'principal';
 		var UPDATED_BY = 'carorur-app';
 		var STORAGE_KEY  = 'carorur_gastronomia';
+		var CHEF_ACCESS_KEY = 'Toni&Javi';
+		var SOLO_CHEFS_MSG = 'Esta página solo puede ser modificada por los Chefs Toni y Javi.';
 		var MOMENTOS     = ['DESAYUNO', 'APERITIVO', 'COMIDA', 'CENA'];
 		var DIAS_SEMANA  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
@@ -364,7 +412,32 @@
 		var btnGuardar = document.getElementById('btn-guardar-menu');
 		var btnBorrar  = document.getElementById('btn-borrar-menu');
 		var contenido  = document.getElementById('contenido-gastronomia');
+		var textoAccesoChefs = document.getElementById('texto-acceso-chefs');
 		var seleccionActiva = null;
+		var edicionDesbloqueada = false;
+
+		document.body.classList.add('modo-lectura');
+
+		function actualizarEstadoEdicion() {
+			document.body.classList.toggle('modo-lectura', !edicionDesbloqueada);
+			if (textoAccesoChefs) {
+				textoAccesoChefs.textContent = edicionDesbloqueada
+					? 'Edición habilitada en este dispositivo. Recuerda guardar cambios cuando termines.'
+					: SOLO_CHEFS_MSG;
+			}
+		}
+
+		function pedirAccesoEdicion() {
+			if (edicionDesbloqueada) return true;
+			var clave = window.prompt('Modo protegido. Introduce la clave de Chef para editar y guardar.');
+			if (clave && clave === CHEF_ACCESS_KEY) {
+				edicionDesbloqueada = true;
+				actualizarEstadoEdicion();
+				return true;
+			}
+			alert(SOLO_CHEFS_MSG);
+			return false;
+		}
 
 		/* ---- Datos ---- */
 		var days = cargarDatos().map(normalizarDia);
@@ -530,6 +603,7 @@
 		}
 
 		async function guardarMenuNube() {
+			if (!pedirAccesoEdicion()) return;
 			btnGuardar.disabled = true;
 			try {
 				await postAppsScript({
@@ -684,6 +758,10 @@
 			});
 
 			inputFecha.addEventListener('change', function () {
+				if (!pedirAccesoEdicion()) {
+					inputFecha.value = days[idx].fecha || '';
+					return;
+				}
 				days[idx].fecha = normalizarFechaIso(inputFecha.value);
 				guardarDatos();
 				render();
@@ -691,6 +769,7 @@
 
 			btnEliminar.addEventListener('click', function (e) {
 				e.stopPropagation();
+				if (!pedirAccesoEdicion()) return;
 				if (days.length <= 1) return;
 				days.splice(idx, 1);
 				if (seleccionActiva && seleccionActiva.diaIdx === idx) seleccionActiva = null;
@@ -700,6 +779,7 @@
 
 			btnFoto.addEventListener('click', function (e) {
 				e.stopPropagation();
+				if (!pedirAccesoEdicion()) return;
 				if (!seleccionActiva || seleccionActiva.diaIdx !== idx) {
 					alert('Selecciona primero un ingrediente de este día para añadir la foto.');
 					return;
@@ -708,6 +788,10 @@
 			});
 
 			inputFoto.addEventListener('change', function () {
+				if (!pedirAccesoEdicion()) {
+					inputFoto.value = '';
+					return;
+				}
 				var file = inputFoto.files && inputFoto.files[0];
 				if (!file) return;
 				if (!seleccionActiva || seleccionActiva.diaIdx !== idx) {
@@ -809,11 +893,13 @@
 			input.type      = 'text';
 			input.className = 'comida-input';
 			input.value     = val;
+			input.readOnly  = !edicionDesbloqueada;
 			input.placeholder = iItem === 0
 				? 'Añadir ' + momento.charAt(0) + momento.slice(1).toLowerCase() + '…'
 				: 'Añadir otro…';
 
 			input.addEventListener('input', function () {
+				if (!edicionDesbloqueada) return;
 				var arr = dia.comidas[momento];
 				var arrFotos = dia.fotos[momento];
 				arr[iItem] = input.value;
@@ -838,6 +924,13 @@
 			});
 
 			input.addEventListener('focus', function () {
+				if (!edicionDesbloqueada) {
+					if (!pedirAccesoEdicion()) {
+						input.blur();
+						return;
+					}
+					input.readOnly = false;
+				}
 				seleccionActiva = { diaIdx: idx, momento: momento, iItem: iItem };
 				var items = body.querySelectorAll('.ingrediente-item');
 				items.forEach(function (el) { el.classList.remove('seleccionado'); });
@@ -845,6 +938,7 @@
 			});
 
 			input.addEventListener('blur', function () {
+				if (!edicionDesbloqueada) return;
 				var arr = dia.comidas[momento];
 				var arrFotos = dia.fotos[momento];
 				while (arr.length > 1 && arr[arr.length-1] === '' && arr[arr.length-2] === '') {
@@ -871,6 +965,7 @@
 				btnQuitarFoto.className = 'btn-quitar-foto';
 				btnQuitarFoto.textContent = 'Quitar foto';
 				btnQuitarFoto.addEventListener('click', function () {
+					if (!pedirAccesoEdicion()) return;
 					dia.fotos[momento][iItem] = '';
 					guardarDatos();
 					var section = body.querySelector('[data-momento="' + momento + '"]');
@@ -891,6 +986,7 @@
 		}
 
 		btnAgregar.addEventListener('click', function () {
+			if (!pedirAccesoEdicion()) return;
 			days.push(crearDia());
 			guardarDatos();
 			render();
@@ -898,10 +994,12 @@
 		});
 
 		btnGuardar.addEventListener('click', function () {
+			if (!pedirAccesoEdicion()) return;
 			guardarMenuNube();
 		});
 
 		btnBorrar.addEventListener('click', async function () {
+			if (!pedirAccesoEdicion()) return;
 			if (!confirm('¿Seguro que quieres borrar todo el menú? Esta acción no se puede deshacer.')) return;
 			days = [crearDia(), crearDia(), crearDia()];
 			seleccionActiva = null;
@@ -918,6 +1016,8 @@
 		cargarMenuNube()
 			.then(function () { render(); })
 			.catch(function () { render(); });
+
+		actualizarEstadoEdicion();
 	})();
 	</script>
 </body>
