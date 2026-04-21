@@ -29,26 +29,37 @@
 
 		.vista-header h1 {
 			font-family: 'Rye', serif;
-			font-size: clamp(1.5rem, 4.8vw, 2.6rem);
-			letter-spacing: 0.08em;
+			font-size: clamp(0.95rem, 3.2vw, 1.7rem);
+			letter-spacing: 0.05em;
 		}
 
 		.acciones-cabecera {
 			display: inline-flex;
 			gap: 8px;
 			align-items: center;
+			flex-shrink: 0;
 		}
 
 		.btn-cabecera {
 			border: 1px solid rgba(66, 35, 12, 0.36);
 			background: linear-gradient(180deg, #fff4dc, #e8c891);
 			color: #5a3418;
-			padding: 6px 10px;
+			padding: 6px 8px;
 			border-radius: 6px;
 			font-family: 'Special Elite', serif;
-			font-size: 0.78rem;
+			font-size: 0.68rem;
 			cursor: pointer;
 			transition: transform 0.15s, box-shadow 0.15s;
+			display: inline-flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 3px;
+			min-width: 48px;
+		}
+
+		.btn-cabecera .icono-btn {
+			font-size: 1.25rem;
+			line-height: 1;
 		}
 
 		.btn-cabecera:hover,
@@ -108,9 +119,13 @@
 		}
 
 		.acciones-rapidas {
-			display: flex;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
 			gap: 8px;
-			flex-wrap: wrap;
+		}
+
+		.btn-accion {
+			width: 100%;
 		}
 
 		.btn-accion {
@@ -411,6 +426,20 @@
 			white-space: pre-wrap;
 		}
 
+		.filtros-wrap {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 7px;
+			justify-content: flex-start;
+		}
+
+		.filtros-ultimos {
+			width: 100%;
+			display: flex;
+			justify-content: center;
+			gap: 7px;
+		}
+
 		@media (max-width: 780px) {
 			.grid-juegos {
 				grid-template-columns: 1fr;
@@ -434,8 +463,14 @@
 			</a>
 			<h1 style="text-transform:uppercase;">LA ESTANTERIA DE JUEGOS</h1>
 			<div class="acciones-cabecera">
-				<button class="btn-cabecera" id="btn-guardar" type="button">Guardar</button>
-				<button class="btn-cabecera" id="btn-nuevo" type="button">Nuevo Juego</button>
+				<button class="btn-cabecera" id="btn-guardar" type="button">
+					<span class="icono-btn">💾</span>
+					<span>Guardar</span>
+				</button>
+				<button class="btn-cabecera" id="btn-nuevo" type="button">
+					<span class="icono-btn">🎮</span>
+					<span>Nuevo Juego</span>
+				</button>
 			</div>
 		</header>
 
@@ -706,7 +741,12 @@
 		function renderFiltros() {
 			var lista = [{ nombre: 'Todos', icono: '🗂️' }].concat(TIPOS);
 			filtrosWrap.innerHTML = '';
-			lista.forEach(function (filtro) {
+
+			/* Los primeros N-2 botones van normales; los 2 últimos van centrados */
+			var normales = lista.slice(0, lista.length - 2);
+			var ultimos  = lista.slice(lista.length - 2);
+
+			function crearBtn(filtro) {
 				var btn = document.createElement('button');
 				btn.type = 'button';
 				btn.className = 'filtro-btn' + (filtroActivo === filtro.nombre ? ' activo' : '');
@@ -715,8 +755,19 @@
 					filtroActivo = filtro.nombre;
 					render();
 				});
-				filtrosWrap.appendChild(btn);
+				return btn;
+			}
+
+			normales.forEach(function (filtro) {
+				filtrosWrap.appendChild(crearBtn(filtro));
 			});
+
+			var filaUltimos = document.createElement('div');
+			filaUltimos.className = 'filtros-ultimos';
+			ultimos.forEach(function (filtro) {
+				filaUltimos.appendChild(crearBtn(filtro));
+			});
+			filtrosWrap.appendChild(filaUltimos);
 		}
 
 		function juegosVisibles() {
