@@ -351,7 +351,8 @@
 	(function () {
 		'use strict';
 
-		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzep1IGZq0O_hHbppBNJ-Y89mZXJyNCewJjHCEwuAI0_FsghqgIUy5_G7wtU8rzPw-T/exec';
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyCS6VdcLkBWAspGPX2dqd4xu6P1PE_DahfPPK9v77q8dibRnE46v4YOIKJ2JiJCugJ/exec';
+		var DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
 		var MENU_ID = 'principal';
 		var UPDATED_BY = 'carorur-app';
 		var STORAGE_KEY  = 'carorur_gastronomia';
@@ -695,11 +696,20 @@
 					btnFoto.disabled = true;
 
 					try {
-						var data = await postAppsScript({
+						var uploadPayload = {
 							action:   'uploadImage',
 							data:     base64,
 							mimeType: file.type,
 							name:     file.name
+						};
+						if (DRIVE_FOLDER_ID) uploadPayload.folderId = DRIVE_FOLDER_ID;
+
+						var data = await postAppsScript({
+							action: uploadPayload.action,
+							data: uploadPayload.data,
+							mimeType: uploadPayload.mimeType,
+							name: uploadPayload.name,
+							folderId: uploadPayload.folderId
 						});
 						arrFotos[itemSel] = data.url || '';
 						guardarDatos();
