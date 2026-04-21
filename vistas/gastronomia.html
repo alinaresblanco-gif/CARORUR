@@ -511,6 +511,7 @@
 		async function postAppsScript(payload) {
 			var res = await fetch(APPS_SCRIPT_URL, {
 				method: 'POST',
+				cache: 'no-store',
 				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
 				body: JSON.stringify(payload)
 			});
@@ -520,8 +521,8 @@
 		}
 
 		async function cargarMenuNube() {
-			var url = APPS_SCRIPT_URL + '?action=getMenu&menu_id=' + encodeURIComponent(MENU_ID);
-			var res = await fetch(url);
+			var url = APPS_SCRIPT_URL + '?action=getMenu&menu_id=' + encodeURIComponent(MENU_ID) + '&_ts=' + Date.now();
+			var res = await fetch(url, { cache: 'no-store' });
 			var data = await res.json();
 			if (!data.ok) throw new Error(data.error || 'No se pudo cargar menú');
 			days = reconstruirDesdeFilas(data.rows || []);
