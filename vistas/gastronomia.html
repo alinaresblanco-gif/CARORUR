@@ -562,6 +562,40 @@
 			};
 		}
 
+		function extraerDriveFileId(url) {
+			if (!url) return '';
+			var txt = String(url).trim();
+			var m = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			m = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			return '';
+		}
+
+		function crearCandidatosImagen(url) {
+			var limpia = String(url || '').trim();
+			if (!limpia) return [];
+			var id = extraerDriveFileId(limpia);
+			if (!id) return [limpia];
+			return [
+				'https://lh3.googleusercontent.com/d/' + id + '=w1200',
+				'https://drive.google.com/uc?export=view&id=' + id,
+				'https://drive.google.com/uc?export=download&id=' + id,
+				limpia
+			];
+		}
+
+		function asignarSrcConFallback(img, url) {
+			var candidatos = crearCandidatosImagen(url);
+			if (!candidatos.length) return;
+			var idx = 0;
+			img.src = candidatos[idx];
+			img.onerror = function () {
+				idx++;
+				if (idx < candidatos.length) img.src = candidatos[idx];
+			};
+		}
+
 		/* ---- Render ---- */
 		function render() {
 			acordeon.innerHTML = '';
@@ -712,7 +746,10 @@
 							name: uploadPayload.name,
 							folderId: uploadPayload.folderId
 						});
-						arrFotos[itemSel] = data.url || '';
+						var fileId = data.file_id || extraerDriveFileId(data.url || '');
+						arrFotos[itemSel] = fileId
+							? ('https://lh3.googleusercontent.com/d/' + fileId + '=w1200')
+							: (data.url || '');
 						guardarDatos();
 						render();
 					} catch (err) {
@@ -825,7 +862,8 @@
 
 				var img = document.createElement('img');
 				img.className = 'foto-preview';
-				img.src = fotoVal;
+				img.referrerPolicy = 'no-referrer';
+				asignarSrcConFallback(img, fotoVal);
 				img.alt = 'Foto del ingrediente';
 
 				var btnQuitarFoto = document.createElement('button');
