@@ -1,0 +1,384 @@
+const SHEET_NAME = 'ultimo-menu';
+const HEADERS = [
+  'menu_id',
+  'dia_id',
+  'fecha_iso',
+  'dia_semana',
+  'momento',
+  'item_orden',
+  'comida',
+  'foto_url',
+  'updated_at',
+  'updated_by',
+  'deleted'
+];
+const DEFAULT_MENU_ID = 'principal';
+const DRIVE_FOLDER_NAME = 'CARORUR-FOTOS';
+const DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
+
+const LUDOTECA_SHEET_NAME = 'ludoteca';
+const LUDOTECA_HEADERS = [
+  'id',
+  'favorito',
+  'created_at',
+  'updated_at',
+  'deleted',
+  'nombre',
+  'tipo',
+  'imagen',
+  'instrucciones',
+  'jugadores',
+  'material'
+];
+
+function doGet(e) {
+  try {
+    const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'getMenu';
+
+    if (action === 'health') {
+      return jsonOut({ ok: true, service: 'carorural-menu-api' });
+    }
+
+    if (action === 'getMenu') {
+      const menuId = (e && e.parameter && e.parameter.menu_id) ? e.parameter.menu_id : DEFAULT_MENU_ID;
+      const data = getMenuRows(menuId);
+      return jsonOut({ ok: true, menu_id: menuId, rows: data });
+    }
+
+    if (action === 'getLudoteca') {
+      const data = getLudotecaRows();
+      return jsonOut({ ok: true, rows: data });
+    }
+
+    return jsonOut({ ok: false, error: 'Accion GET no soportada' });
+  } catch (err) {
+    return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+function doPost(e) {
+  try {
+    const payload = parseJsonBody(e);
+    const action = payload.action || '';
+
+    if (action === 'uploadImage') {
+      if (!payload.data || !payload.mimeType) {
+        return jsonOut({ ok: false, error: 'Faltan campos: data, mimeType' });
+      }
+
+      const targetFolderId = safeStr(payload.folderId) || DRIVE_FOLDER_ID;
+      if (!targetFolderId) {
+        return jsonOut({ ok: false, error: 'No hay folderId configurado' });
+      }
+
+      let folder;
+      try {
+        folder = DriveApp.getFolderById(targetFolderId);
+      } catch (err) {
+        return jsonOut({ ok: false, error: 'Folder de Drive no accesible: ' + String(err && err.message ? err.message : err) });
+      }
+
+      const blob = Utilities.newBlob(
+        Utilities.base64Decode(payload.data),
+        payload.mimeType,
+        payload.name || ('foto_' + new Date().getTime() + '.jpg')
+      );
+
+      const file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+      return jsonOut({
+        ok: true,
+        action: 'uploadImage',
+        url: 'https://drive.google.com/uc?export=view&id=' + file.getId(),
+        file_id: file.getId(),
+        file_name: file.getName(),
+        folder_id: targetFolderId
+      });
+    }
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+
+    try {
+      if (action === 'saveMenu') {
+        const menuId = payload.menu_id || DEFAULT_MENU_ID;
+        const updatedBy = payload.updated_by || 'anonimo';
+        const rows = Array.isArray(payload.rows) ? payload.rows : [];
+
+        replaceMenuRows(menuId, rows, updatedBy);
+
+        return jsonOut({
+          ok: true,
+          action: 'saveMenu',
+          menu_id: menuId,
+          saved_rows: rows.length
+        });
+      }
+
+      if (action === 'clearMenu') {
+        const menuId = payload.menu_id || DEFAULT_MENU_ID;
+        clearMenuRows(menuId);
+
+        return jsonOut({
+          ok: true,
+          action: 'clearMenu',
+          menu_id: menuId
+        });
+      }
+
+      if (action === 'saveLudoteca') {
+        const updatedBy = payload.updated_by || 'anonimo';
+        const rows = Array.isArray(payload.rows) ? payload.rows : [];
+
+        replaceLudotecaRows(rows, updatedBy);
+
+        return jsonOut({
+          ok: true,
+          action: 'saveLudoteca',
+          saved_rows: rows.length
+        });
+      }
+
+      return jsonOut({ ok: false, error: 'Accion POST no soportada' });
+    } finally {
+      lock.releaseLock();
+    }
+
+  } catch (err) {
+    return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+function getMenuRows(menuId) {
+  const sheet = getSheetReady();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const out = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const item = {
+      menu_id: safeStr(r[0]),
+      dia_id: safeStr(r[1]),
+      fecha_iso: safeStr(r[2]),
+      dia_semana: safeStr(r[3]),
+      momento: safeStr(r[4]),
+      item_orden: Number(r[5] || 0),
+      comida: safeStr(r[6]),
+      foto_url: safeStr(r[7]),
+      updated_at: safeStr(r[8]),
+      updated_by: safeStr(r[9]),
+      deleted: toBool(r[10])
+    };
+
+    if (item.menu_id === menuId && !item.deleted) {
+      out.push(item);
+    }
+  }
+
+  out.sort(function(a, b) {
+    if (a.fecha_iso < b.fecha_iso) return -1;
+    if (a.fecha_iso > b.fecha_iso) return 1;
+    if (a.momento < b.momento) return -1;
+    if (a.momento > b.momento) return 1;
+    return (a.item_orden || 0) - (b.item_orden || 0);
+  });
+
+  return out;
+}
+
+function replaceMenuRows(menuId, rows, updatedBy) {
+  const sheet = getSheetReady();
+
+  clearMenuRows(menuId);
+
+  if (!rows.length) return;
+
+  const nowIso = new Date().toISOString();
+  const toAppend = rows.map(function(r) {
+    return [
+      menuId,
+      safeStr(r.dia_id),
+      safeStr(r.fecha_iso),
+      safeStr(r.dia_semana),
+      safeStr(r.momento),
+      Number(r.item_orden || 0),
+      safeStr(r.comida),
+      safeStr(r.foto_url),
+      nowIso,
+      updatedBy,
+      toBool(r.deleted) ? true : false
+    ];
+  });
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, HEADERS.length).setValues(toAppend);
+}
+
+function clearMenuRows(menuId) {
+  const sheet = getSheetReady();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return;
+
+  const range = sheet.getRange(2, 1, lastRow - 1, HEADERS.length);
+  const values = range.getValues();
+
+  const keep = [];
+  for (let i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) !== menuId) {
+      keep.push(values[i]);
+    }
+  }
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+
+  if (keep.length) {
+    sheet.getRange(2, 1, keep.length, HEADERS.length).setValues(keep);
+  }
+}
+
+function getLudotecaRows() {
+  const sheet = getLudotecaSheetReady();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const out = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const item = {
+      id: safeStr(r[0]),
+      favorito: toBool(r[1]),
+      created_at: safeStr(r[2]),
+      updated_at: safeStr(r[3]),
+      deleted: toBool(r[4]),
+      nombre: safeStr(r[5]),
+      tipo: safeStr(r[6]),
+      imagen: safeStr(r[7]),
+      instrucciones: safeStr(r[8]),
+      jugadores: safeStr(r[9]),
+      material: safeStr(r[10])
+    };
+
+    if (!item.deleted) {
+      out.push(item);
+    }
+  }
+
+  out.sort(function(a, b) {
+    if (a.favorito !== b.favorito) return a.favorito ? -1 : 1;
+    return a.nombre.localeCompare(b.nombre, 'es');
+  });
+
+  return out;
+}
+
+function replaceLudotecaRows(rows, updatedBy) {
+  const sheet = getLudotecaSheetReady();
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, LUDOTECA_HEADERS.length).setValues([LUDOTECA_HEADERS]);
+
+  if (!rows.length) return;
+
+  const nowIso = new Date().toISOString();
+
+  const toAppend = rows.map(function(r) {
+    const id = safeStr(r.id) || ('j_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+    const createdAt = safeStr(r.created_at) || nowIso;
+
+    return [
+      id,
+      toBool(r.favorito) ? true : false,
+      createdAt,
+      nowIso,
+      toBool(r.deleted) ? true : false,
+      safeStr(r.nombre),
+      safeStr(r.tipo),
+      safeStr(r.imagen),
+      safeStr(r.instrucciones),
+      safeStr(r.jugadores),
+      safeStr(r.material)
+    ];
+  });
+
+  sheet.getRange(2, 1, toAppend.length, LUDOTECA_HEADERS.length).setValues(toAppend);
+}
+
+function getSheetReady() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    throw new Error('No existe la hoja: ' + SHEET_NAME);
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
+  const currentHeaders = headerRange.getValues()[0].map(safeStr);
+
+  const needsHeader = HEADERS.some(function(h, i) {
+    return currentHeaders[i] !== h;
+  });
+
+  if (needsHeader) {
+    headerRange.setValues([HEADERS]);
+  }
+
+  return sheet;
+}
+
+function getLudotecaSheetReady() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(LUDOTECA_SHEET_NAME);
+  if (!sheet) {
+    throw new Error('No existe la hoja: ' + LUDOTECA_SHEET_NAME);
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, LUDOTECA_HEADERS.length);
+  const currentHeaders = headerRange.getValues()[0].map(safeStr);
+
+  const needsHeader = LUDOTECA_HEADERS.some(function(h, i) {
+    return currentHeaders[i] !== h;
+  });
+
+  if (needsHeader) {
+    headerRange.setValues([LUDOTECA_HEADERS]);
+  }
+
+  return sheet;
+}
+
+function parseJsonBody(e) {
+  if (!e || !e.postData || !e.postData.contents) {
+    throw new Error('POST sin body');
+  }
+
+  try {
+    return JSON.parse(e.postData.contents);
+  } catch (err) {
+    throw new Error('Body JSON invalido');
+  }
+}
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function safeStr(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+
+function toBool(v) {
+  if (typeof v === 'boolean') return v;
+  const s = String(v || '').toLowerCase().trim();
+  return s === 'true' || s === '1' || s === 'si' || s === 'yes';
+}
+
+function autorizarDrive() {
+  const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  folder.getName();
+  SpreadsheetApp.getActiveSpreadsheet();
+  return 'ok';
+}

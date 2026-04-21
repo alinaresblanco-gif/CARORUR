@@ -3,11 +3,428 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Vamos a Jugar</title>
+	<title>La Estanteria de Juegos</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet" />
+	<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Rye&family=Special+Elite&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="vistas.css" />
+	<style>
+		html,
+		body {
+			overflow: hidden;
+		}
+
+		:root {
+			--madera-1: #f0d7aa;
+			--madera-2: #d3ad72;
+			--madera-3: #8a5a2d;
+			--madera-4: #4e2f16;
+			--panel: rgba(255, 245, 225, 0.86);
+			--panel-borde: rgba(95, 56, 26, 0.32);
+			--texto: #3f250f;
+			--texto-suave: #6b4120;
+			--ok: #2f7a49;
+			--alerta: #a8452d;
+		}
+
+		.vista-header h1 {
+			font-family: 'Rye', serif;
+			font-size: clamp(1.5rem, 4.8vw, 2.6rem);
+			letter-spacing: 0.08em;
+		}
+
+		.acciones-cabecera {
+			display: inline-flex;
+			gap: 8px;
+			align-items: center;
+		}
+
+		.btn-cabecera {
+			border: 1px solid rgba(66, 35, 12, 0.36);
+			background: linear-gradient(180deg, #fff4dc, #e8c891);
+			color: #5a3418;
+			padding: 6px 10px;
+			border-radius: 6px;
+			font-family: 'Special Elite', serif;
+			font-size: 0.78rem;
+			cursor: pointer;
+			transition: transform 0.15s, box-shadow 0.15s;
+		}
+
+		.btn-cabecera:hover,
+		.btn-cabecera:active {
+			transform: translateY(-1px);
+			box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+		}
+
+		.btn-cabecera[disabled] {
+			opacity: 0.6;
+			cursor: wait;
+		}
+
+		.vista-contenido.ludoteca-contenido {
+			display: grid;
+			grid-template-rows: auto auto auto 1fr;
+			align-content: start;
+			gap: 10px;
+			padding: 12px;
+			overflow-y: auto;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		.faja-superior {
+			background:
+				repeating-linear-gradient(90deg, rgba(126, 80, 36, 0.13) 0 8px, rgba(255, 239, 210, 0.13) 8px 16px),
+				linear-gradient(135deg, rgba(244, 221, 180, 0.95), rgba(206, 167, 110, 0.86));
+			border: 1px solid rgba(95, 56, 26, 0.28);
+			border-radius: 10px;
+			padding: 10px;
+			box-shadow: 0 6px 14px rgba(63, 37, 15, 0.18);
+			display: grid;
+			gap: 10px;
+		}
+
+		.filtros-wrap {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 7px;
+		}
+
+		.filtro-btn {
+			border: 1px solid rgba(74, 42, 18, 0.28);
+			background: rgba(255, 248, 236, 0.85);
+			color: var(--texto);
+			padding: 6px 10px;
+			border-radius: 999px;
+			font-family: 'Crimson Text', serif;
+			font-size: 0.96rem;
+			cursor: pointer;
+		}
+
+		.filtro-btn.activo {
+			background: #5f391b;
+			border-color: #5f391b;
+			color: #fff4dc;
+		}
+
+		.acciones-rapidas {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.btn-accion {
+			border: 1px solid rgba(74, 42, 18, 0.34);
+			border-radius: 8px;
+			padding: 8px 12px;
+			font-family: 'Special Elite', serif;
+			font-size: 0.82rem;
+			color: #5a3418;
+			background: linear-gradient(180deg, #fff5dd, #ebcd98);
+			cursor: pointer;
+		}
+
+		.btn-accion.sorpresa {
+			background: linear-gradient(180deg, #ffedc1, #eebf6a);
+		}
+
+		.estado-linea {
+			font-family: 'Crimson Text', serif;
+			font-size: 0.96rem;
+			color: var(--texto-suave);
+			min-height: 22px;
+		}
+
+		.grid-juegos {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px;
+			align-content: start;
+		}
+
+		.juego-card {
+			background: var(--panel);
+			border: 1px solid var(--panel-borde);
+			border-radius: 10px;
+			overflow: hidden;
+			box-shadow: 0 8px 14px rgba(52, 29, 12, 0.18);
+			display: grid;
+			grid-template-rows: auto 1fr;
+			animation: cartaIn 260ms ease both;
+		}
+
+		@keyframes cartaIn {
+			from {
+				opacity: 0;
+				transform: translateY(7px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.caratula {
+			position: relative;
+			aspect-ratio: 16 / 10;
+			background: linear-gradient(135deg, var(--madera-1), var(--madera-2));
+		}
+
+		.caratula img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.fav-btn {
+			position: absolute;
+			top: 8px;
+			right: 8px;
+			border: none;
+			background: rgba(255, 248, 236, 0.85);
+			border-radius: 999px;
+			width: 34px;
+			height: 34px;
+			font-size: 1.05rem;
+			cursor: pointer;
+		}
+
+		.fav-btn.activo {
+			background: rgba(166, 45, 49, 0.92);
+			color: #fff;
+		}
+
+		.juego-info {
+			padding: 10px;
+			display: grid;
+			gap: 8px;
+		}
+
+		.juego-titulo {
+			margin: 0;
+			font-family: 'Special Elite', serif;
+			font-size: 1.07rem;
+			color: var(--texto);
+		}
+
+		.chip-tipo {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			border: 1px solid rgba(79, 47, 24, 0.28);
+			background: #ffefce;
+			color: #4b2c15;
+			border-radius: 999px;
+			padding: 3px 9px;
+			font-size: 0.88rem;
+			width: fit-content;
+		}
+
+		.meta-juego {
+			font-size: 0.93rem;
+			color: var(--texto-suave);
+			line-height: 1.25;
+		}
+
+		.juego-acciones {
+			display: flex;
+			justify-content: flex-end;
+		}
+
+		.btn-instrucciones {
+			border: 1px solid rgba(73, 41, 19, 0.35);
+			background: linear-gradient(180deg, #fff8e8, #edd5aa);
+			color: #4a2a12;
+			border-radius: 8px;
+			padding: 7px 10px;
+			font-family: 'Crimson Text', serif;
+			font-size: 0.96rem;
+			cursor: pointer;
+		}
+
+		.vacio {
+			background: rgba(255, 244, 224, 0.78);
+			border: 1px dashed rgba(78, 47, 22, 0.35);
+			border-radius: 10px;
+			padding: 16px;
+			text-align: center;
+			font-family: 'Special Elite', serif;
+			color: var(--texto-suave);
+		}
+
+		.modal-backdrop {
+			position: fixed;
+			inset: 0;
+			background: rgba(24, 13, 5, 0.65);
+			display: none;
+			align-items: center;
+			justify-content: center;
+			padding: 12px;
+			z-index: 30;
+		}
+
+		.modal-backdrop.abierto {
+			display: flex;
+		}
+
+		.modal-panel {
+			width: min(92vw, 680px);
+			max-height: 90vh;
+			overflow-y: auto;
+			background: linear-gradient(180deg, #ffefcf, #ebc88f);
+			border: 1px solid rgba(76, 43, 18, 0.42);
+			border-radius: 12px;
+			box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+			padding: 12px;
+			display: grid;
+			gap: 10px;
+		}
+
+		.modal-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+		}
+
+		.modal-head h2 {
+			margin: 0;
+			font-family: 'Special Elite', serif;
+			font-size: 1.2rem;
+			color: #4a2a12;
+		}
+
+		.btn-cerrar-modal {
+			border: none;
+			background: rgba(73, 37, 16, 0.15);
+			color: #4a2a12;
+			border-radius: 6px;
+			padding: 6px 8px;
+			cursor: pointer;
+		}
+
+		.form-grid {
+			display: grid;
+			gap: 8px;
+		}
+
+		.campo label {
+			display: block;
+			margin-bottom: 3px;
+			font-family: 'Special Elite', serif;
+			font-size: 0.88rem;
+			color: #4a2a12;
+		}
+
+		.campo input,
+		.campo select,
+		.campo textarea {
+			width: 100%;
+			border: 1px solid rgba(78, 43, 17, 0.33);
+			background: rgba(255, 250, 240, 0.95);
+			border-radius: 8px;
+			padding: 8px;
+			font-family: 'Crimson Text', serif;
+			font-size: 1rem;
+			color: #3f250f;
+		}
+
+		.campo textarea {
+			min-height: 96px;
+			resize: vertical;
+		}
+
+		.fila-2 {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+		}
+
+		.foto-subida {
+			display: grid;
+			gap: 8px;
+			padding: 10px;
+			border: 1px dashed rgba(74, 42, 18, 0.35);
+			border-radius: 8px;
+			background: rgba(255, 250, 238, 0.7);
+		}
+
+		.foto-botones {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.btn-foto {
+			border: 1px solid rgba(74, 42, 18, 0.35);
+			border-radius: 8px;
+			padding: 7px 10px;
+			background: #fff4dc;
+			font-family: 'Special Elite', serif;
+			font-size: 0.77rem;
+			cursor: pointer;
+			color: #5a3418;
+		}
+
+		.preview-form {
+			width: min(100%, 220px);
+			aspect-ratio: 4 / 3;
+			border-radius: 8px;
+			object-fit: cover;
+			border: 1px solid rgba(74, 42, 18, 0.28);
+			background: linear-gradient(135deg, #f8e4bf, #d8ad6f);
+		}
+
+		.modal-footer {
+			display: flex;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+
+		.btn-modal {
+			border: 1px solid rgba(74, 42, 18, 0.36);
+			border-radius: 8px;
+			padding: 8px 12px;
+			font-family: 'Special Elite', serif;
+			font-size: 0.8rem;
+			cursor: pointer;
+		}
+
+		.btn-modal.sec {
+			background: rgba(255, 247, 229, 0.8);
+			color: #5a3418;
+		}
+
+		.btn-modal.pri {
+			background: linear-gradient(180deg, #6e4423, #4d2e17);
+			color: #fff3da;
+		}
+
+		.detalle-texto {
+			background: rgba(255, 247, 233, 0.84);
+			border: 1px solid rgba(77, 46, 23, 0.26);
+			border-radius: 8px;
+			padding: 10px;
+			color: #46280f;
+			line-height: 1.35;
+			white-space: pre-wrap;
+		}
+
+		@media (max-width: 780px) {
+			.grid-juegos {
+				grid-template-columns: 1fr;
+			}
+
+			.fila-2 {
+				grid-template-columns: 1fr;
+			}
+
+			.acciones-cabecera {
+				justify-content: flex-end;
+			}
+		}
+	</style>
 </head>
 <body>
 	<div class="vista-app">
@@ -15,10 +432,608 @@
 			<a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio">
 				<img src="../iconos/volver.png" alt="Volver" />
 			</a>
-			<h1 style="text-transform:uppercase;">VAMOS A JUGAR</h1>
-			<div class="header-espaciador" aria-hidden="true"></div>
+			<h1 style="text-transform:uppercase;">LA ESTANTERIA DE JUEGOS</h1>
+			<div class="acciones-cabecera">
+				<button class="btn-cabecera" id="btn-guardar" type="button">Guardar</button>
+				<button class="btn-cabecera" id="btn-nuevo" type="button">Nuevo Juego</button>
+			</div>
 		</header>
 
+		<main class="vista-contenido ludoteca-contenido" id="ludoteca-contenido">
+			<section class="faja-superior" aria-label="Herramientas de ludoteca">
+				<div class="filtros-wrap" id="filtros-wrap"></div>
+				<div class="acciones-rapidas">
+					<button class="btn-accion sorpresa" id="btn-sorpresa" type="button">Sorpresa: no se a que jugar</button>
+					<button class="btn-accion" id="btn-recargar" type="button">Recargar desde nube</button>
+				</div>
+				<div class="estado-linea" id="estado-linea"></div>
+			</section>
+
+			<div class="grid-juegos" id="grid-juegos" aria-live="polite"></div>
+			<div class="vacio" id="estado-vacio" hidden>No hay juegos que coincidan con el filtro actual.</div>
+		</main>
 	</div>
+
+	<div class="modal-backdrop" id="modal-form">
+		<section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-form-titulo">
+			<div class="modal-head">
+				<h2 id="modal-form-titulo">Nuevo juego</h2>
+				<button class="btn-cerrar-modal" id="cerrar-form" type="button">Cerrar</button>
+			</div>
+
+			<form id="form-juego" class="form-grid">
+				<div class="campo">
+					<label for="juego-nombre">Nombre</label>
+					<input id="juego-nombre" name="nombre" type="text" maxlength="120" required />
+				</div>
+
+				<div class="fila-2">
+					<div class="campo">
+						<label for="juego-tipo">Tipo</label>
+						<select id="juego-tipo" name="tipo" required></select>
+					</div>
+					<div class="campo">
+						<label for="juego-jugadores">Jugadores (min - max)</label>
+						<input id="juego-jugadores" name="jugadores" type="text" maxlength="40" placeholder="2 - 6" />
+					</div>
+				</div>
+
+				<div class="campo">
+					<label for="juego-material">Material</label>
+					<input id="juego-material" name="material" type="text" maxlength="140" placeholder="Cartas, dados, papel..." />
+				</div>
+
+				<div class="campo">
+					<label for="juego-instrucciones">Instrucciones</label>
+					<textarea id="juego-instrucciones" name="instrucciones" placeholder="Paso a paso..."></textarea>
+				</div>
+
+				<div class="foto-subida">
+					<div class="foto-botones">
+						<button class="btn-foto" id="btn-camara" type="button">Camara</button>
+						<button class="btn-foto" id="btn-galeria" type="button">Seleccionar archivo</button>
+					</div>
+					<input id="input-camara" type="file" accept="image/*" capture="environment" hidden />
+					<input id="input-galeria" type="file" accept="image/*" hidden />
+					<img id="preview-juego" class="preview-form" alt="Previsualizacion de portada" />
+					<div class="estado-linea" id="estado-subida"></div>
+				</div>
+
+				<div class="modal-footer">
+					<button class="btn-modal sec" id="cancelar-form" type="button">Cancelar</button>
+					<button class="btn-modal pri" id="guardar-juego" type="submit">Guardar juego</button>
+				</div>
+			</form>
+		</section>
+	</div>
+
+	<div class="modal-backdrop" id="modal-detalle">
+		<section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-detalle-titulo">
+			<div class="modal-head">
+				<h2 id="modal-detalle-titulo">Instrucciones</h2>
+				<button class="btn-cerrar-modal" id="cerrar-detalle" type="button">Cerrar</button>
+			</div>
+			<div class="detalle-texto" id="detalle-contenido"></div>
+		</section>
+	</div>
+
+	<script>
+	(function () {
+		'use strict';
+
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxe8u7rHiICaJwI0jEompYqC8C3oJVieY83ETTa12lErM066asKO-b_-fbBF3piUI_V/exec';
+		var DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
+		var STORAGE_KEY = 'carorur_ludoteca';
+		var UPDATED_BY = 'carorur-app';
+
+		var TIPOS = [
+			{ nombre: 'Tablero', icono: '♟️' },
+			{ nombre: 'Cartas', icono: '🃏' },
+			{ nombre: 'Dados', icono: '🎲' },
+			{ nombre: 'Papel y Lapiz', icono: '✏️' },
+			{ nombre: 'Party / Risas', icono: '🎉' },
+			{ nombre: 'Estrategia', icono: '🧠' },
+			{ nombre: 'Activo / Exterior', icono: '🏃' },
+			{ nombre: 'Puzzles / Logica', icono: '🧩' }
+		];
+
+		var grid = document.getElementById('grid-juegos');
+		var filtrosWrap = document.getElementById('filtros-wrap');
+		var estadoVacio = document.getElementById('estado-vacio');
+		var estadoLinea = document.getElementById('estado-linea');
+		var btnSorpresa = document.getElementById('btn-sorpresa');
+		var btnRecargar = document.getElementById('btn-recargar');
+		var btnGuardar = document.getElementById('btn-guardar');
+		var btnNuevo = document.getElementById('btn-nuevo');
+
+		var modalForm = document.getElementById('modal-form');
+		var modalDetalle = document.getElementById('modal-detalle');
+		var cerrarForm = document.getElementById('cerrar-form');
+		var cancelarForm = document.getElementById('cancelar-form');
+		var form = document.getElementById('form-juego');
+		var selectTipo = document.getElementById('juego-tipo');
+		var inputNombre = document.getElementById('juego-nombre');
+		var inputJugadores = document.getElementById('juego-jugadores');
+		var inputMaterial = document.getElementById('juego-material');
+		var inputInstrucciones = document.getElementById('juego-instrucciones');
+		var btnCamara = document.getElementById('btn-camara');
+		var btnGaleria = document.getElementById('btn-galeria');
+		var inputCamara = document.getElementById('input-camara');
+		var inputGaleria = document.getElementById('input-galeria');
+		var previewJuego = document.getElementById('preview-juego');
+		var estadoSubida = document.getElementById('estado-subida');
+
+		var cerrarDetalle = document.getElementById('cerrar-detalle');
+		var detalleTitulo = document.getElementById('modal-detalle-titulo');
+		var detalleContenido = document.getElementById('detalle-contenido');
+
+		var juegos = [];
+		var filtroActivo = 'Todos';
+		var imagenTemporal = '';
+
+		function normalizarJuego(juego) {
+			var ahora = new Date().toISOString();
+			var tipoValido = TIPOS.some(function (t) { return t.nombre === juego.tipo; })
+				? juego.tipo
+				: TIPOS[0].nombre;
+
+			return {
+				id: juego.id || ('j_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
+				favorito: !!juego.favorito,
+				created_at: juego.created_at || ahora,
+				updated_at: juego.updated_at || ahora,
+				deleted: !!juego.deleted,
+				nombre: String(juego.nombre || '').trim(),
+				tipo: tipoValido,
+				imagen: String(juego.imagen || '').trim(),
+				instrucciones: String(juego.instrucciones || '').trim(),
+				jugadores: String(juego.jugadores || '').trim(),
+				material: String(juego.material || '').trim()
+			};
+		}
+
+		function postAppsScript(payload) {
+			return fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				cache: 'no-store',
+				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+				body: JSON.stringify(payload)
+			}).then(function (res) {
+				return res.json();
+			}).then(function (data) {
+				if (!data.ok) throw new Error(data.error || 'Error en Apps Script');
+				return data;
+			});
+		}
+
+		function getLudotecaNube() {
+			var url = APPS_SCRIPT_URL + '?action=getLudoteca&_ts=' + Date.now();
+			return fetch(url, { cache: 'no-store' })
+				.then(function (res) { return res.json(); })
+				.then(function (data) {
+					if (!data.ok) throw new Error(data.error || 'No se pudo cargar ludoteca');
+					return data.rows || [];
+				});
+		}
+
+		function saveLudotecaNube() {
+			return postAppsScript({
+				action: 'saveLudoteca',
+				updated_by: UPDATED_BY,
+				rows: serializarFilas()
+			});
+		}
+
+		function serializarFilas() {
+			return juegos.map(function (juego) {
+				return {
+					id: juego.id,
+					favorito: !!juego.favorito,
+					created_at: juego.created_at,
+					updated_at: juego.updated_at,
+					deleted: !!juego.deleted,
+					nombre: juego.nombre,
+					tipo: juego.tipo,
+					imagen: juego.imagen,
+					instrucciones: juego.instrucciones,
+					jugadores: juego.jugadores,
+					material: juego.material
+				};
+			});
+		}
+
+		function guardarLocal() {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(juegos));
+		}
+
+		function cargarLocal() {
+			try {
+				var raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+				return raw.map(normalizarJuego);
+			} catch (e) {
+				return [];
+			}
+		}
+
+		function extraerDriveFileId(url) {
+			if (!url) return '';
+			var txt = String(url).trim();
+			var m = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			m = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			return '';
+		}
+
+		function crearCandidatosImagen(url) {
+			var limpia = String(url || '').trim();
+			if (!limpia) return [];
+			var id = extraerDriveFileId(limpia);
+			if (!id) return [limpia];
+			return [
+				'https://lh3.googleusercontent.com/d/' + id + '=w1200',
+				'https://drive.google.com/uc?export=view&id=' + id,
+				'https://drive.google.com/uc?export=download&id=' + id,
+				limpia
+			];
+		}
+
+		function asignarSrcConFallback(img, url) {
+			var candidatos = crearCandidatosImagen(url);
+			if (!candidatos.length) return;
+			var idx = 0;
+			img.src = candidatos[idx];
+			img.onerror = function () {
+				idx++;
+				if (idx < candidatos.length) img.src = candidatos[idx];
+			};
+		}
+
+		function iconoTipo(tipo) {
+			var obj = TIPOS.find(function (item) { return item.nombre === tipo; });
+			return obj ? obj.icono : '🎮';
+		}
+
+		function escapeHtml(texto) {
+			return String(texto || '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;');
+		}
+
+		function renderFiltros() {
+			var lista = [{ nombre: 'Todos', icono: '🗂️' }].concat(TIPOS);
+			filtrosWrap.innerHTML = '';
+			lista.forEach(function (filtro) {
+				var btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'filtro-btn' + (filtroActivo === filtro.nombre ? ' activo' : '');
+				btn.textContent = filtro.icono + ' ' + filtro.nombre;
+				btn.addEventListener('click', function () {
+					filtroActivo = filtro.nombre;
+					render();
+				});
+				filtrosWrap.appendChild(btn);
+			});
+		}
+
+		function juegosVisibles() {
+			var base = juegos.filter(function (j) {
+				if (j.deleted) return false;
+				if (filtroActivo === 'Todos') return true;
+				return j.tipo === filtroActivo;
+			});
+
+			base.sort(function (a, b) {
+				if (a.favorito !== b.favorito) return a.favorito ? -1 : 1;
+				return a.nombre.localeCompare(b.nombre, 'es');
+			});
+			return base;
+		}
+
+		function render() {
+			renderFiltros();
+			grid.innerHTML = '';
+			var visibles = juegosVisibles();
+
+			estadoVacio.hidden = visibles.length > 0;
+			estadoLinea.textContent = visibles.length + ' juego(s) visibles en estanteria.';
+
+			visibles.forEach(function (juego) {
+				var card = document.createElement('article');
+				card.className = 'juego-card';
+				card.dataset.id = juego.id;
+
+				var caratula = document.createElement('div');
+				caratula.className = 'caratula';
+
+				var img = document.createElement('img');
+				img.alt = 'Portada de ' + juego.nombre;
+				img.referrerPolicy = 'no-referrer';
+				if (juego.imagen) {
+					asignarSrcConFallback(img, juego.imagen);
+				} else {
+					img.src = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+						'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#f4d9aa"/><stop offset="1" stop-color="#c08542"/></linearGradient></defs><rect width="480" height="300" fill="url(#g)"/><text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle" font-family="serif" font-size="30" fill="#4d2e17">Sin portada</text></svg>'
+					);
+				}
+
+				var favBtn = document.createElement('button');
+				favBtn.type = 'button';
+				favBtn.className = 'fav-btn' + (juego.favorito ? ' activo' : '');
+				favBtn.title = juego.favorito ? 'Quitar de favoritos' : 'Marcar favorito';
+				favBtn.textContent = '❤';
+				favBtn.addEventListener('click', function () {
+					juego.favorito = !juego.favorito;
+					juego.updated_at = new Date().toISOString();
+					guardarLocal();
+					render();
+				});
+
+				caratula.appendChild(img);
+				caratula.appendChild(favBtn);
+
+				var info = document.createElement('div');
+				info.className = 'juego-info';
+
+				var titulo = document.createElement('h3');
+				titulo.className = 'juego-titulo';
+				titulo.textContent = juego.nombre || 'Juego sin nombre';
+
+				var chip = document.createElement('span');
+				chip.className = 'chip-tipo';
+				chip.textContent = iconoTipo(juego.tipo) + ' ' + juego.tipo;
+
+				var meta = document.createElement('div');
+				meta.className = 'meta-juego';
+				meta.innerHTML =
+					'<strong>Jugadores:</strong> ' + escapeHtml(juego.jugadores || 'Sin dato') + '<br>' +
+					'<strong>Material:</strong> ' + escapeHtml(juego.material || 'Sin dato');
+
+				var acciones = document.createElement('div');
+				acciones.className = 'juego-acciones';
+
+				var btnInstrucciones = document.createElement('button');
+				btnInstrucciones.type = 'button';
+				btnInstrucciones.className = 'btn-instrucciones';
+				btnInstrucciones.textContent = 'Ver instrucciones';
+				btnInstrucciones.addEventListener('click', function () {
+					detalleTitulo.textContent = 'Instrucciones: ' + (juego.nombre || 'Juego');
+					detalleContenido.textContent = juego.instrucciones || 'Todavia no hay instrucciones para este juego.';
+					abrirModal(modalDetalle);
+				});
+
+				acciones.appendChild(btnInstrucciones);
+				info.appendChild(titulo);
+				info.appendChild(chip);
+				info.appendChild(meta);
+				info.appendChild(acciones);
+
+				card.appendChild(caratula);
+				card.appendChild(info);
+				grid.appendChild(card);
+			});
+		}
+
+		function abrirModal(modal) {
+			modal.classList.add('abierto');
+		}
+
+		function cerrarModal(modal) {
+			modal.classList.remove('abierto');
+		}
+
+		function resetFormulario() {
+			form.reset();
+			selectTipo.value = TIPOS[0].nombre;
+			imagenTemporal = '';
+			previewJuego.removeAttribute('src');
+			estadoSubida.textContent = '';
+		}
+
+		function dataUrlDeArchivo(file) {
+			return new Promise(function (resolve, reject) {
+				var reader = new FileReader();
+				reader.onload = function (e) { resolve(e.target.result || ''); };
+				reader.onerror = reject;
+				reader.readAsDataURL(file);
+			});
+		}
+
+		function subirImagen(file) {
+			return dataUrlDeArchivo(file).then(function (dataUrl) {
+				var base64 = dataUrl.split(',')[1] || '';
+				var payload = {
+					action: 'uploadImage',
+					data: base64,
+					mimeType: file.type,
+					name: file.name,
+					folderId: DRIVE_FOLDER_ID
+				};
+				return postAppsScript(payload).then(function (data) {
+					var fileId = data.file_id || extraerDriveFileId(data.url || '');
+					return fileId
+						? ('https://lh3.googleusercontent.com/d/' + fileId + '=w1200')
+						: (data.url || dataUrl);
+				}).catch(function () {
+					return dataUrl;
+				});
+			});
+		}
+
+		function gestionarArchivo(file) {
+			if (!file) return;
+			estadoSubida.textContent = 'Subiendo imagen...';
+			subirImagen(file)
+				.then(function (url) {
+					imagenTemporal = url;
+					asignarSrcConFallback(previewJuego, url);
+					estadoSubida.textContent = 'Imagen lista.';
+				})
+				.catch(function (err) {
+					estadoSubida.textContent = 'Error al subir: ' + err.message;
+				});
+		}
+
+		function inicializarTipos() {
+			selectTipo.innerHTML = '';
+			TIPOS.forEach(function (tipo) {
+				var op = document.createElement('option');
+				op.value = tipo.nombre;
+				op.textContent = tipo.icono + ' ' + tipo.nombre;
+				selectTipo.appendChild(op);
+			});
+		}
+
+		function marcarCard(idJuego) {
+			var card = grid.querySelector('[data-id="' + idJuego + '"]');
+			if (!card) return;
+			card.style.outline = '3px solid #d9922d';
+			card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			setTimeout(function () {
+				card.style.outline = '';
+			}, 1700);
+		}
+
+		btnNuevo.addEventListener('click', function () {
+			resetFormulario();
+			abrirModal(modalForm);
+			setTimeout(function () { inputNombre.focus(); }, 80);
+		});
+
+		btnGuardar.addEventListener('click', function () {
+			btnGuardar.disabled = true;
+			estadoLinea.textContent = 'Guardando en Google Sheets...';
+			saveLudotecaNube()
+				.then(function () {
+					estadoLinea.textContent = 'Ludoteca guardada en la nube.';
+				})
+				.catch(function (err) {
+					estadoLinea.textContent = 'No se pudo guardar en nube: ' + err.message;
+				})
+				.finally(function () {
+					btnGuardar.disabled = false;
+				});
+		});
+
+		btnRecargar.addEventListener('click', function () {
+			estadoLinea.textContent = 'Cargando ludoteca desde nube...';
+			getLudotecaNube()
+				.then(function (rows) {
+					juegos = (rows || []).map(normalizarJuego).filter(function (j) { return !j.deleted; });
+					guardarLocal();
+					render();
+					estadoLinea.textContent = 'Ludoteca recargada desde Google Sheets.';
+				})
+				.catch(function (err) {
+					estadoLinea.textContent = 'No se pudo recargar de nube: ' + err.message;
+				});
+		});
+
+		btnSorpresa.addEventListener('click', function () {
+			var visibles = juegosVisibles();
+			if (!visibles.length) {
+				estadoLinea.textContent = 'No hay juegos para sortear con el filtro actual.';
+				return;
+			}
+			var idx = Math.floor(Math.random() * visibles.length);
+			var elegido = visibles[idx];
+			estadoLinea.textContent = 'Juego elegido: ' + elegido.nombre;
+			marcarCard(elegido.id);
+		});
+
+		form.addEventListener('submit', function (e) {
+			e.preventDefault();
+			var nombre = inputNombre.value.trim();
+			if (!nombre) {
+				estadoSubida.textContent = 'El nombre es obligatorio.';
+				return;
+			}
+
+			var ahora = new Date().toISOString();
+			var nuevo = normalizarJuego({
+				nombre: nombre,
+				tipo: selectTipo.value,
+				imagen: imagenTemporal,
+				instrucciones: inputInstrucciones.value,
+				jugadores: inputJugadores.value,
+				material: inputMaterial.value,
+				favorito: false,
+				created_at: ahora,
+				updated_at: ahora,
+				deleted: false
+			});
+
+			juegos.push(nuevo);
+			guardarLocal();
+			cerrarModal(modalForm);
+			render();
+			estadoLinea.textContent = 'Juego "' + nuevo.nombre + '" añadido. Pulsa Guardar para enviarlo a la nube.';
+		});
+
+		btnCamara.addEventListener('click', function () {
+			inputCamara.click();
+		});
+
+		btnGaleria.addEventListener('click', function () {
+			inputGaleria.click();
+		});
+
+		inputCamara.addEventListener('change', function () {
+			gestionarArchivo(inputCamara.files && inputCamara.files[0]);
+			inputCamara.value = '';
+		});
+
+		inputGaleria.addEventListener('change', function () {
+			gestionarArchivo(inputGaleria.files && inputGaleria.files[0]);
+			inputGaleria.value = '';
+		});
+
+		cerrarForm.addEventListener('click', function () { cerrarModal(modalForm); });
+		cancelarForm.addEventListener('click', function () { cerrarModal(modalForm); });
+		cerrarDetalle.addEventListener('click', function () { cerrarModal(modalDetalle); });
+
+		modalForm.addEventListener('click', function (e) {
+			if (e.target === modalForm) cerrarModal(modalForm);
+		});
+
+		modalDetalle.addEventListener('click', function (e) {
+			if (e.target === modalDetalle) cerrarModal(modalDetalle);
+		});
+
+		window.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape') {
+				cerrarModal(modalForm);
+				cerrarModal(modalDetalle);
+			}
+		});
+
+		function inicializar() {
+			inicializarTipos();
+			juegos = cargarLocal();
+			render();
+			estadoLinea.textContent = 'Vista lista. Puedes explorar o cargar desde nube.';
+
+			getLudotecaNube()
+				.then(function (rows) {
+					if (rows && rows.length) {
+						juegos = rows.map(normalizarJuego).filter(function (j) { return !j.deleted; });
+						guardarLocal();
+						render();
+						estadoLinea.textContent = 'Datos sincronizados desde Google Sheets.';
+					}
+				})
+				.catch(function () {
+					if (!juegos.length) {
+						estadoLinea.textContent = 'Sin datos en nube por ahora. Puedes empezar a crear juegos.';
+					}
+				});
+		}
+
+		inicializar();
+	})();
+	</script>
 </body>
 </html>
