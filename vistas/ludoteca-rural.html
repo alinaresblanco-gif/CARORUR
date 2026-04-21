@@ -96,8 +96,8 @@
 		}
 
 		.filtros-wrap {
-			display: flex;
-			flex-wrap: wrap;
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
 			gap: 7px;
 		}
 
@@ -119,8 +119,8 @@
 		}
 
 		.acciones-rapidas {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
+			display: flex;
+			flex-direction: column;
 			gap: 8px;
 		}
 
@@ -427,16 +427,8 @@
 		}
 
 		.filtros-wrap {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 7px;
-			justify-content: flex-start;
-		}
-
-		.filtros-ultimos {
-			width: 100%;
-			display: flex;
-			justify-content: center;
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
 			gap: 7px;
 		}
 
@@ -741,12 +733,7 @@
 		function renderFiltros() {
 			var lista = [{ nombre: 'Todos', icono: '🗂️' }].concat(TIPOS);
 			filtrosWrap.innerHTML = '';
-
-			/* Los primeros N-2 botones van normales; los 2 últimos van centrados */
-			var normales = lista.slice(0, lista.length - 2);
-			var ultimos  = lista.slice(lista.length - 2);
-
-			function crearBtn(filtro) {
+			lista.forEach(function (filtro) {
 				var btn = document.createElement('button');
 				btn.type = 'button';
 				btn.className = 'filtro-btn' + (filtroActivo === filtro.nombre ? ' activo' : '');
@@ -755,19 +742,8 @@
 					filtroActivo = filtro.nombre;
 					render();
 				});
-				return btn;
-			}
-
-			normales.forEach(function (filtro) {
-				filtrosWrap.appendChild(crearBtn(filtro));
+				filtrosWrap.appendChild(btn);
 			});
-
-			var filaUltimos = document.createElement('div');
-			filaUltimos.className = 'filtros-ultimos';
-			ultimos.forEach(function (filtro) {
-				filaUltimos.appendChild(crearBtn(filtro));
-			});
-			filtrosWrap.appendChild(filaUltimos);
 		}
 
 		function juegosVisibles() {
