@@ -188,7 +188,8 @@
 		.caratula img {
 			width: 100%;
 			height: 100%;
-			object-fit: cover;
+			object-fit: contain;
+			background: #e4c688;
 			display: block;
 		}
 
@@ -434,7 +435,7 @@
 
 		@media (max-width: 780px) {
 			.grid-juegos {
-				grid-template-columns: 1fr;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
 			}
 
 			.fila-2 {
