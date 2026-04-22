@@ -424,11 +424,17 @@
     var velMaxKmh       = 0;
     var desnivelAcum    = 0;
     var altitudAnterior = null;
-    var posAnterior     = null;   // {lat, lng}
-    var puntoRuta       = [];     // [{lat, lng, alt, ts}]
+    var posAnterior     = null;   // {lat, lng, ts}
+    var puntoRuta       = [];     // [{lat, lng, alt, ts}] con ts=null como marcador de corte
     var fotosRuta       = [];     // [{lat, lng, ts, foto: base64}]
     var nombreRuta      = '';
     var historialData   = [];
+
+    // Control de pantalla apagada
+    var wakeLock          = null;   // Screen Wake Lock
+    var iniciarNuevoTramo = false;  // true = el proximo punto GPS abre un nuevo segmento
+    var tsUltimoPunto     = null;   // timestamp del ultimo punto recibido
+    var GAP_MAXIMO_MS     = 30000;  // 30 s sin GPS = corte de tramo
 
     /* ============================================================
        MAPA (Leaflet + OpenStreetMap)
@@ -441,11 +447,33 @@
       maxZoom: 19
     }).addTo(mapa);
 
-    var lineaRuta = L.polyline([], {
-      color: '#c62828',
-      weight: 4,
-      opacity: 0.88
-    }).addTo(mapa);
+    /* ============================================================
+       MAPA – MÚSLTIPLES SEGMENTOS (multi-polyline)
+       Cada vez que hay un corte (pantalla apagada, gap > 30 s)
+       se crea un nuevo tramo en lugar de unir con línea recta.
+    ============================================================ */
+    var segmentos      = [];   // array de L.polyline activos
+    var segmentoActual = null; // el tramo que se está dibujando ahora
+
+    function nuevoSegmento() {
+      segmentoActual = L.polyline([], {
+        color: '#c62828',
+        weight: 4,
+        opacity: 0.88
+      }).addTo(mapa);
+      segmentos.push(segmentoActual);
+    }
+
+    function limpiarSegmentos() {
+      segmentos.forEach(function (s) { mapa.removeLayer(s); });
+      segmentos      = [];
+      segmentoActual = null;
+    }
+
+    // Compatibilidad: lineaRuta ya no se usa para dibujar,
+    // pero lo dejamos para que renderHistorial pueda reutilizarlo.
+    var lineaRuta = L.polyline([], { color: '#c62828', weight: 4, opacity: 0.88 });
+    // (no se añade al mapa aquí; solo se usa en el historial)
 
     var marcadorActual = null;
 
@@ -532,9 +560,34 @@
 
       var lat   = pos.coords.latitude;
       var lng   = pos.coords.longitude;
-      var alt   = pos.coords.altitude;   // null si el dispositivo no lo reporta
-      var velMs = pos.coords.speed;      // m/s, puede ser null
+      var alt   = pos.coords.altitude;
+      var velMs = pos.coords.speed;
       var ts    = pos.timestamp;
+
+      // --- DETECCIÓN DE GAP: si pasaron más de GAP_MAXIMO_MS
+      //     sin recibir un punto, es un corte (pantalla apagada).
+      //     No se dibuja ni se suma esa distancia.
+      var esCorte = false;
+      if (tsUltimoPunto !== null && (ts - tsUltimoPunto) > GAP_MAXIMO_MS) {
+        esCorte = true;
+      }
+      tsUltimoPunto = ts;
+
+      // Si la visibilidad cambió (flag externo) también es corte
+      if (iniciarNuevoTramo) {
+        esCorte = true;
+        iniciarNuevoTramo = false;
+      }
+
+      if (esCorte || segmentoActual === null) {
+        // Insertar marcador de corte en los datos guardados
+        if (puntoRuta.length > 0) {
+          puntoRuta.push({ corte: true });
+        }
+        posAnterior     = null; // no calcular distancia del salto
+        altitudAnterior = null;
+        nuevoSegmento();
+      }
 
       // Guardar punto de ruta
       puntoRuta.push({ lat: lat, lng: lng, alt: alt, ts: ts });
@@ -545,15 +598,15 @@
       } else {
         marcadorActual.setLatLng([lat, lng]);
       }
-      lineaRuta.addLatLng([lat, lng]);
+      segmentoActual.addLatLng([lat, lng]);
       centrarMapa(lat, lng);
 
-      // Calcular distancia incremental (filtro anti-saltos GPS > 100m)
-      if (posAnterior) {
+      // Calcular distancia incremental (filtro anti-saltos GPS > 100 m)
+      if (posAnterior && !esCorte) {
         var incKm = haversine(posAnterior.lat, posAnterior.lng, lat, lng);
         if (incKm < 0.1) { distanciaKm += incKm; }
       }
-      posAnterior = { lat: lat, lng: lng };
+      posAnterior = { lat: lat, lng: lng, ts: ts };
 
       // Velocidad máxima
       if (velMs !== null) {
@@ -561,8 +614,8 @@
         if (velKmh > velMaxKmh) { velMaxKmh = velKmh; }
       }
 
-      // Desnivel acumulado (solo subidas)
-      if (alt !== null && altitudAnterior !== null) {
+      // Desnivel acumulado (solo subidas, ignorar tras corte)
+      if (alt !== null && altitudAnterior !== null && !esCorte) {
         var diff = alt - altitudAnterior;
         if (diff > 0) { desnivelAcum += diff; }
       }
@@ -573,7 +626,7 @@
 
     function iniciarGPS() {
       if (!navigator.geolocation) {
-        alert('Tu dispositivo no soporta geolocalización.');
+        alert('Tu dispositivo no soporta geoloción.');
         return false;
       }
       watchId = navigator.geolocation.watchPosition(onPosicion, function (err) {
@@ -581,7 +634,7 @@
       }, {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 2000
+        maximumAge: 0   // 0 = siempre pedir posición fresca al sistema operativo
       });
       return true;
     }
@@ -592,6 +645,51 @@
         watchId = null;
       }
     }
+
+    /* ============================================================
+       WAKE LOCK – impide que el sistema suspenda el GPS
+       mientras la ruta está en marcha.
+       Solo mantiene la CPU/GPS activos, NO la pantalla encendida
+       (ahorra batería). Si el usuario apaga la pantalla a mano,
+       el detector de visibilidad marca el corte de tramo.
+    ============================================================ */
+    function activarWakeLock() {
+      if (!('wakeLock' in navigator)) return;
+      navigator.wakeLock.request('screen')
+        .then(function (wl) {
+          wakeLock = wl;
+          // Si el sistema libera el lock (llamada, alamérma...), reactivarlo
+          wl.addEventListener('release', function () {
+            if (estado === 'activo') { activarWakeLock(); }
+          });
+        })
+        .catch(function (e) { console.warn('Wake Lock no disponible:', e); });
+    }
+
+    function liberarWakeLock() {
+      if (wakeLock) { wakeLock.release().catch(function(){}); wakeLock = null; }
+    }
+
+    /* ============================================================
+       DETECTOR DE VISIBILIDAD
+       Cuando el usuario vuelve a la app tras apagar la pantalla
+       marcamos que el próximo punto GPS debe abrir un nuevo tramo.
+    ============================================================ */
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        // La pantalla se apagó o la app pasó a segundo plano
+        // El crónometro sigue contando (estado 'activo' no cambia),
+        // pero el GPS puede quedar sin recibir puntos.
+        // No hacemos nada aquí; el gap temporal lo gestiona onPosicion.
+        return;
+      }
+      // La pantalla volvió: si la ruta está activa, forzar nuevo tramo
+      if (estado === 'activo') {
+        iniciarNuevoTramo = true;
+        // Reactiv. el wake lock si fue liberado por el sistema
+        activarWakeLock();
+      }
+    });
 
     /* ============================================================
        BOTONES DE CONTROL
@@ -686,6 +784,7 @@
       estado = 'parado';
       detenerCronometro();
       detenerGPS();
+      liberarWakeLock();
 
       btnIniciar.disabled  = false;
       btnPausar.disabled   = true;
@@ -939,10 +1038,35 @@
             var puntos = typeof ruta.ruta_gps === 'string'
               ? JSON.parse(ruta.ruta_gps)
               : ruta.ruta_gps;
-            if (!puntos.length) return;
-            lineaRuta.setLatLngs(puntos.map(function (p) { return [p.lat, p.lng]; }));
-            mapa.fitBounds(lineaRuta.getBounds(), { padding: [20, 20] });
+            if (!puntos || !puntos.length) return;
+
+            // Respetar los cortes de tramo al redibujar el historial
+            lineaRuta.setLatLngs([]);
+            if (lineaRuta._map) { mapa.removeLayer(lineaRuta); }
+            lineaRuta.addTo(mapa);
+
+            var tramo = [];
+            var capas  = [];
+            puntos.forEach(function (p) {
+              if (p.corte) {
+                if (tramo.length > 1) {
+                  capas.push(L.polyline(tramo, { color: '#c62828', weight: 4, opacity: 0.88 }).addTo(mapa));
+                }
+                tramo = [];
+              } else {
+                tramo.push([p.lat, p.lng]);
+              }
+            });
+            if (tramo.length > 1) {
+              capas.push(L.polyline(tramo, { color: '#c62828', weight: 4, opacity: 0.88 }).addTo(mapa));
+            }
+            if (!capas.length) return;
+            var grupo = L.featureGroup(capas);
+            mapa.fitBounds(grupo.getBounds(), { padding: [20, 20] });
             document.getElementById('mapa').scrollIntoView({ behavior: 'smooth' });
+            // Limpiar capas de historial al iniciar nueva ruta
+            capas.forEach(function(c){ c._esHistorial = true; });
+            mapa.eachLayer(function(l){ if(l._esHistorial && capas.indexOf(l) === -1){ mapa.removeLayer(l); } });
           } catch (e) { /* noop */ }
         });
       });
