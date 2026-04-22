@@ -218,6 +218,29 @@
       margin-top: 2px;
     }
 
+    .card-ruta-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .btn-eliminar-ruta {
+      border: 1px solid rgba(198, 40, 40, 0.45);
+      border-radius: 10px;
+      background: rgba(198, 40, 40, 0.08);
+      color: #c62828;
+      font-size: 0.72rem;
+      font-family: 'Special Elite', serif;
+      padding: 3px 9px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.14s;
+    }
+
+    .btn-eliminar-ruta:active { background: rgba(198, 40, 40, 0.22); }
+
     .historial-vacio {
       text-align: center;
       color: var(--tinta-rural-suave);
@@ -888,9 +911,23 @@
             '<div class="card-ruta-fecha">' + r.fecha + ' · ' + fmtDuracion(r.duracion_seg) + '</div>' +
             '<div class="card-ruta-stats">📍 ' + r.distancia_km + ' km · ⛰ ' + r.desnivel_m + ' m · 👟 ' + pasos + '</div>' +
           '</div>' +
-          '<span class="card-ruta-badge">' + r.vel_media_kmh + ' km/h</span>' +
+          '<div class="card-ruta-meta">' +
+            '<span class="card-ruta-badge">' + r.vel_media_kmh + ' km/h</span>' +
+            '<button class="btn-eliminar-ruta" data-del="' + i + '" aria-label="Eliminar ruta">🗑 Borrar</button>' +
+          '</div>' +
         '</div>';
       }).join('');
+
+      // Botones eliminar (hay que asignar antes del clic en card)
+      lista.querySelectorAll('.btn-eliminar-ruta').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation(); // evitar que abra el mapa
+          var idx = parseInt(btn.dataset.del);
+          var nombre = historialData[idx] ? (historialData[idx].nombre_ruta || 'esta ruta') : 'esta ruta';
+          if (!confirm('¿Eliminar "' + nombre + '" del historial?')) return;
+          eliminarRuta(idx);
+        });
+      });
 
       // Clic en una card → redibujar esa ruta en el mapa
       lista.querySelectorAll('.card-ruta').forEach(function (card) {
@@ -909,6 +946,29 @@
           } catch (e) { /* noop */ }
         });
       });
+    }
+
+    function eliminarRuta(idx) {
+      var ruta = historialData[idx];
+      if (!ruta) return;
+
+      // Eliminar de localStorage
+      var local = JSON.parse(localStorage.getItem('carorur_rutas') || '[]');
+      local = local.filter(function (r) { return r.Id_ruta !== ruta.Id_ruta; });
+      localStorage.setItem('carorur_rutas', JSON.stringify(local));
+
+      // Eliminar de Google Sheets si está configurado
+      if (SCRIPT_URL) {
+        fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'eliminarRuta', Id_ruta: ruta.Id_ruta })
+        }).catch(function (err) { console.warn('No se pudo eliminar en Sheets:', err); });
+      }
+
+      // Refrescar lista en pantalla
+      historialData.splice(idx, 1);
+      renderHistorial(historialData);
     }
 
     /* ============================================================
