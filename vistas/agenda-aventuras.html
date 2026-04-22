@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="vistas.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     /* ---- Overrides de layout para esta vista ---- */
     html, body { overflow: hidden; }
@@ -50,6 +50,22 @@
 
     .clima-alerta { color: #8b0000; font-weight: 700; }
     .clima-aviso  { color: #7b5800; }
+
+    .btn-activar-gps {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border: 1px solid rgba(108, 72, 38, 0.45);
+      border-radius: 20px;
+      background: var(--papel-oscuro);
+      color: #f5e9c8;
+      font-family: 'Special Elite', serif;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-activar-gps:active { opacity: 0.75; }
 
     /* ---- Mapa ---- */
     #mapa {
@@ -285,7 +301,8 @@
 
       <!-- METEOROLOGÍA -->
       <div class="clima-widget" id="clima-widget" aria-live="polite">
-        <span id="clima-texto">🌤️ Obteniendo meteorología...</span>
+        <span id="clima-texto">📍 Toca para activar ubicación y clima</span>
+        <button class="btn-activar-gps" id="btn-activar-gps" aria-label="Activar GPS y meteorología">📡 Activar GPS</button>
       </div>
 
       <!-- MAPA -->
@@ -360,7 +377,7 @@
   </div>
 
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
   (function () {
@@ -393,7 +410,9 @@
     /* ============================================================
        MAPA (Leaflet + OpenStreetMap)
     ============================================================ */
+    // Mapa centrado en España por defecto; se recentrará cuando llegue el GPS
     var mapa = L.map('mapa', { zoomControl: true, attributionControl: false });
+    mapa.setView([40.4, -3.7], 6);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
@@ -729,12 +748,9 @@
     /* ============================================================
        METEOROLOGÍA (Open-Meteo – completamente gratuito, sin API key)
     ============================================================ */
-    function cargarClima() {
-      if (!navigator.geolocation) return;
-
-      navigator.geolocation.getCurrentPosition(function (pos) {
-        var lat = pos.coords.latitude.toFixed(4);
-        var lng = pos.coords.longitude.toFixed(4);
+    function cargarClima(latRaw, lngRaw) {
+      var lat = parseFloat(latRaw).toFixed(4);
+      var lng = parseFloat(lngRaw).toFixed(4);
         var url = 'https://api.open-meteo.com/v1/forecast' +
           '?latitude=' + lat +
           '&longitude=' + lng +
@@ -777,10 +793,6 @@
           .catch(function () {
             document.getElementById('clima-texto').textContent = '⚠️ Meteorología no disponible';
           });
-
-      }, function () {
-        document.getElementById('clima-texto').textContent = '📍 Activa el GPS para ver el clima';
-      }, { timeout: 8000 });
     }
 
     function wIcono(c) {
@@ -900,17 +912,44 @@
     }
 
     /* ============================================================
+       BOTÓN ACTIVAR GPS (clima + centrar mapa)
+       El navegador solo acepta pedir geolocalización tras un tap
+       del usuario cuando la página corre dentro de un iframe.
+    ============================================================ */
+    var btnActivarGps = document.getElementById('btn-activar-gps');
+
+    function pedirUbicacion() {
+      if (!navigator.geolocation) {
+        document.getElementById('clima-texto').textContent = '⚠️ GPS no disponible en este dispositivo';
+        if (btnActivarGps) { btnActivarGps.style.display = 'none'; }
+        return;
+      }
+      if (btnActivarGps) { btnActivarGps.textContent = '⏳ Buscando...'; btnActivarGps.disabled = true; }
+      document.getElementById('clima-texto').textContent = '📡 Obteniendo tu posición...';
+
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          if (btnActivarGps) { btnActivarGps.style.display = 'none'; }
+          centrarMapa(pos.coords.latitude, pos.coords.longitude, 14);
+          cargarClima(pos.coords.latitude, pos.coords.longitude);
+        },
+        function (err) {
+          if (btnActivarGps) { btnActivarGps.textContent = '📡 Reintentar'; btnActivarGps.disabled = false; }
+          var msg = err.code === 1
+            ? '🚫 Permiso de ubicación denegado. Actívalo en ajustes del navegador.'
+            : '⚠️ No se pudo obtener la ubicación. Inténtalo de nuevo.';
+          document.getElementById('clima-texto').textContent = msg;
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    if (btnActivarGps) { btnActivarGps.addEventListener('click', pedirUbicacion); }
+
+    /* ============================================================
        INICIALIZACIÓN
     ============================================================ */
-    cargarClima();
     cargarHistorial();
-
-    // Centrar el mapa en la posición actual al cargar
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(function (pos) {
-        centrarMapa(pos.coords.latitude, pos.coords.longitude, 14);
-      }, null, { timeout: 8000 });
-    }
 
   }());
   </script>
