@@ -1,0 +1,586 @@
+const SHEET_NAME = 'ultimo-menu';
+const HEADERS = [
+  'menu_id',
+  'dia_id',
+  'fecha_iso',
+  'dia_semana',
+  'momento',
+  'item_orden',
+  'comida',
+  'foto_url',
+  'updated_at',
+  'updated_by',
+  'deleted'
+];
+
+const DEFAULT_MENU_ID = 'principal';
+const DRIVE_FOLDER_NAME = 'CARORUR-FOTOS';
+const DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
+
+const LUDOTECA_SHEET_NAME = 'ludoteca';
+const LUDOTECA_HEADERS = [
+  'id',
+  'favorito',
+  'created_at',
+  'updated_at',
+  'deleted',
+  'nombre',
+  'tipo',
+  'imagen',
+  'instrucciones',
+  'jugadores',
+  'material'
+];
+
+const AVENTURA_SHEET_NAME = 'aventura';
+const AVENTURA_HEADERS = [
+  'id_ruta',
+  'fecha',
+  'nombre_ruta',
+  'duracion_seg',
+  'distancia_km',
+  'vel_media_kmh',
+  'vel_max_kmh',
+  'desnivel_m',
+  'pasos_totales',
+  'ruta_gps',
+  'fotos_json'
+];
+
+function doGet(e) {
+  try {
+    const action = getRequestAction(e, 'getMenu');
+
+    if (action === 'health') {
+      return jsonOut({ ok: true, service: 'carorural-api' });
+    }
+
+    if (action === 'getMenu') {
+      const menuId = (e && e.parameter && e.parameter.menu_id) ? e.parameter.menu_id : DEFAULT_MENU_ID;
+      const data = getMenuRows(menuId);
+      return jsonOut({ ok: true, menu_id: menuId, rows: data });
+    }
+
+    if (action === 'getLudoteca') {
+      const data = getLudotecaRows();
+      return jsonOut({ ok: true, rows: data });
+    }
+
+    if (action === 'getAventura' || action === 'obtenerRutas') {
+      const rutas = getAventuraRows();
+      return jsonOut({ ok: true, rutas: rutas, rows: rutas });
+    }
+
+    return jsonOut({ ok: false, error: 'Accion GET no soportada' });
+  } catch (err) {
+    return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+function doPost(e) {
+  try {
+    const payload = parseJsonBody(e);
+    const action = safeStr(payload.action || payload.accion);
+
+    if (action === 'uploadImage') {
+      if (!payload.data || !payload.mimeType) {
+        return jsonOut({ ok: false, error: 'Faltan campos: data, mimeType' });
+      }
+
+      const targetFolderId = safeStr(payload.folderId) || DRIVE_FOLDER_ID;
+      if (!targetFolderId) {
+        return jsonOut({ ok: false, error: 'No hay folderId configurado' });
+      }
+
+      let folder;
+      try {
+        folder = DriveApp.getFolderById(targetFolderId);
+      } catch (err) {
+        return jsonOut({ ok: false, error: 'Folder de Drive no accesible: ' + String(err && err.message ? err.message : err) });
+      }
+
+      const blob = Utilities.newBlob(
+        Utilities.base64Decode(payload.data),
+        payload.mimeType,
+        payload.name || ('foto_' + new Date().getTime() + '.jpg')
+      );
+
+      const file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+      return jsonOut({
+        ok: true,
+        action: 'uploadImage',
+        url: 'https://drive.google.com/uc?export=view&id=' + file.getId(),
+        file_id: file.getId(),
+        file_name: file.getName(),
+        folder_id: targetFolderId
+      });
+    }
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+
+    try {
+      if (action === 'saveMenu') {
+        const menuId = payload.menu_id || DEFAULT_MENU_ID;
+        const updatedBy = payload.updated_by || 'anonimo';
+        const rows = Array.isArray(payload.rows) ? payload.rows : [];
+
+        replaceMenuRows(menuId, rows, updatedBy);
+
+        return jsonOut({
+          ok: true,
+          action: 'saveMenu',
+          menu_id: menuId,
+          saved_rows: rows.length
+        });
+      }
+
+      if (action === 'clearMenu') {
+        const menuId = payload.menu_id || DEFAULT_MENU_ID;
+        clearMenuRows(menuId);
+
+        return jsonOut({
+          ok: true,
+          action: 'clearMenu',
+          menu_id: menuId
+        });
+      }
+
+      if (action === 'saveLudoteca') {
+        const updatedBy = payload.updated_by || 'anonimo';
+        const rows = Array.isArray(payload.rows) ? payload.rows : [];
+
+        replaceLudotecaRows(rows, updatedBy);
+
+        return jsonOut({
+          ok: true,
+          action: 'saveLudoteca',
+          saved_rows: rows.length
+        });
+      }
+
+      if (action === 'guardarRuta' || action === 'saveAventuraRuta') {
+        const rutaEntrada = payload.datos || payload.ruta || payload.row || payload;
+        const ruta = normalizeAventuraRow(rutaEntrada);
+        saveAventuraRuta(ruta);
+
+        return jsonOut({
+          ok: true,
+          action: 'guardarRuta',
+          id_ruta: ruta.id_ruta
+        });
+      }
+
+      if (action === 'eliminarRuta' || action === 'deleteAventuraRuta') {
+        const idRuta = safeStr(payload.Id_ruta || payload.id_ruta);
+        if (!idRuta) {
+          return jsonOut({ ok: false, error: 'Falta Id_ruta o id_ruta' });
+        }
+
+        const removed = deleteAventuraRuta(idRuta);
+        return jsonOut({
+          ok: true,
+          action: 'eliminarRuta',
+          id_ruta: idRuta,
+          removed_rows: removed
+        });
+      }
+
+      return jsonOut({ ok: false, error: 'Accion POST no soportada' });
+    } finally {
+      lock.releaseLock();
+    }
+
+  } catch (err) {
+    return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+function getMenuRows(menuId) {
+  const sheet = getSheetReady();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const out = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const item = {
+      menu_id: safeStr(r[0]),
+      dia_id: safeStr(r[1]),
+      fecha_iso: safeStr(r[2]),
+      dia_semana: safeStr(r[3]),
+      momento: safeStr(r[4]),
+      item_orden: Number(r[5] || 0),
+      comida: safeStr(r[6]),
+      foto_url: safeStr(r[7]),
+      updated_at: safeStr(r[8]),
+      updated_by: safeStr(r[9]),
+      deleted: toBool(r[10])
+    };
+
+    if (item.menu_id === menuId && !item.deleted) {
+      out.push(item);
+    }
+  }
+
+  out.sort(function(a, b) {
+    if (a.fecha_iso < b.fecha_iso) return -1;
+    if (a.fecha_iso > b.fecha_iso) return 1;
+    if (a.momento < b.momento) return -1;
+    if (a.momento > b.momento) return 1;
+    return (a.item_orden || 0) - (b.item_orden || 0);
+  });
+
+  return out;
+}
+
+function replaceMenuRows(menuId, rows, updatedBy) {
+  const sheet = getSheetReady();
+
+  clearMenuRows(menuId);
+
+  if (!rows.length) return;
+
+  const nowIso = new Date().toISOString();
+  const toAppend = rows.map(function(r) {
+    return [
+      menuId,
+      safeStr(r.dia_id),
+      safeStr(r.fecha_iso),
+      safeStr(r.dia_semana),
+      safeStr(r.momento),
+      Number(r.item_orden || 0),
+      safeStr(r.comida),
+      safeStr(r.foto_url),
+      nowIso,
+      updatedBy,
+      toBool(r.deleted) ? true : false
+    ];
+  });
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, HEADERS.length).setValues(toAppend);
+}
+
+function clearMenuRows(menuId) {
+  const sheet = getSheetReady();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return;
+
+  const range = sheet.getRange(2, 1, lastRow - 1, HEADERS.length);
+  const values = range.getValues();
+
+  const keep = [];
+  for (let i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) !== menuId) {
+      keep.push(values[i]);
+    }
+  }
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+
+  if (keep.length) {
+    sheet.getRange(2, 1, keep.length, HEADERS.length).setValues(keep);
+  }
+}
+
+function getLudotecaRows() {
+  const sheet = getLudotecaSheetReady();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const out = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const item = {
+      id: safeStr(r[0]),
+      favorito: toBool(r[1]),
+      created_at: safeStr(r[2]),
+      updated_at: safeStr(r[3]),
+      deleted: toBool(r[4]),
+      nombre: safeStr(r[5]),
+      tipo: safeStr(r[6]),
+      imagen: safeStr(r[7]),
+      instrucciones: safeStr(r[8]),
+      jugadores: safeStr(r[9]),
+      material: safeStr(r[10])
+    };
+
+    if (!item.deleted) {
+      out.push(item);
+    }
+  }
+
+  out.sort(function(a, b) {
+    if (a.favorito !== b.favorito) return a.favorito ? -1 : 1;
+    return a.nombre.localeCompare(b.nombre, 'es');
+  });
+
+  return out;
+}
+
+function replaceLudotecaRows(rows, updatedBy) {
+  const sheet = getLudotecaSheetReady();
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, LUDOTECA_HEADERS.length).setValues([LUDOTECA_HEADERS]);
+
+  if (!rows.length) return;
+
+  const nowIso = new Date().toISOString();
+
+  const toAppend = rows.map(function(r) {
+    const id = safeStr(r.id) || ('j_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+    const createdAt = safeStr(r.created_at) || nowIso;
+
+    return [
+      id,
+      toBool(r.favorito) ? true : false,
+      createdAt,
+      nowIso,
+      toBool(r.deleted) ? true : false,
+      safeStr(r.nombre),
+      safeStr(r.tipo),
+      safeStr(r.imagen),
+      safeStr(r.instrucciones),
+      safeStr(r.jugadores),
+      safeStr(r.material)
+    ];
+  });
+
+  sheet.getRange(2, 1, toAppend.length, LUDOTECA_HEADERS.length).setValues(toAppend);
+}
+
+function getAventuraRows() {
+  const sheet = getAventuraSheetReady();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const out = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const item = {
+      id_ruta: safeStr(r[0]),
+      fecha: safeStr(r[1]),
+      nombre_ruta: safeStr(r[2]),
+      duracion_seg: Number(r[3] || 0),
+      distancia_km: Number(r[4] || 0),
+      vel_media_kmh: Number(r[5] || 0),
+      vel_max_kmh: Number(r[6] || 0),
+      desnivel_m: Number(r[7] || 0),
+      pasos_totales: Number(r[8] || 0),
+      ruta_gps: safeStr(r[9]),
+      fotos_json: safeStr(r[10])
+    };
+
+    if (item.id_ruta) {
+      out.push(item);
+    }
+  }
+
+  out.sort(function(a, b) {
+    if (a.fecha > b.fecha) return -1;
+    if (a.fecha < b.fecha) return 1;
+    return String(b.id_ruta).localeCompare(String(a.id_ruta), 'es');
+  });
+
+  return out;
+}
+
+function saveAventuraRuta(ruta) {
+  const sheet = getAventuraSheetReady();
+
+  // Si ya existe ese id_ruta, primero lo quitamos para evitar duplicados.
+  deleteAventuraRuta(ruta.id_ruta);
+
+  const row = [
+    safeStr(ruta.id_ruta),
+    safeStr(ruta.fecha),
+    safeStr(ruta.nombre_ruta),
+    Number(ruta.duracion_seg || 0),
+    Number(ruta.distancia_km || 0),
+    Number(ruta.vel_media_kmh || 0),
+    Number(ruta.vel_max_kmh || 0),
+    Number(ruta.desnivel_m || 0),
+    Number(ruta.pasos_totales || 0),
+    safeStr(ruta.ruta_gps),
+    safeStr(ruta.fotos_json)
+  ];
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, AVENTURA_HEADERS.length).setValues([row]);
+}
+
+function deleteAventuraRuta(idRuta) {
+  const sheet = getAventuraSheetReady();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  const range = sheet.getRange(2, 1, lastRow - 1, AVENTURA_HEADERS.length);
+  const values = range.getValues();
+
+  const keep = [];
+  let removed = 0;
+
+  for (let i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idRuta) {
+      removed++;
+    } else {
+      keep.push(values[i]);
+    }
+  }
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, AVENTURA_HEADERS.length).setValues([AVENTURA_HEADERS]);
+
+  if (keep.length) {
+    sheet.getRange(2, 1, keep.length, AVENTURA_HEADERS.length).setValues(keep);
+  }
+
+  return removed;
+}
+
+function normalizeAventuraRow(r) {
+  const now = new Date();
+  const todayIso = now.toISOString().split('T')[0];
+
+  const idRuta = safeStr(r.id_ruta || r.Id_ruta) || ('R_' + now.getTime());
+  const rutaGps = normalizeJsonText(r.ruta_gps);
+  const fotosJson = normalizeJsonText(r.fotos_json);
+
+  return {
+    id_ruta: idRuta,
+    fecha: safeStr(r.fecha) || todayIso,
+    nombre_ruta: safeStr(r.nombre_ruta) || 'Ruta sin nombre',
+    duracion_seg: Number(r.duracion_seg || 0),
+    distancia_km: Number(r.distancia_km || 0),
+    vel_media_kmh: Number(r.vel_media_kmh || 0),
+    vel_max_kmh: Number(r.vel_max_kmh || r.vel_max_hmh || 0),
+    desnivel_m: Number(r.desnivel_m || r.desnivel || 0),
+    pasos_totales: Number(r.pasos_totales || 0),
+    ruta_gps: rutaGps,
+    fotos_json: fotosJson
+  };
+}
+
+function normalizeJsonText(v) {
+  if (v === null || v === undefined || v === '') return '[]';
+  if (typeof v === 'string') return v;
+
+  try {
+    return JSON.stringify(v);
+  } catch (err) {
+    return '[]';
+  }
+}
+
+function getSheetReady() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    throw new Error('No existe la hoja: ' + SHEET_NAME);
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
+  const currentHeaders = headerRange.getValues()[0].map(safeStr);
+
+  const needsHeader = HEADERS.some(function(h, i) {
+    return currentHeaders[i] !== h;
+  });
+
+  if (needsHeader) {
+    headerRange.setValues([HEADERS]);
+  }
+
+  return sheet;
+}
+
+function getLudotecaSheetReady() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(LUDOTECA_SHEET_NAME);
+  if (!sheet) {
+    throw new Error('No existe la hoja: ' + LUDOTECA_SHEET_NAME);
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, LUDOTECA_HEADERS.length);
+  const currentHeaders = headerRange.getValues()[0].map(safeStr);
+
+  const needsHeader = LUDOTECA_HEADERS.some(function(h, i) {
+    return currentHeaders[i] !== h;
+  });
+
+  if (needsHeader) {
+    headerRange.setValues([LUDOTECA_HEADERS]);
+  }
+
+  return sheet;
+}
+
+function getAventuraSheetReady() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(AVENTURA_SHEET_NAME);
+  if (!sheet) {
+    throw new Error('No existe la hoja: ' + AVENTURA_SHEET_NAME);
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, AVENTURA_HEADERS.length);
+  const currentHeaders = headerRange.getValues()[0].map(safeStr);
+
+  // Compatibilidad: si detecta vel_max_hmh en la hoja, lo mantiene como alias de lectura,
+  // pero aqui dejamos el nombre correcto vel_max_kmh.
+  const normalizedCurrent = currentHeaders.map(function(h) {
+    return h === 'vel_max_hmh' ? 'vel_max_kmh' : h;
+  });
+
+  const needsHeader = AVENTURA_HEADERS.some(function(h, i) {
+    return normalizedCurrent[i] !== h;
+  });
+
+  if (needsHeader) {
+    headerRange.setValues([AVENTURA_HEADERS]);
+  }
+
+  return sheet;
+}
+
+function parseJsonBody(e) {
+  if (!e || !e.postData || !e.postData.contents) {
+    throw new Error('POST sin body');
+  }
+
+  try {
+    return JSON.parse(e.postData.contents);
+  } catch (err) {
+    throw new Error('Body JSON invalido');
+  }
+}
+
+function getRequestAction(e, fallback) {
+  const p = (e && e.parameter) ? e.parameter : {};
+  return safeStr(p.action || p.accion) || fallback;
+}
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function safeStr(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+
+function toBool(v) {
+  if (typeof v === 'boolean') return v;
+  const s = String(v || '').toLowerCase().trim();
+  return s === 'true' || s === '1' || s === 'si' || s === 'yes';
+}
+
+function autorizarDrive() {
+  const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  folder.getName();
+  SpreadsheetApp.getActiveSpreadsheet();
+  return 'ok';
+}
