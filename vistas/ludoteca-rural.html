@@ -246,6 +246,8 @@
 		.juego-acciones {
 			display: flex;
 			justify-content: flex-end;
+			gap: 8px;
+			flex-wrap: wrap;
 		}
 
 		.btn-instrucciones {
@@ -579,6 +581,8 @@
 		var cerrarForm = document.getElementById('cerrar-form');
 		var cancelarForm = document.getElementById('cancelar-form');
 		var form = document.getElementById('form-juego');
+		var modalFormTitulo = document.getElementById('modal-form-titulo');
+		var btnGuardarJuego = document.getElementById('guardar-juego');
 		var selectTipo = document.getElementById('juego-tipo');
 		var inputNombre = document.getElementById('juego-nombre');
 		var inputJugadores = document.getElementById('juego-jugadores');
@@ -598,6 +602,7 @@
 		var juegos = [];
 		var filtroActivo = 'Todos';
 		var imagenTemporal = '';
+		var juegoEditandoId = '';
 
 		function normalizarJuego(juego) {
 			var ahora = new Date().toISOString();
@@ -833,7 +838,16 @@
 					abrirModal(modalDetalle);
 				});
 
+				var btnModificar = document.createElement('button');
+				btnModificar.type = 'button';
+				btnModificar.className = 'btn-instrucciones';
+				btnModificar.textContent = 'Modificar';
+				btnModificar.addEventListener('click', function () {
+					abrirFormularioEdicion(juego);
+				});
+
 				acciones.appendChild(btnInstrucciones);
+				acciones.appendChild(btnModificar);
 				info.appendChild(titulo);
 				info.appendChild(chip);
 				info.appendChild(meta);
@@ -857,8 +871,35 @@
 			form.reset();
 			selectTipo.value = TIPOS[0].nombre;
 			imagenTemporal = '';
+			juegoEditandoId = '';
+			modalFormTitulo.textContent = 'Nuevo juego';
+			btnGuardarJuego.textContent = 'Guardar juego';
 			previewJuego.removeAttribute('src');
 			estadoSubida.textContent = '';
+		}
+
+		function abrirFormularioEdicion(juego) {
+			if (!juego) return;
+			juegoEditandoId = juego.id;
+			modalFormTitulo.textContent = 'Modificar juego';
+			btnGuardarJuego.textContent = 'Guardar cambios';
+
+			inputNombre.value = juego.nombre || '';
+			selectTipo.value = juego.tipo || TIPOS[0].nombre;
+			inputJugadores.value = juego.jugadores || '';
+			inputMaterial.value = juego.material || '';
+			inputInstrucciones.value = juego.instrucciones || '';
+
+			imagenTemporal = juego.imagen || '';
+			if (imagenTemporal) {
+				asignarSrcConFallback(previewJuego, imagenTemporal);
+			} else {
+				previewJuego.removeAttribute('src');
+			}
+
+			estadoSubida.textContent = '';
+			abrirModal(modalForm);
+			setTimeout(function () { inputNombre.focus(); }, 80);
 		}
 
 		function dataUrlDeArchivo(file) {
@@ -981,6 +1022,26 @@
 			}
 
 			var ahora = new Date().toISOString();
+			var juegoExistente = juegoEditandoId
+				? juegos.find(function (j) { return j.id === juegoEditandoId; })
+				: null;
+
+			if (juegoExistente) {
+				juegoExistente.nombre = nombre;
+				juegoExistente.tipo = selectTipo.value;
+				juegoExistente.imagen = imagenTemporal;
+				juegoExistente.instrucciones = inputInstrucciones.value;
+				juegoExistente.jugadores = inputJugadores.value;
+				juegoExistente.material = inputMaterial.value;
+				juegoExistente.updated_at = ahora;
+
+				guardarLocal();
+				cerrarModal(modalForm);
+				render();
+				estadoLinea.textContent = 'Juego "' + juegoExistente.nombre + '" actualizado. Pulsa Guardar para enviarlo a la nube.';
+				return;
+			}
+
 			var nuevo = normalizarJuego({
 				nombre: nombre,
 				tipo: selectTipo.value,
