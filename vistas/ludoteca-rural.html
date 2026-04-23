@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 	<meta charset="UTF-8" />
@@ -634,19 +634,21 @@
 			};
 		}
 
-		function postAppsScript(payload) {
-			return fetch(APPS_SCRIPT_URL, {
-				method: 'POST',
-				cache: 'no-store',
-				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-				body: JSON.stringify(payload)
-			}).then(function (res) {
-				return res.json();
-			}).then(function (data) {
-				if (!data.ok) throw new Error(data.error || 'Error en Apps Script');
-				return data;
-			});
-		}
+		function postAppsScript(payload, leerRespuesta) {
+return fetch(APPS_SCRIPT_URL, {
+method: 'POST',
+mode: leerRespuesta ? 'cors' : 'no-cors',
+cache: 'no-store',
+headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+body: JSON.stringify(payload)
+}).then(function (res) {
+if (!leerRespuesta) return { ok: true };
+return res.json();
+}).then(function (data) {
+if (!data.ok) throw new Error(data.error || 'Error en Apps Script');
+return data;
+});
+}
 
 		function getLudotecaNube() {
 			var url = APPS_SCRIPT_URL + '?action=getLudoteca&_ts=' + Date.now();
@@ -930,7 +932,7 @@
 					name: file.name,
 					folderId: DRIVE_FOLDER_ID
 				};
-				return postAppsScript(payload).then(function (data) {
+				return postAppsScript(payload, true).then(function (data) {
 					var fileId = data.file_id || extraerDriveFileId(data.url || '');
 					return fileId
 						? ('https://lh3.googleusercontent.com/d/' + fileId + '=w1200')

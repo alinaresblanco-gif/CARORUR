@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -1171,24 +1171,19 @@
     /* ============================================================
        GOOGLE SHEETS – Guardar ruta y cargar historial
     ============================================================ */
+    // mode:'no-cors': GAS hace redirect 302 y el browser convierte POST→GET perdiendo el body.
+    // Con no-cors el body llega íntegro a doPost. Respuesta opaca; verificamos con GET posterior.
     function postAppsScript(payload) {
       return fetch(SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         cache: 'no-store',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (!data || data.ok !== true) {
-            throw new Error((data && data.error) ? data.error : 'Error en Apps Script');
-          }
-          return data;
-        });
+      });
     }
 
     function guardarRuta(ruta) {
-      // Siempre guardar en localStorage como copia de seguridad local
       var local = JSON.parse(localStorage.getItem('carorur_rutas') || '[]');
       local.unshift(ruta);
       localStorage.setItem('carorur_rutas', JSON.stringify(local.slice(0, 100)));
@@ -1198,13 +1193,16 @@
         return;
       }
 
-      postAppsScript({ accion: 'guardarRuta', action: 'guardarRuta', datos: ruta, ruta: ruta, row: ruta })
+      document.getElementById('lista-historial').innerHTML =
+        '<p class="historial-vacio">⏳ Guardando ruta en la nube...</p>';
+
+      postAppsScript({ action: 'guardarRuta', accion: 'guardarRuta', datos: ruta })
         .then(function () {
-          cargarHistorial();
+          return new Promise(function (resolve) { setTimeout(resolve, 3500); });
         })
+        .then(function () { cargarHistorial(); })
         .catch(function (err) {
           console.warn('No se pudo guardar en Sheets:', err);
-          alert('No se pudo guardar en Google Sheets. Se guardo en local.\n\nDetalle: ' + (err && err.message ? err.message : err));
           renderHistorial(local);
         });
     }

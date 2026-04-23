@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 	<meta charset="UTF-8" />
@@ -582,17 +582,19 @@
 			return reconstruido.length ? reconstruido : [crearDia(), crearDia(), crearDia()];
 		}
 
-		async function postAppsScript(payload) {
-			var res = await fetch(APPS_SCRIPT_URL, {
-				method: 'POST',
-				cache: 'no-store',
-				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-				body: JSON.stringify(payload)
-			});
-			var data = await res.json();
-			if (!data.ok) throw new Error(data.error || 'Error en Apps Script');
-			return data;
-		}
+		async function postAppsScript(payload, leerRespuesta) {
+var res = await fetch(APPS_SCRIPT_URL, {
+method: 'POST',
+mode: leerRespuesta ? 'cors' : 'no-cors',
+cache: 'no-store',
+headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+body: JSON.stringify(payload)
+});
+if (!leerRespuesta) return { ok: true };
+var data = await res.json();
+if (!data.ok) throw new Error(data.error || 'Error en Apps Script');
+return data;
+}
 
 		async function cargarMenuNube() {
 			var url = APPS_SCRIPT_URL + '?action=getMenu&menu_id=' + encodeURIComponent(MENU_ID) + '&_ts=' + Date.now();
@@ -830,7 +832,7 @@
 							mimeType: uploadPayload.mimeType,
 							name: uploadPayload.name,
 							folderId: uploadPayload.folderId
-						});
+						}), true);
 						var fileId = data.file_id || extraerDriveFileId(data.url || '');
 						arrFotos[itemSel] = fileId
 							? ('https://lh3.googleusercontent.com/d/' + fileId + '=w1200')
