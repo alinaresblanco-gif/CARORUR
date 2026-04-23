@@ -1171,6 +1171,22 @@
     /* ============================================================
        GOOGLE SHEETS – Guardar ruta y cargar historial
     ============================================================ */
+    function postAppsScript(payload) {
+      return fetch(SCRIPT_URL, {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || data.ok !== true) {
+            throw new Error((data && data.error) ? data.error : 'Error en Apps Script');
+          }
+          return data;
+        });
+    }
+
     function guardarRuta(ruta) {
       // Siempre guardar en localStorage como copia de seguridad local
       var local = JSON.parse(localStorage.getItem('carorur_rutas') || '[]');
@@ -1182,20 +1198,13 @@
         return;
       }
 
-      fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'guardarRuta', action: 'guardarRuta', datos: ruta, ruta: ruta, row: ruta })
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (!data || data.ok !== true) {
-            throw new Error((data && data.error) ? data.error : 'Error al guardar ruta en API');
-          }
+      postAppsScript({ accion: 'guardarRuta', action: 'guardarRuta', datos: ruta, ruta: ruta, row: ruta })
+        .then(function () {
           cargarHistorial();
         })
         .catch(function (err) {
           console.warn('No se pudo guardar en Sheets:', err);
+          alert('No se pudo guardar en Google Sheets. Se guardo en local.\n\nDetalle: ' + (err && err.message ? err.message : err));
           renderHistorial(local);
         });
     }
@@ -1212,9 +1221,14 @@
         return;
       }
 
-      fetch(SCRIPT_URL + '?accion=obtenerRutas')
+      fetch(SCRIPT_URL + '?action=getAventura&_ts=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { return r.json(); })
-        .then(function (data) { renderHistorial(data.rutas || []); })
+        .then(function (data) {
+          if (!data || data.ok !== true) {
+            throw new Error((data && data.error) ? data.error : 'No se pudo cargar rutas');
+          }
+          renderHistorial(data.rutas || data.rows || []);
+        })
         .catch(function () {
           var local = JSON.parse(localStorage.getItem('carorur_rutas') || '[]');
           renderHistorial(local);
@@ -1323,11 +1337,10 @@
 
       // Eliminar de Google Sheets si está configurado
       if (SCRIPT_URL) {
-        fetch(SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accion: 'eliminarRuta', action: 'eliminarRuta', Id_ruta: idRuta, id_ruta: idRuta })
-        }).catch(function (err) { console.warn('No se pudo eliminar en Sheets:', err); });
+        postAppsScript({ accion: 'eliminarRuta', action: 'eliminarRuta', Id_ruta: idRuta, id_ruta: idRuta })
+          .catch(function (err) {
+            console.warn('No se pudo eliminar en Sheets:', err);
+          });
       }
 
       // Refrescar lista en pantalla
