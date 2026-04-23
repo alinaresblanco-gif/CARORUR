@@ -16,6 +16,7 @@ const HEADERS = [
 const DEFAULT_MENU_ID = 'principal';
 const DRIVE_FOLDER_NAME = 'CARORUR-FOTOS';
 const DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
+const SPREADSHEET_ID = '1DuUwG7AeyrblPHzWHvxvPvcZnFowsV46E4LJmEQmxDs';
 
 const LUDOTECA_SHEET_NAME = 'ludoteca';
 const LUDOTECA_HEADERS = [
@@ -476,7 +477,7 @@ function normalizeJsonText(v) {
 }
 
 function getSheetReady() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheetReady();
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     throw new Error('No existe la hoja: ' + SHEET_NAME);
@@ -497,7 +498,7 @@ function getSheetReady() {
 }
 
 function getLudotecaSheetReady() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheetReady();
   const sheet = ss.getSheetByName(LUDOTECA_SHEET_NAME);
   if (!sheet) {
     throw new Error('No existe la hoja: ' + LUDOTECA_SHEET_NAME);
@@ -518,7 +519,7 @@ function getLudotecaSheetReady() {
 }
 
 function getAventuraSheetReady() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheetReady();
   const sheet = ss.getSheetByName(AVENTURA_SHEET_NAME);
   if (!sheet) {
     throw new Error('No existe la hoja: ' + AVENTURA_SHEET_NAME);
@@ -578,9 +579,20 @@ function toBool(v) {
   return s === 'true' || s === '1' || s === 'si' || s === 'yes';
 }
 
+function getSpreadsheetReady() {
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) return active;
+
+  if (SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+
+  throw new Error('No hay hoja activa y falta SPREADSHEET_ID');
+}
+
 function autorizarDrive() {
   const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
   folder.getName();
-  SpreadsheetApp.getActiveSpreadsheet();
+  getSpreadsheetReady();
   return 'ok';
 }

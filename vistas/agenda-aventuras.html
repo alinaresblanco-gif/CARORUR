@@ -437,7 +437,7 @@
        Rellena SCRIPT_URL con la URL de tu Google Apps Script
        desplegado como Web App cuando esté listo.
     ============================================================ */
-    var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTNVLcbxqjia9KSPo678XCx_WCDDh-DVqppIqNiMa_7yGgkwcnm6kfeDocSFIhttG4/exec';
+    var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycg1nrbCB_www3bqb-RVM2nl4hHvEozFdY2uz50jX6iiAGW-yFu3MeRENqo0GozWCu/exec';
 
     /* ============================================================
        ESTADO DE LA RUTA
@@ -1020,8 +1020,10 @@
         ? parseFloat((distanciaKm / (segundosTotales / 3600)).toFixed(2))
         : 0;
 
+      var rutaId = Date.now().toString(36).toUpperCase();
+
       var ruta = {
-        Id_ruta      : Date.now().toString(36).toUpperCase(),
+        id_ruta      : rutaId,
         fecha        : new Date().toISOString().split('T')[0],
         nombre_ruta  : nombreRuta,
         duracion_seg : segundosTotales,
@@ -1183,14 +1185,24 @@
       fetch(SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'guardarRuta', datos: ruta })
+        body: JSON.stringify({ accion: 'guardarRuta', action: 'guardarRuta', datos: ruta, ruta: ruta, row: ruta })
       })
         .then(function (r) { return r.json(); })
-        .then(function () { cargarHistorial(); })
+        .then(function (data) {
+          if (!data || data.ok !== true) {
+            throw new Error((data && data.error) ? data.error : 'Error al guardar ruta en API');
+          }
+          cargarHistorial();
+        })
         .catch(function (err) {
           console.warn('No se pudo guardar en Sheets:', err);
           renderHistorial(local);
         });
+    }
+
+    function getRutaId(r) {
+      if (!r) { return ''; }
+      return String(r.id_ruta || r.Id_ruta || '').trim();
     }
 
     function cargarHistorial() {
@@ -1298,10 +1310,15 @@
     function eliminarRuta(idx) {
       var ruta = historialData[idx];
       if (!ruta) return;
+      var idRuta = getRutaId(ruta);
+      if (!idRuta) {
+        alert('No se pudo eliminar: la ruta no tiene id válido.');
+        return;
+      }
 
       // Eliminar de localStorage
       var local = JSON.parse(localStorage.getItem('carorur_rutas') || '[]');
-      local = local.filter(function (r) { return r.Id_ruta !== ruta.Id_ruta; });
+      local = local.filter(function (r) { return getRutaId(r) !== idRuta; });
       localStorage.setItem('carorur_rutas', JSON.stringify(local));
 
       // Eliminar de Google Sheets si está configurado
@@ -1309,7 +1326,7 @@
         fetch(SCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accion: 'eliminarRuta', Id_ruta: ruta.Id_ruta })
+          body: JSON.stringify({ accion: 'eliminarRuta', action: 'eliminarRuta', Id_ruta: idRuta, id_ruta: idRuta })
         }).catch(function (err) { console.warn('No se pudo eliminar en Sheets:', err); });
       }
 
