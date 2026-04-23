@@ -12,12 +12,16 @@
 .vista-contenido {
 padding: 0 !important;
 overflow: hidden !important;
+display: flex !important;
+flex-direction: column !important;
 }
 .music-hub {
 display: grid;
 grid-template-columns: 1fr 350px;
 gap: 0.75rem;
-height: calc(100vh - 68px);
+height: 100%;
+flex: 1;
+min-height: 0;
 padding: 0.75rem;
 box-sizing: border-box;
 overflow: hidden;
@@ -174,7 +178,7 @@ cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.18s; flex-shrink:
 .btn-modal-save { padding: 0.5rem 1.15rem; background: var(--tinta-rural); color: var(--papel-claro); border: none; border-radius: 8px; font-family: 'Special Elite', cursive; font-size: 0.75rem; cursor: pointer; transition: opacity 0.18s; }
 .btn-modal-save:hover { opacity: 0.85; }
 @media (max-width: 680px) {
-.music-hub { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; overflow: auto; }
+.music-hub { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; overflow: visible; }
 .vista-contenido { overflow: auto !important; }
 .playlist-panel { order: 1; min-height: 280px; max-height: 42vh; }
 .player-panel { order: 2; }
