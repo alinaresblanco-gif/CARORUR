@@ -48,6 +48,24 @@ const AVENTURA_HEADERS = [
   'fotos_json'
 ];
 
+const PLAYLISTS_SHEET_NAME = 'playlists';
+const PLAYLISTS_HEADERS = ['id_playlist', 'nombre', 'creador', 'fecha_creacion'];
+
+const CANCIONES_SHEET_NAME = 'canciones';
+const CANCIONES_HEADERS = [
+  'id_cancion',
+  'id_playlist',
+  'titulo',
+  'artista',
+  'url_stream',
+  'plataforma',
+  'portada_url',
+  'votos',
+  'anadido_por',
+  'fecha_added'
+];
+
+
 function doGet(e) {
   try {
     const action = getRequestAction(e, 'getMenu');
@@ -70,6 +88,15 @@ function doGet(e) {
     if (action === 'getAventura' || action === 'obtenerRutas') {
       const rutas = getAventuraRows();
       return jsonOut({ ok: true, rutas: rutas, rows: rutas });
+    }
+
+    if (action === 'getPlaylists') {
+      return jsonOut({ ok: true, playlists: getPlaylistsRows() });
+    }
+
+    if (action === 'getCanciones') {
+      const idPlaylist = (e && e.parameter && e.parameter.id_playlist) ? e.parameter.id_playlist : '';
+      return jsonOut({ ok: true, canciones: getCancionesRows(idPlaylist) });
     }
 
     return jsonOut({ ok: false, error: 'Accion GET no soportada' });
@@ -187,6 +214,22 @@ function doPost(e) {
           id_ruta: idRuta,
           removed_rows: removed
         });
+      }
+
+      if (action === 'savePlaylists') {
+        const rows = Array.isArray(payload.playlists) ? payload.playlists : [];
+        savePlaylistsRows(rows);
+        return jsonOut({ ok: true, action: 'savePlaylists', saved: rows.length });
+      }
+
+      if (action === 'saveCanciones') {
+        const idPlaylist = safeStr(payload.id_playlist);
+        const rows = Array.isArray(payload.canciones) ? payload.canciones : [];
+        if (!idPlaylist) {
+          return jsonOut({ ok: false, error: 'Falta id_playlist' });
+        }
+        saveCancionesRows(idPlaylist, rows);
+        return jsonOut({ ok: true, action: 'saveCanciones', id_playlist: idPlaylist, saved: rows.length });
       }
 
       return jsonOut({ ok: false, error: 'Accion POST no soportada' });
@@ -595,4 +638,119 @@ function autorizarDrive() {
   folder.getName();
   getSpreadsheetReady();
   return 'ok';
+}
+
+function getPlaylistsRows() {
+  const sheet = getPlaylistsSheetReady();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    if (safeStr(r[0])) {
+      out.push({
+        id_playlist: safeStr(r[0]),
+        nombre: safeStr(r[1]),
+        creador: safeStr(r[2]),
+        fecha_creacion: safeStr(r[3])
+      });
+    }
+  }
+  return out;
+}
+
+function savePlaylistsRows(rows) {
+  var sheet = getPlaylistsSheetReady();
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, PLAYLISTS_HEADERS.length).setValues([PLAYLISTS_HEADERS]);
+  if (!rows.length) return;
+  var toAppend = rows.map(function(r) {
+    return [safeStr(r.id_playlist), safeStr(r.nombre), safeStr(r.creador), safeStr(r.fecha_creacion)];
+  });
+  sheet.getRange(2, 1, toAppend.length, PLAYLISTS_HEADERS.length).setValues(toAppend);
+}
+
+function getCancionesRows(idPlaylist) {
+  var sheet = getCancionesSheetReady();
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    if (!safeStr(r[0])) continue;
+    var item = {
+      id_cancion: safeStr(r[0]),
+      id_playlist: safeStr(r[1]),
+      titulo: safeStr(r[2]),
+      artista: safeStr(r[3]),
+      url_stream: safeStr(r[4]),
+      plataforma: safeStr(r[5]),
+      portada_url: safeStr(r[6]),
+      votos: Number(r[7] || 0),
+      anadido_por: safeStr(r[8]),
+      fecha_added: safeStr(r[9])
+    };
+    if (!idPlaylist || item.id_playlist === idPlaylist) {
+      out.push(item);
+    }
+  }
+  out.sort(function(a, b) { return b.votos - a.votos; });
+  return out;
+}
+
+function saveCancionesRows(idPlaylist, rows) {
+  var sheet = getCancionesSheetReady();
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    var range = sheet.getRange(2, 1, lastRow - 1, CANCIONES_HEADERS.length);
+    var allValues = range.getValues();
+    var keep = allValues.filter(function(r) { return safeStr(r[1]) !== idPlaylist; });
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, CANCIONES_HEADERS.length).setValues([CANCIONES_HEADERS]);
+    if (keep.length) {
+      sheet.getRange(2, 1, keep.length, CANCIONES_HEADERS.length).setValues(keep);
+    }
+  }
+  if (!rows.length) return;
+  var toAppend = rows.map(function(r) {
+    return [
+      safeStr(r.id_cancion),
+      idPlaylist,
+      safeStr(r.titulo),
+      safeStr(r.artista),
+      safeStr(r.url_stream),
+      safeStr(r.plataforma),
+      safeStr(r.portada_url),
+      Number(r.votos || 0),
+      safeStr(r.anadido_por || ''),
+      safeStr(r.fecha_added)
+    ];
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, CANCIONES_HEADERS.length).setValues(toAppend);
+}
+
+function getPlaylistsSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(PLAYLISTS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(PLAYLISTS_SHEET_NAME);
+  }
+  var headerRange = sheet.getRange(1, 1, 1, PLAYLISTS_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var needsHeader = PLAYLISTS_HEADERS.some(function(h, i) { return currentHeaders[i] !== h; });
+  if (needsHeader) { headerRange.setValues([PLAYLISTS_HEADERS]); }
+  return sheet;
+}
+
+function getCancionesSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(CANCIONES_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(CANCIONES_SHEET_NAME);
+  }
+  var headerRange = sheet.getRange(1, 1, 1, CANCIONES_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var needsHeader = CANCIONES_HEADERS.some(function(h, i) { return currentHeaders[i] !== h; });
+  if (needsHeader) { headerRange.setValues([CANCIONES_HEADERS]); }
+  return sheet;
 }
