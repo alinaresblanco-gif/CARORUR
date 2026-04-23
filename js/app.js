@@ -12,6 +12,7 @@
   const iframeVista      = document.getElementById('iframe-vista');
   const btnVolver        = document.getElementById('btn-volver');
   const btnEdicion       = document.getElementById('btn-edicion');
+  const STORAGE_VISTA_KEY = 'carorur_vista_activa';
 
   /* ============================================================
      HISTORY API: estado base al cargar la app
@@ -20,9 +21,15 @@
   ============================================================ */
   history.replaceState({ vista: null }, '');
 
-  function abrirVista(rutaVista) {
+  function abrirVista(rutaVista, options) {
+    const opts = options || {};
     iframeVista.src = rutaVista;
     contenedorVista.classList.remove('oculto');
+    localStorage.setItem(STORAGE_VISTA_KEY, rutaVista);
+    if (opts.replaceState) {
+      history.replaceState({ vista: rutaVista }, '');
+      return;
+    }
     // Empuja un nuevo estado para que el botón atrás lo capture
     history.pushState({ vista: rutaVista }, '');
   }
@@ -30,6 +37,8 @@
   function cerrarVista() {
     iframeVista.src = '';
     contenedorVista.classList.add('oculto');
+    localStorage.removeItem(STORAGE_VISTA_KEY);
+    history.replaceState({ vista: null }, '');
   }
 
   /* ============================================================
@@ -42,6 +51,14 @@
       abrirVista(rutaVista);
     });
   });
+
+  // Si la app se recarga (pantalla bloqueada/desbloqueada), restaurar la vista abierta
+  const nav = performance.getEntriesByType('navigation')[0];
+  const esRecarga = nav && (nav.type === 'reload' || nav.type === 'back_forward');
+  const vistaGuardada = localStorage.getItem(STORAGE_VISTA_KEY);
+  if (vistaGuardada && esRecarga) {
+    abrirVista(vistaGuardada, { replaceState: true });
+  }
 
   /* ============================================================
      BOTÓN VOLVER (pantalla): limpia el iframe y vuelve al inicio

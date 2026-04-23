@@ -51,6 +51,29 @@
     .clima-alerta { color: #8b0000; font-weight: 700; }
     .clima-aviso  { color: #7b5800; }
 
+    .aviso-recuperacion {
+      margin: 8px 12px 0;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(46, 125, 50, 0.35);
+      background: rgba(46, 125, 50, 0.12);
+      color: #1b5e20;
+      font-family: 'Special Elite', serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.02em;
+      display: none;
+    }
+
+    .aviso-recuperacion.activo {
+      display: block;
+      animation: fadeAviso 280ms ease-out;
+    }
+
+    @keyframes fadeAviso {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     .btn-activar-gps {
       display: inline-flex;
       align-items: center;
@@ -327,6 +350,9 @@
         <span id="clima-texto">📍 Toca para activar ubicación y clima</span>
         <button class="btn-activar-gps" id="btn-activar-gps" aria-label="Activar GPS y meteorología">📡 Activar GPS</button>
       </div>
+      <div id="aviso-recuperacion" class="aviso-recuperacion" role="status" aria-live="polite">
+        ✅ Ruta recuperada automáticamente. Seguimos donde lo dejaste.
+      </div>
 
       <!-- MAPA -->
       <div id="mapa" aria-label="Mapa de la ruta"></div>
@@ -435,6 +461,11 @@
     var iniciarNuevoTramo = false;  // true = el proximo punto GPS abre un nuevo segmento
     var tsUltimoPunto     = null;   // timestamp del ultimo punto recibido
     var GAP_MAXIMO_MS     = 30000;  // 30 s sin GPS = corte de tramo
+    var STORAGE_RUTA_KEY  = 'carorur_ruta_activa';
+    var timeoutAvisoRecuperacion = null;
+    var tsOcultoInicio    = null;
+    var gpsWatchdog       = null;
+    var UMBRAL_REINTENTO_GPS_MS = 45000;
 
     /* ============================================================
        MAPA (Leaflet + OpenStreetMap)
@@ -468,6 +499,153 @@
       segmentos.forEach(function (s) { mapa.removeLayer(s); });
       segmentos      = [];
       segmentoActual = null;
+    }
+
+    function limpiarMarcadoresFoto() {
+      mapa.eachLayer(function (layer) {
+        if (layer._esFotoMarker) { mapa.removeLayer(layer); }
+      });
+    }
+
+    function redibujarRutaDesdePuntos() {
+      limpiarSegmentos();
+      var hayPunto = false;
+      puntoRuta.forEach(function (p) {
+        if (!p || p.corte) {
+          if (segmentoActual && segmentoActual.getLatLngs().length > 0) {
+            segmentoActual = null;
+          }
+          return;
+        }
+        if (!segmentoActual) { nuevoSegmento(); }
+        segmentoActual.addLatLng([p.lat, p.lng]);
+        hayPunto = true;
+      });
+      if (!hayPunto) { return; }
+
+      var ultimo = null;
+      for (var i = puntoRuta.length - 1; i >= 0; i--) {
+        if (puntoRuta[i] && !puntoRuta[i].corte) {
+          ultimo = puntoRuta[i];
+          break;
+        }
+      }
+      if (!ultimo) { return; }
+
+      if (!marcadorActual) {
+        marcadorActual = L.marker([ultimo.lat, ultimo.lng], { icon: iconoPosicion }).addTo(mapa);
+      } else {
+        marcadorActual.setLatLng([ultimo.lat, ultimo.lng]);
+      }
+      centrarMapa(ultimo.lat, ultimo.lng);
+    }
+
+    function serializarSesion() {
+      return {
+        estado: estado,
+        segundosTotales: segundosTotales,
+        distanciaKm: distanciaKm,
+        velMaxKmh: velMaxKmh,
+        desnivelAcum: desnivelAcum,
+        altitudAnterior: altitudAnterior,
+        posAnterior: posAnterior,
+        puntoRuta: puntoRuta,
+        fotosRuta: fotosRuta,
+        nombreRuta: nombreRuta,
+        tsUltimoPunto: tsUltimoPunto
+      };
+    }
+
+    function mostrarAvisoRecuperacion() {
+      var aviso = document.getElementById('aviso-recuperacion');
+      if (!aviso) { return; }
+      aviso.classList.add('activo');
+      if (timeoutAvisoRecuperacion) {
+        clearTimeout(timeoutAvisoRecuperacion);
+      }
+      timeoutAvisoRecuperacion = setTimeout(function () {
+        aviso.classList.remove('activo');
+      }, 6500);
+    }
+
+    function guardarSesionLocal() {
+      if (estado === 'parado') {
+        localStorage.removeItem(STORAGE_RUTA_KEY);
+        return;
+      }
+      try {
+        localStorage.setItem(STORAGE_RUTA_KEY, JSON.stringify(serializarSesion()));
+      } catch (e) {
+        console.warn('No se pudo guardar el estado de la ruta:', e);
+      }
+    }
+
+    function restaurarSesionLocal() {
+      var raw = localStorage.getItem(STORAGE_RUTA_KEY);
+      if (!raw) { return; }
+
+      try {
+        var data = JSON.parse(raw);
+        if (!data || (data.estado !== 'activo' && data.estado !== 'pausado')) {
+          return;
+        }
+
+        estado          = data.estado;
+        segundosTotales = Number(data.segundosTotales) || 0;
+        distanciaKm     = Number(data.distanciaKm) || 0;
+        velMaxKmh       = Number(data.velMaxKmh) || 0;
+        desnivelAcum    = Number(data.desnivelAcum) || 0;
+        altitudAnterior = (data.altitudAnterior === null || data.altitudAnterior === undefined)
+          ? null
+          : Number(data.altitudAnterior);
+        posAnterior     = data.posAnterior || null;
+        puntoRuta       = Array.isArray(data.puntoRuta) ? data.puntoRuta : [];
+        fotosRuta       = Array.isArray(data.fotosRuta) ? data.fotosRuta : [];
+        nombreRuta      = data.nombreRuta || 'Ruta en curso';
+        tsUltimoPunto   = Number(data.tsUltimoPunto) || null;
+
+        document.getElementById('stat-tiempo').textContent = formatTiempo(segundosTotales);
+        document.getElementById('stat-distancia').textContent = distanciaKm.toFixed(2) + ' km';
+        document.getElementById('stat-vel-max').textContent = velMaxKmh.toFixed(1) + ' km/h';
+        document.getElementById('stat-desnivel').textContent = Math.round(desnivelAcum) + ' m';
+        document.getElementById('stat-pasos').textContent = Math.round(distanciaKm * 1000 / 0.65).toLocaleString('es-ES');
+        actualizarVelMedia();
+
+        redibujarRutaDesdePuntos();
+        limpiarMarcadoresFoto();
+        fotosRuta.forEach(function (f) {
+          if (!f || !f.lat || !f.lng || !f.foto) { return; }
+          var m = L.marker([f.lat, f.lng], { icon: iconoFoto });
+          m._esFotoMarker = true;
+          m.bindPopup('<img src="' + f.foto + '" style="max-width:180px;border-radius:6px;" />');
+          m.addTo(mapa);
+        });
+
+        btnIniciar.disabled  = true;
+        btnPausar.disabled   = false;
+        btnTerminar.disabled = false;
+        btnFoto.disabled     = (estado !== 'activo');
+
+        if (estado === 'activo') {
+          btnPausar.textContent = '⏸ PAUSAR';
+          btnPausar.className = 'btn-ruta btn-pausar';
+          if (!timerInterval) { iniciarCronometro(); }
+          iniciarGPS();
+          iniciarWatchdogGPS();
+          activarWakeLock();
+        } else {
+          btnPausar.textContent = '▶ REANUDAR';
+          btnPausar.className = 'btn-ruta btn-reanudar';
+          detenerGPS();
+          detenerWatchdogGPS();
+          liberarWakeLock();
+        }
+
+        document.getElementById('clima-texto').textContent = 'Ruta restaurada automaticamente.';
+        mostrarAvisoRecuperacion();
+      } catch (e) {
+        console.warn('No se pudo restaurar la ruta activa:', e);
+      }
     }
 
     // Compatibilidad: lineaRuta ya no se usa para dibujar,
@@ -514,6 +692,7 @@
           segundosTotales++;
           document.getElementById('stat-tiempo').textContent = formatTiempo(segundosTotales);
           actualizarVelMedia();
+          guardarSesionLocal();
         }
       }, 1000);
     }
@@ -622,6 +801,7 @@
       if (alt !== null) { altitudAnterior = alt; }
 
       actualizarStats();
+      guardarSesionLocal();
     }
 
     function iniciarGPS() {
@@ -629,6 +809,7 @@
         alert('Tu dispositivo no soporta geoloción.');
         return false;
       }
+      if (watchId !== null) { return true; }
       watchId = navigator.geolocation.watchPosition(onPosicion, function (err) {
         console.warn('GPS:', err.message);
       }, {
@@ -643,6 +824,32 @@
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
+      }
+    }
+
+    function reiniciarGPS() {
+      detenerGPS();
+      iniciarGPS();
+    }
+
+    function iniciarWatchdogGPS() {
+      if (gpsWatchdog !== null) { return; }
+      gpsWatchdog = setInterval(function () {
+        if (estado !== 'activo') { return; }
+        if (document.visibilityState !== 'visible') { return; }
+        if (tsUltimoPunto === null) { return; }
+        if ((Date.now() - tsUltimoPunto) > UMBRAL_REINTENTO_GPS_MS) {
+          // Algunos móviles congelan watchPosition al volver de llamadas.
+          // Reintentamos el watch sin parar la ruta.
+          reiniciarGPS();
+        }
+      }, 15000);
+    }
+
+    function detenerWatchdogGPS() {
+      if (gpsWatchdog !== null) {
+        clearInterval(gpsWatchdog);
+        gpsWatchdog = null;
       }
     }
 
@@ -677,6 +884,7 @@
     ============================================================ */
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') {
+        tsOcultoInicio = Date.now();
         // La pantalla se apagó o la app pasó a segundo plano
         // El crónometro sigue contando (estado 'activo' no cambia),
         // pero el GPS puede quedar sin recibir puntos.
@@ -685,7 +893,10 @@
       }
       // La pantalla volvió: si la ruta está activa, forzar nuevo tramo
       if (estado === 'activo') {
-        iniciarNuevoTramo = true;
+        var ocultoMs = tsOcultoInicio ? (Date.now() - tsOcultoInicio) : 0;
+        iniciarNuevoTramo = ocultoMs > GAP_MAXIMO_MS;
+        tsOcultoInicio = null;
+        if (watchId === null) { iniciarGPS(); }
         // Reactiv. el wake lock si fue liberado por el sistema
         activarWakeLock();
       }
@@ -757,6 +968,9 @@
 
       iniciarCronometro();
       iniciarGPS();
+      iniciarWatchdogGPS();
+      activarWakeLock();
+      guardarSesionLocal();
     }
 
     // -- PAUSAR / REANUDAR --
@@ -766,12 +980,19 @@
         btnPausar.textContent = '▶ REANUDAR';
         btnPausar.className   = 'btn-ruta btn-reanudar';
         btnFoto.disabled = true;
+        detenerGPS();
+        detenerWatchdogGPS();
+        liberarWakeLock();
       } else if (estado === 'pausado') {
         estado = 'activo';
         btnPausar.textContent = '⏸ PAUSAR';
         btnPausar.className   = 'btn-ruta btn-pausar';
         btnFoto.disabled = false;
+        iniciarGPS();
+        iniciarWatchdogGPS();
+        activarWakeLock();
       }
+      guardarSesionLocal();
     });
 
     // -- TERMINAR --
@@ -784,7 +1005,9 @@
       estado = 'parado';
       detenerCronometro();
       detenerGPS();
+      detenerWatchdogGPS();
       liberarWakeLock();
+      localStorage.removeItem(STORAGE_RUTA_KEY);
 
       btnIniciar.disabled  = false;
       btnPausar.disabled   = true;
@@ -1130,10 +1353,15 @@
 
     if (btnActivarGps) { btnActivarGps.addEventListener('click', pedirUbicacion); }
 
+    window.addEventListener('pagehide', function () {
+      guardarSesionLocal();
+    });
+
     /* ============================================================
        INICIALIZACIÓN
     ============================================================ */
     cargarHistorial();
+    restaurarSesionLocal();
 
   }());
   </script>
