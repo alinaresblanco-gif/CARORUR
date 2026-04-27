@@ -13,6 +13,7 @@
   const btnVolver        = document.getElementById('btn-volver');
   const btnEdicion       = document.getElementById('btn-edicion');
   const STORAGE_VISTA_KEY = 'carorur_vista_activa';
+  const STORAGE_LAST_ACTIVE_TS = 'carorur_last_active_ts';
 
   /* ============================================================
      HISTORY API: estado base al cargar la app
@@ -56,9 +57,16 @@
   const nav = performance.getEntriesByType('navigation')[0];
   const esRecarga = nav && (nav.type === 'reload' || nav.type === 'back_forward');
   const vistaGuardada = localStorage.getItem(STORAGE_VISTA_KEY);
-  if (vistaGuardada && esRecarga) {
+  const estuvoActivaReciente = (Date.now() - Number(localStorage.getItem(STORAGE_LAST_ACTIVE_TS) || '0')) < 45000;
+  if (vistaGuardada && (esRecarga || estuvoActivaReciente)) {
     abrirVista(vistaGuardada, { replaceState: true });
   }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      localStorage.setItem(STORAGE_LAST_ACTIVE_TS, String(Date.now()));
+    }
+  });
 
   /* ============================================================
      BOTÓN VOLVER (pantalla): limpia el iframe y vuelve al inicio

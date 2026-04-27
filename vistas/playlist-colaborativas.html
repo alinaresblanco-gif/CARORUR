@@ -399,6 +399,7 @@ var mediaObjectUrls  = {};
 var MEDIA_DB_NAME    = 'carorur_local_media';
 var MEDIA_DB_VERSION = 1;
 var MEDIA_STORE_NAME = 'audio_files';
+var MAX_DATA_URL_FILE_MB = 12;
 function genId(prefix) { return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000); }
 function escHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function isAudioUrl(url) { return /\.(mp3|m4a|aac|ogg|wav|flac|webm)(\?|#|$)/i.test(url || ''); }
@@ -436,8 +437,17 @@ function loadFromCache() { playlists = lsGet('rmh_playlists', []); canciones = l
 function saveToCache() { lsSet('rmh_playlists', playlists); lsSet('rmh_canciones', canciones); }
 function saveLocalCache() { lsSet('rmh_local_canciones', localCanciones); }
 function getSongsForPlaylist(idPlaylist) { return (canciones[idPlaylist] || []).concat(localCanciones[idPlaylist] || []); }
+function fileToDataUrl(file) {
+return new Promise(function(resolve, reject) {
+var reader = new FileReader();
+reader.onload = function() { resolve(reader.result || ''); };
+reader.onerror = function() { reject(new Error('No se pudo leer el archivo local.')); };
+reader.readAsDataURL(file);
+});
+}
 function openMediaDb() {
 return new Promise(function(resolve, reject) {
+if (!window.indexedDB) { reject(new Error('IndexedDB no disponible')); return; }
 var request = indexedDB.open(MEDIA_DB_NAME, MEDIA_DB_VERSION);
 request.onupgradeneeded = function(e) {
 var db = e.target.result;
@@ -446,7 +456,7 @@ db.createObjectStore(MEDIA_STORE_NAME, { keyPath: 'id' });
 }
 };
 request.onsuccess = function() { resolve(request.result); };
-request.onerror = function() { reject(request.error); };
+request.onerror = function() { reject(request.error || new Error('No se pudo abrir IndexedDB')); };
 });
 }
 async function putLocalAsset(id, file) {
@@ -469,9 +479,12 @@ request.onerror = function() { reject(request.error); };
 }
 async function resolveSongPlaybackUrl(song) {
 if (!song) return null;
+if (song.data_url) { return song.data_url; }
 if (song.local_asset_id) {
 if (mediaObjectUrls[song.local_asset_id]) return mediaObjectUrls[song.local_asset_id];
-var file = await getLocalAsset(song.local_asset_id);
+var file = null;
+try { file = await getLocalAsset(song.local_asset_id); }
+catch(e) { file = null; }
 if (!file) return null;
 mediaObjectUrls[song.local_asset_id] = URL.createObjectURL(file);
 return mediaObjectUrls[song.local_asset_id];
@@ -713,14 +726,35 @@ document.getElementById('btnSaveSong').addEventListener('click', async function(
 var url = inputSongUrl.value.trim(); var titulo = inputSongTitle.value.trim();
 if (!url && !pendingLocalFile) { inputSongUrl.focus(); return; }
 if (!titulo) { inputSongTitle.focus(); return; }
+oembedStatus.textContent = '';
+oembedStatus.className = 'form-hint';
 var cancion;
 if (pendingLocalFile) {
 var localAssetId = genId('LOCAL');
-await putLocalAsset(localAssetId, pendingLocalFile);
-cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim(), url_stream: '', plataforma: 'local', portada_url: '', votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0], local_only: true, local_asset_id: localAssetId, nombre_archivo: pendingLocalFile.name };
+var localDataUrl = '';
+try { await putLocalAsset(localAssetId, pendingLocalFile); }
+catch(e) {
+if ((pendingLocalFile.size / (1024 * 1024)) > MAX_DATA_URL_FILE_MB) {
+oembedStatus.textContent = 'No se pudo guardar el audio local. El archivo supera ' + MAX_DATA_URL_FILE_MB + ' MB y este navegador no permite almacenamiento local avanzado.';
+oembedStatus.className = 'form-hint err';
+return;
+}
+try { localDataUrl = await fileToDataUrl(pendingLocalFile); }
+catch(readErr) {
+oembedStatus.textContent = 'No se pudo guardar el audio local en este dispositivo.';
+oembedStatus.className = 'form-hint err';
+return;
+}
+}
+cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim(), url_stream: '', plataforma: 'local', portada_url: '', votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0], local_only: true, local_asset_id: localDataUrl ? '' : localAssetId, data_url: localDataUrl, nombre_archivo: pendingLocalFile.name };
 if (!localCanciones[curPlaylist]) localCanciones[curPlaylist] = [];
 localCanciones[curPlaylist].push(cancion);
-saveLocalCache();
+try { saveLocalCache(); }
+catch(e) {
+oembedStatus.textContent = 'No se pudo guardar en almacenamiento local. Intenta con una cancion mas corta.';
+oembedStatus.className = 'form-hint err';
+return;
+}
 }
 else {
 var platform = detectPlatform(url);
