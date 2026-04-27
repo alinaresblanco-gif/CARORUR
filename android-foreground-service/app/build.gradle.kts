@@ -3,6 +3,20 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val copyWebAssets by tasks.registering(Copy::class) {
+    from(rootProject.file("../")) {
+        include("index.html")
+        include("manifest.webmanifest")
+        include("css/**")
+        include("js/**")
+        include("vistas/**")
+        include("iconos/**")
+        include("imagenes/**")
+        exclude("android-foreground-service/**")
+    }
+    into(layout.buildDirectory.dir("generated/assets/web"))
+}
+
 android {
     namespace = "com.carorur.tracker"
     compileSdk = 34
@@ -34,6 +48,16 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(layout.buildDirectory.dir("generated/assets"))
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn(copyWebAssets)
 }
 
 dependencies {
@@ -41,6 +65,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.activity:activity-ktx:1.9.2")
+    implementation("androidx.webkit:webkit:1.11.0")
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
 }
