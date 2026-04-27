@@ -125,18 +125,34 @@ display: flex; align-items: center; justify-content: center; color: var(--tinta-
 .sync-bar.syncing { color: #c87f2a; }
 .sync-bar.synced  { color: #1db954; }
 .tabs-section { flex-shrink: 0; }
-.tabs-label { font-family: 'Special Elite', cursive; font-size: 0.68rem; color: var(--tinta-rural-suave); letter-spacing: 0.1em; margin-bottom: 0.4rem; }
-.tabs-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.tabs-label { font-family: 'Special Elite', cursive; font-size: 0.68rem; color: var(--tinta-rural-suave); letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+.tabs-list { display: flex; flex-direction: column; gap: 0.45rem; }
+.tab-row { display: flex; align-items: stretch; gap: 0.4rem; }
 .tab-btn {
-background: var(--papel-claro); border: 2px solid var(--papel-oscuro); border-radius: 8px;
-padding: 0.42rem 0.75rem; font-family: 'Special Elite', cursive; font-size: 0.68rem;
+flex: 1; background: var(--papel-claro); border: 2px solid var(--papel-oscuro); border-radius: 10px;
+padding: 0.65rem 0.9rem; font-family: 'Special Elite', cursive; font-size: 0.78rem;
 color: var(--tinta-rural); cursor: pointer; text-transform: uppercase; transition: all 0.18s;
-max-width: 135px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
-.tab-btn:hover { background: var(--papel-medio); }
-.tab-btn.active { background: #5c3d1e; border-color: #5c3d1e; color: var(--papel-claro); }
-.tab-btn.new-tab { background: transparent; border-style: dashed; color: var(--tinta-rural-suave); }
-.tab-btn.new-tab:hover { border-color: var(--tinta-rural); color: var(--tinta-rural); background: transparent; }
+.tab-btn:hover { background: var(--papel-medio); transform: translateX(2px); }
+.tab-btn.active {
+background: linear-gradient(135deg, #5c3d1e 0%, #7a5230 100%);
+border-color: #5c3d1e; color: var(--papel-claro);
+box-shadow: 0 3px 10px rgba(92,61,30,0.35);
+}
+.tab-btn.new-tab {
+background: transparent; border-style: dashed; color: var(--tinta-rural-suave);
+text-align: center; box-shadow: none;
+}
+.tab-btn.new-tab:hover { border-color: var(--tinta-rural); color: var(--tinta-rural); background: transparent; transform: none; }
+.tab-del-btn {
+background: transparent; border: 2px solid rgba(122,82,48,0.3); border-radius: 10px;
+color: #7a5230; width: 38px; flex-shrink: 0; font-size: 1rem; cursor: pointer;
+transition: background 0.18s, color 0.18s, border-color 0.18s;
+display: flex; align-items: center; justify-content: center;
+}
+.tab-del-btn:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
 .playlist-panel {
 display: flex; flex-direction: column; background: var(--papel-claro);
 border-radius: 14px; border: 2px solid var(--papel-oscuro); box-shadow: var(--sombra-papel);
@@ -253,10 +269,11 @@ cursor: pointer;
 }
 .btn-local-file:hover { background: var(--papel-medio); }
 @media (max-width: 680px) {
-.music-hub { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; overflow: visible; }
+.music-hub { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; overflow: visible; }
 .vista-contenido { overflow: auto !important; }
 .playlist-panel { order: 1; min-height: 280px; max-height: 42vh; }
-.player-panel { order: 2; }
+.player-panel { order: 2; min-height: 0; }
+.player-card { flex: 0 0 auto; overflow: visible; min-height: auto; padding: 1rem; }
 .vinyl-wrap, .vinyl-record { width: 150px; height: 150px; }
 .vinyl-center { width: 60px; height: 60px; }
 }
@@ -318,7 +335,7 @@ allowfullscreen loading="lazy">
 <div class="songs-list" id="songsList">
 <div class="empty-state">Crea o selecciona una playlist</div>
 </div>
-<button class="btn-add-song" id="btnAddSong" disabled>+ &#209;ADIR CANCI&#211;N / LINK</button>
+<button class="btn-add-song" id="btnAddSong" disabled>+ A&#209;ADIR CANCI&#211;N / LINK</button>
 <button class="btn-clear-playlist" id="btnClearPlaylist" disabled>VACIAR PLAYLIST</button>
 </section>
 
@@ -570,27 +587,62 @@ btnAddSong.disabled = !idPlaylist;
 btnClearPlaylist.disabled = !idPlaylist || !songsCount;
 }
 function renderTabs() {
-tabsList.innerHTML = '';
-playlists.forEach(function(pl) {
-var btn = document.createElement('button');
-btn.className = 'tab-btn' + (pl.id_playlist === curPlaylist ? ' active' : '');
-btn.textContent = pl.nombre;
-btn.title = 'Creada por ' + (pl.creador || '?');
-btn.addEventListener('click', function() { selectPlaylist(pl.id_playlist); });
-tabsList.appendChild(btn);
-});
-var newBtn = document.createElement('button');
-newBtn.className = 'tab-btn new-tab';
-newBtn.textContent = '+ NUEVA PLAYLIST';
-newBtn.addEventListener('click', openModalPlaylist);
-tabsList.appendChild(newBtn);
+  tabsList.innerHTML = '';
+  var newRow = document.createElement('div');
+  newRow.className = 'tab-row';
+  var newBtn = document.createElement('button');
+  newBtn.className = 'tab-btn new-tab';
+  newBtn.textContent = '+ NUEVA PLAYLIST';
+  newBtn.addEventListener('click', openModalPlaylist);
+  newRow.appendChild(newBtn);
+  tabsList.appendChild(newRow);
+  playlists.forEach(function(pl) {
+    var row = document.createElement('div');
+    row.className = 'tab-row';
+    var btn = document.createElement('button');
+    var isActive = pl.id_playlist === curPlaylist;
+    btn.className = 'tab-btn' + (isActive ? ' active' : '');
+    btn.title = 'Creada por ' + (pl.creador || '?');
+    btn.innerHTML = (isActive ? '&#9654; ' : '') + pl.nombre;
+    btn.addEventListener('click', function() { selectPlaylist(pl.id_playlist); });
+    var delBtn = document.createElement('button');
+    delBtn.className = 'tab-del-btn';
+    delBtn.innerHTML = '&#128465;';
+    delBtn.title = 'Eliminar playlist';
+    (function(id, nom) {
+      delBtn.addEventListener('click', function(e) { e.stopPropagation(); deletePlaylist(id, nom); });
+    })(pl.id_playlist, pl.nombre);
+    row.appendChild(btn);
+    row.appendChild(delBtn);
+    tabsList.appendChild(row);
+  });
+}
+async function deletePlaylist(idPlaylist, nombre) {
+  var ok = window.confirm('Eliminar la playlist "' + nombre + '" y todas sus canciones? Esta accion no se puede deshacer.');
+  if (!ok) return;
+  if (canciones[idPlaylist] && canciones[idPlaylist].length) {
+    canciones[idPlaylist] = [];
+    saveToCache();
+    try { await syncCanciones(idPlaylist); } catch(e) {}
+  }
+  if (localCanciones[idPlaylist]) { delete localCanciones[idPlaylist]; saveLocalCache(); }
+  playlists = playlists.filter(function(p) { return p.id_playlist !== idPlaylist; });
+  saveToCache();
+  if (curPlaylist === idPlaylist) {
+    curPlaylist = playlists.length ? playlists[0].id_playlist : null;
+    stopPlayer();
+    updatePlayerUI(null);
+  }
+  renderTabs();
+  renderSongs(curPlaylist);
+  syncBar.textContent = 'Playlist eliminada localmente';
 }
 function renderSongs(idPlaylist) {
 var songs = sortedSongs(idPlaylist);
 songsList.innerHTML = '';
 updatePlaylistButtons(idPlaylist, songs.length);
 if (!idPlaylist) { songsList.innerHTML = '<div class="empty-state">Selecciona una playlist</div>'; return; }
-if (!songs.length) { songsList.innerHTML = '<div class="empty-state">Esta playlist esta vacia<br><small>Pulsa Anadir Cancion para empezar</small></div>'; return; }
+if (!songs.length) { songsList.innerHTML = '<div class="empty-state">Esta playlist esta vacia<br><small>Pulsa A&#241;adir Canci&#243;n para empezar</small></div>'; return; }
 songs.forEach(function(song, idx) {
 var active = song.id_cancion === curSongId;
 var item = document.createElement('div');
