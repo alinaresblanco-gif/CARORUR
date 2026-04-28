@@ -122,6 +122,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dispatchNativeAudioSelected(uri: Uri, title: String, artist: String) {
+        if (isFinishing || isDestroyed) return
         val payload = JSONObject()
             .put("uri", uri.toString())
             .put("title", title)
@@ -148,11 +149,13 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
 
         webView.post {
+            if (isFinishing || isDestroyed) return@post
             webView.evaluateJavascript(js, null)
         }
     }
 
     private fun dispatchSelectionError(message: String) {
+        if (isFinishing || isDestroyed) return
         val safeMessage = JSONObject.quote(message)
         val js = """
             (function() {
@@ -174,6 +177,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
 
         webView.post {
+            if (isFinishing || isDestroyed) return@post
             webView.evaluateJavascript(js, null)
         }
     }

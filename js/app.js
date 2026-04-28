@@ -42,6 +42,11 @@
     history.replaceState({ vista: null }, '');
   }
 
+  // Expuesto para que vistas internas (iframe) puedan cerrar la vista sin depender del historial.
+  window.carorurCloseVista = function () {
+    cerrarVista();
+  };
+
   /* ============================================================
      NAVEGACIÓN: clic en una zona → abre la vista en el iframe
   ============================================================ */
@@ -59,7 +64,7 @@
   const vistaGuardada = localStorage.getItem(STORAGE_VISTA_KEY);
   const estuvoActivaReciente = (Date.now() - Number(localStorage.getItem(STORAGE_LAST_ACTIVE_TS) || '0')) < 45000;
   if (vistaGuardada && (esRecarga || estuvoActivaReciente)) {
-    abrirVista(vistaGuardada, { replaceState: true });
+    abrirVista(vistaGuardada);
   }
 
   document.addEventListener('visibilitychange', function () {
@@ -83,6 +88,11 @@
     if (!contenedorVista.classList.contains('oculto')) {
       cerrarVista();
     }
+  });
+
+  window.addEventListener('message', function (event) {
+    if (!event || event.data !== 'carorur:close-vista') return;
+    cerrarVista();
   });
 
   /* ============================================================

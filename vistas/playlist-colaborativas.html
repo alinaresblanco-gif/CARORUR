@@ -289,8 +289,10 @@ cursor: pointer;
 document.getElementById('btnVolverCabecera').addEventListener('click', function(e) {
   e.preventDefault();
   try {
-    if (window.top !== window && window.top.history) {
-      window.top.history.back();
+    if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
+      window.top.carorurCloseVista();
+    } else if (window.top !== window && window.top.postMessage) {
+      window.top.postMessage('carorur:close-vista', '*');
     } else {
       window.location.href = '../index.html';
     }
@@ -455,10 +457,12 @@ var inputLocalFile   = document.getElementById('inputLocalFile');
 var modalNewPlaylist = document.getElementById('modalNewPlaylist');
 var inputPlName      = document.getElementById('inputPlName');
 var inputPlCreator   = document.getElementById('inputPlCreator');
+var btnSaveSong      = document.getElementById('btnSaveSong');
 var localCanciones   = lsGet('rmh_local_canciones', {});
 var pendingLocalFile = null;
 var pendingNativeTrack = null;
 var pendingPortada   = '';
+var isSavingSong     = false;
 var mediaObjectUrls  = {};
 var MEDIA_DB_NAME    = 'carorur_local_media';
 var MEDIA_DB_VERSION = 1;
@@ -1148,12 +1152,16 @@ pendingPortada = data.thumbnail_url || '';
 if (pendingPortada) { oembedThumb.src = pendingPortada; oembedTitle.textContent = data.title || ''; oembedAuthor.textContent = data.author_name || ''; oembedPreview.hidden = false; }
 oembedStatus.textContent = 'Info detectada (' + platformLabel(platform) + ')'; oembedStatus.className = 'form-hint ok';
 }
-document.getElementById('btnSaveSong').addEventListener('click', async function() {
+btnSaveSong.addEventListener('click', async function() {
+if (isSavingSong) return;
 var url = inputSongUrl.value.trim(); var titulo = inputSongTitle.value.trim();
 if (!url && !pendingLocalFile && !pendingNativeTrack) { inputSongUrl.focus(); return; }
 if (!titulo) { inputSongTitle.focus(); return; }
+isSavingSong = true;
+btnSaveSong.disabled = true;
 oembedStatus.textContent = '';
 oembedStatus.className = 'form-hint';
+try {
 var cancion;
 if (pendingNativeTrack) {
 cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim() || pendingNativeTrack.artist || '', url_stream: '', plataforma: 'native', native_uri: pendingNativeTrack.uri, portada_url: '', votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0], local_only: true };
@@ -1200,6 +1208,13 @@ await syncCanciones(curPlaylist);
 }
 lsSet('rmh_lastuser', cancion.anadido_por);
 closeModalAddSong(); renderSongs(curPlaylist);
+} catch(err) {
+oembedStatus.textContent = 'Error al guardar la cancion. Intentalo de nuevo.';
+oembedStatus.className = 'form-hint err';
+} finally {
+isSavingSong = false;
+btnSaveSong.disabled = false;
+}
 });
 playerAudio.addEventListener('play', function() {
 isPlaying = true;
