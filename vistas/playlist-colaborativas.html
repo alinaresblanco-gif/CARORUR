@@ -558,7 +558,25 @@ function saveToCache() {
   var okCanciones = lsSet('rmh_canciones', canciones);
   return okPlaylists && okCanciones;
 }
-function saveLocalCache() { return lsSet('rmh_local_canciones', localCanciones); }
+function sanitizeLocalCancionesForStorage() {
+  Object.keys(localCanciones || {}).forEach(function(pid) {
+    var arr = localCanciones[pid];
+    if (!Array.isArray(arr)) {
+      localCanciones[pid] = [];
+      return;
+    }
+    arr.forEach(function(song) {
+      if (!song || typeof song !== 'object') return;
+      // Nunca guardar blobs/base64 en localStorage.
+      if (song.data_url) delete song.data_url;
+      if (song.portada_url && /^data:/i.test(song.portada_url)) song.portada_url = '';
+    });
+  });
+}
+function saveLocalCache() {
+  sanitizeLocalCancionesForStorage();
+  return lsSet('rmh_local_canciones', localCanciones);
+}
 function reportAsyncError(msg, err) {
   setSyncStatus(msg, '');
   if (err && err.message) setPlayerNote(escHtml(msg) + ': ' + escHtml(err.message));
@@ -1100,6 +1118,7 @@ inputSongUrl.value = ''; inputSongTitle.value = ''; inputSongArtist.value = '';
 inputAddedBy.value = lsGet('rmh_lastuser', '');
 oembedStatus.textContent = ''; oembedStatus.className = 'form-hint';
 oembedPreview.hidden = true; pendingPortada = ''; pendingLocalFile = null; pendingNativeTrack = null; inputLocalFile.value = '';
+if (saveSongQueue.length) { saveSongQueue.length = 0; saveSongQueueSignatures = {}; }
 setNativePickerPending(false);
 modalAddSong.hidden = false; setTimeout(function() { inputSongUrl.focus(); }, 50);
 }

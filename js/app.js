@@ -58,12 +58,12 @@
     });
   });
 
-  // Si la app se recarga (pantalla bloqueada/desbloqueada), restaurar la vista abierta
+  // Restaurar solo en navegacion del historial del navegador/app.
+  // Evita que el boton volver de cabeceras reabra automaticamente la vista.
   const nav = performance.getEntriesByType('navigation')[0];
-  const esRecarga = nav && (nav.type === 'reload' || nav.type === 'back_forward');
+  const esHistorial = nav && nav.type === 'back_forward';
   const vistaGuardada = localStorage.getItem(STORAGE_VISTA_KEY);
-  const estuvoActivaReciente = (Date.now() - Number(localStorage.getItem(STORAGE_LAST_ACTIVE_TS) || '0')) < 45000;
-  if (vistaGuardada && (esRecarga || estuvoActivaReciente)) {
+  if (vistaGuardada && esHistorial) {
     abrirVista(vistaGuardada);
   }
 
