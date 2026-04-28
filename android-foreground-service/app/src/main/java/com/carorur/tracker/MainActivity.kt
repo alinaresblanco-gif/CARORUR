@@ -1,11 +1,15 @@
 package com.carorur.tracker
 
 import android.annotation.SuppressLint
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.SharedPreferences
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -20,8 +24,10 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
+import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
@@ -33,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private var isPickerOpen: Boolean = false
     private var pendingNativeSelectionPayload: String? = null
     private var dispatchRetryCount: Int = 0
+    private var pendingLibraryRequest: Boolean = false
 
     private val pickAudioLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -42,6 +49,17 @@ class MainActivity : AppCompatActivity() {
                 return@registerForActivityResult
             }
             handlePickedAudioUri(uri)
+        }
+
+    private val requestAudioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (!pendingLibraryRequest) return@registerForActivityResult
+            pendingLibraryRequest = false
+            if (granted) {
+                loadNativeAudioLibrary()
+            } else {
+                dispatchNativeAudioLibraryError("Concede permiso de audio para ver tu musica del movil.")
+            }
         }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -133,6 +151,144 @@ class MainActivity : AppCompatActivity() {
         val artist = ""
 
         return AudioMeta(title, artist)
+    }
+
+    private fun requiredAudioPermission(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+    }
+
+    private fun hasAudioPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(this, requiredAudioPermission()) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun ensureAudioPermissionAndLoadLibrary() {
+        if (hasAudioPermission()) {
+            loadNativeAudioLibrary()
+            return
+        }
+        pendingLibraryRequest = true
+        requestAudioPermissionLauncher.launch(requiredAudioPermission())
+    }
+
+    private fun loadNativeAudioLibrary() {
+        Thread {
+            try {
+                val projection = arrayOf(
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.TITLE,
+                    MediaStore.Audio.Media.ARTIST,
+                    MediaStore.Audio.Media.RELATIVE_PATH,
+                    MediaStore.Audio.Media.IS_MUSIC
+                )
+                val selection = MediaStore.Audio.Media.IS_MUSIC + " != 0"
+                val sortOrder = MediaStore.Audio.Media.TITLE + " COLLATE NOCASE ASC"
+                val tracks = JSONArray()
+                var total = 0
+                var truncated = false
+
+                contentResolver.query(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    projection,
+                    selection,
+                    null,
+                    sortOrder
+                )?.use { cursor ->
+                    val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    val titleIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                    val artistIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                    val relativeIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
+
+                    while (cursor.moveToNext()) {
+                        total++
+                        if (tracks.length() >= 1500) {
+                            truncated = true
+                            continue
+                        }
+                        val id = cursor.getLong(idIdx)
+                        val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString()).toString()
+                        val title = cursor.getString(titleIdx)?.ifBlank { "Cancion local" } ?: "Cancion local"
+                        val artist = cursor.getString(artistIdx)?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: ""
+                        val relative = cursor.getString(relativeIdx) ?: ""
+                        val folder = relative.trim('/').ifBlank { "Sin carpeta" }
+                        tracks.put(
+                            JSONObject()
+                                .put("uri", uri)
+                                .put("title", title)
+                                .put("artist", artist)
+                                .put("folder", folder)
+                        )
+                    }
+                }
+
+                val payload = JSONObject()
+                    .put("tracks", tracks)
+                    .put("total", total)
+                    .put("truncated", truncated)
+                    .toString()
+                dispatchNativeAudioLibrary(payload)
+            } catch (_: SecurityException) {
+                dispatchNativeAudioLibraryError("No hay permiso para leer la musica del movil.")
+            } catch (_: Throwable) {
+                dispatchNativeAudioLibraryError("No se pudo cargar tu biblioteca de musica.")
+            }
+        }.start()
+    }
+
+    private fun dispatchNativeAudioLibrary(payload: String) {
+        if (isFinishing || isDestroyed) return
+        val js = """
+            (function() {
+              var payload = $payload;
+              if (window.onNativeAudioLibrary) {
+                window.onNativeAudioLibrary(payload);
+                return;
+              }
+              var frames = document.getElementsByTagName('iframe');
+              for (var i = 0; i < frames.length; i++) {
+                try {
+                  if (frames[i].contentWindow && frames[i].contentWindow.onNativeAudioLibrary) {
+                    frames[i].contentWindow.onNativeAudioLibrary(payload);
+                    return;
+                  }
+                } catch (e) {}
+              }
+            })();
+        """.trimIndent()
+        webView.post {
+            if (isFinishing || isDestroyed) return@post
+            webView.evaluateJavascript(js, null)
+        }
+    }
+
+    private fun dispatchNativeAudioLibraryError(message: String) {
+        if (isFinishing || isDestroyed) return
+        val safeMessage = JSONObject.quote(message)
+        val js = """
+            (function() {
+              var msg = $safeMessage;
+              if (window.onNativeAudioLibraryError) {
+                window.onNativeAudioLibraryError(msg);
+                return;
+              }
+              var frames = document.getElementsByTagName('iframe');
+              for (var i = 0; i < frames.length; i++) {
+                try {
+                  if (frames[i].contentWindow && frames[i].contentWindow.onNativeAudioLibraryError) {
+                    frames[i].contentWindow.onNativeAudioLibraryError(msg);
+                    return;
+                  }
+                } catch (e) {}
+              }
+            })();
+        """.trimIndent()
+        webView.post {
+            if (isFinishing || isDestroyed) return@post
+            webView.evaluateJavascript(js, null)
+        }
     }
 
     private fun dispatchNativeAudioSelected(uri: Uri, title: String, artist: String) {
@@ -302,6 +458,13 @@ class MainActivity : AppCompatActivity() {
                 if (isPickerOpen) return@runOnUiThread
                 isPickerOpen = true
                 pickAudioLauncher.launch(arrayOf("audio/*"))
+            }
+        }
+
+        @JavascriptInterface
+        fun listDeviceAudio() {
+            runOnUiThread {
+                ensureAudioPermissionAndLoadLibrary()
             }
         }
 
