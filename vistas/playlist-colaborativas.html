@@ -486,7 +486,42 @@ function platformBadgeHtml(p) { return '<span class="platform-badge pb-' + escHt
 function setSyncStatus(msg, cls) { syncBar.textContent = msg; syncBar.className = 'sync-bar' + (cls ? ' ' + cls : ''); }
 function lsGet(k, def) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e) { return def; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
-function loadFromCache() { playlists = lsGet('rmh_playlists', []); canciones = lsGet('rmh_canciones', {}); localCanciones = lsGet('rmh_local_canciones', {}); }
+function loadFromCache() {
+  playlists = lsGet('rmh_playlists', []);
+  canciones = lsGet('rmh_canciones', {});
+  // Carga segura: stripeamos data_url antes de guardar para evitar freeze en JSON.parse
+  var rawLocal = null;
+  try { rawLocal = localStorage.getItem('rmh_local_canciones'); } catch(e) {}
+  if (rawLocal) {
+    try {
+      localCanciones = JSON.parse(rawLocal);
+      var dataUrlMap = {}; // id_cancion -> data_url para migrar a IndexedDB
+      var needsClean = false;
+      Object.keys(localCanciones).forEach(function(pid) {
+        if (!Array.isArray(localCanciones[pid])) return;
+        localCanciones[pid].forEach(function(s) {
+          if (s.data_url) {
+            dataUrlMap[s.id_cancion] = { dataUrl: s.data_url, nombre: s.nombre_archivo || (s.id_cancion + '.mp3') };
+            if (!s.local_asset_id) s.local_asset_id = s.id_cancion;
+            delete s.data_url;
+            needsClean = true;
+          }
+        });
+      });
+      if (needsClean) {
+        // Guardar version limpia en localStorage de inmediato
+        try { localStorage.setItem('rmh_local_canciones', JSON.stringify(localCanciones)); } catch(e) {}
+        // Migrar data_urls a IndexedDB de forma asincrona tras el arranque
+        setTimeout(function() { migrateDataUrlsToIndexedDB(dataUrlMap); }, 500);
+      }
+    } catch(e) {
+      localCanciones = {};
+      try { localStorage.removeItem('rmh_local_canciones'); } catch(e2) {}
+    }
+  } else {
+    localCanciones = {};
+  }
+}
 function saveToCache() { lsSet('rmh_playlists', playlists); lsSet('rmh_canciones', canciones); }
 function saveLocalCache() { lsSet('rmh_local_canciones', localCanciones); }
 function getSongsForPlaylist(idPlaylist) { return (canciones[idPlaylist] || []).concat(localCanciones[idPlaylist] || []); }
@@ -545,16 +580,38 @@ return mediaObjectUrls[song.local_asset_id];
 return song.url_stream || null;
 }
 function setPlayerNote(msg) { playerNote.innerHTML = msg || ''; }
+async function migrateDataUrlsToIndexedDB(dataUrlMap) {
+  var ids = Object.keys(dataUrlMap);
+  if (!ids.length) return;
+  var migrated = 0;
+  for (var i = 0; i < ids.length; i++) {
+    var id = ids[i];
+    var entry = dataUrlMap[id];
+    try {
+      var existing = await getLocalAsset(id);
+      if (existing) { migrated++; continue; } // ya existe en IndexedDB
+      var res = await fetch(entry.dataUrl);
+      var blob = await res.blob();
+      var file = new File([blob], entry.nombre, { type: blob.type });
+      await putLocalAsset(id, file);
+      migrated++;
+    } catch(e) { /* si falla, la cancion quedara sin audio pero sin bloquear */ }
+  }
+  if (migrated > 0) { saveLocalCache(); }
+}
 async function postAppsScript(payload) {
 await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
 }
 async function fetchFromSheets() {
 try {
 var ts = Date.now();
+var controller = new AbortController();
+var timeoutId = setTimeout(function() { controller.abort(); }, 10000);
 var results = await Promise.all([
-fetch(SCRIPT_URL + '?action=getPlaylists&_ts=' + ts),
-fetch(SCRIPT_URL + '?action=getCanciones&_ts=' + ts)
+fetch(SCRIPT_URL + '?action=getPlaylists&_ts=' + ts, { signal: controller.signal }),
+fetch(SCRIPT_URL + '?action=getCanciones&_ts=' + ts, { signal: controller.signal })
 ]);
+clearTimeout(timeoutId);
 var d1 = await results[0].json();
 var d2 = await results[1].json();
 if (d1.ok && Array.isArray(d1.playlists)) { playlists = d1.playlists; }
@@ -940,8 +997,8 @@ oembedStatus.className = 'form-hint ok';
 inputSongUrl.addEventListener('input', function() {
 clearTimeout(oembedTimer);
 var url = inputSongUrl.value.trim();
-pendingLocalFile = null;
-pendingNativeTrack = null;
+// Solo cancelar track/fichero pendiente si el usuario ha pegado una URL real
+if (url) { pendingLocalFile = null; pendingNativeTrack = null; }
 if (!url) { oembedStatus.textContent = ''; oembedPreview.hidden = true; return; }
 oembedStatus.textContent = 'Buscando info...'; oembedStatus.className = 'form-hint';
 oembedTimer = setTimeout(function() { tryFetchOEmbed(url); }, 800);
@@ -979,22 +1036,13 @@ return;
 }
 else if (pendingLocalFile) {
 var localAssetId = genId('LOCAL');
-var localDataUrl = '';
 try { await putLocalAsset(localAssetId, pendingLocalFile); }
 catch(e) {
-if ((pendingLocalFile.size / (1024 * 1024)) > MAX_DATA_URL_FILE_MB) {
-oembedStatus.textContent = 'No se pudo guardar el audio local. El archivo supera ' + MAX_DATA_URL_FILE_MB + ' MB y este navegador no permite almacenamiento local avanzado.';
+oembedStatus.textContent = 'No se pudo guardar el audio en el almacenamiento del dispositivo. Prueba con un archivo mas pequeño o reinicia la app.';
 oembedStatus.className = 'form-hint err';
 return;
 }
-try { localDataUrl = await fileToDataUrl(pendingLocalFile); }
-catch(readErr) {
-oembedStatus.textContent = 'No se pudo guardar el audio local en este dispositivo.';
-oembedStatus.className = 'form-hint err';
-return;
-}
-}
-cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim(), url_stream: '', plataforma: 'local', portada_url: '', votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0], local_only: true, local_asset_id: localDataUrl ? '' : localAssetId, data_url: localDataUrl, nombre_archivo: pendingLocalFile.name };
+cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim(), url_stream: '', plataforma: 'local', portada_url: '', votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0], local_only: true, local_asset_id: localAssetId, nombre_archivo: pendingLocalFile.name };
 if (!localCanciones[curPlaylist]) localCanciones[curPlaylist] = [];
 localCanciones[curPlaylist].push(cancion);
 try { saveLocalCache(); }
