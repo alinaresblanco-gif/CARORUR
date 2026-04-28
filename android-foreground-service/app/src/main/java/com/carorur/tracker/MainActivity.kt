@@ -31,6 +31,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var assetLoader: WebViewAssetLoader
     private var mediaPlayer: MediaPlayer? = null
     private var isPickerOpen: Boolean = false
+    private var pendingNativeSelectionPayload: String? = null
+    private var dispatchRetryCount: Int = 0
 
     private val pickAudioLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -62,6 +64,11 @@ class MainActivity : AppCompatActivity() {
                 request: WebResourceRequest
             ): WebResourceResponse? {
                 return assetLoader.shouldInterceptRequest(request.url)
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                tryDispatchPendingNativeSelection()
             }
         }
 
@@ -135,29 +142,49 @@ class MainActivity : AppCompatActivity() {
             .put("title", title)
             .put("artist", artist)
             .toString()
+                pendingNativeSelectionPayload = payload
+                dispatchRetryCount = 0
+                tryDispatchPendingNativeSelection()
+        }
+
+        private fun tryDispatchPendingNativeSelection() {
+                if (isFinishing || isDestroyed) return
+                val payload = pendingNativeSelectionPayload ?: return
 
         val js = """
             (function() {
               var payload = $payload;
               if (window.onNativeAudioSelected) {
                 window.onNativeAudioSelected(payload);
-                return;
+                                return 'OK';
               }
               var frames = document.getElementsByTagName('iframe');
               for (var i = 0; i < frames.length; i++) {
                 try {
                   if (frames[i].contentWindow && frames[i].contentWindow.onNativeAudioSelected) {
                     frames[i].contentWindow.onNativeAudioSelected(payload);
-                    return;
+                                        return 'OK';
                   }
                 } catch (e) {}
               }
+                            return 'PENDING';
             })();
         """.trimIndent()
 
         webView.post {
             if (isFinishing || isDestroyed) return@post
-            webView.evaluateJavascript(js, null)
+                        webView.evaluateJavascript(js) { result ->
+                                val ok = result?.contains("OK") == true
+                                if (ok) {
+                                        pendingNativeSelectionPayload = null
+                                        dispatchRetryCount = 0
+                                        return@evaluateJavascript
+                                }
+                                if (pendingNativeSelectionPayload == null) return@evaluateJavascript
+                                if (dispatchRetryCount >= 8) return@evaluateJavascript
+                                dispatchRetryCount += 1
+                                webView.postDelayed({ tryDispatchPendingNativeSelection() }, 350L)
+                        }
         }
     }
 

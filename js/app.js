@@ -14,6 +14,7 @@
   const btnEdicion       = document.getElementById('btn-edicion');
   const STORAGE_VISTA_KEY = 'carorur_vista_activa';
   const STORAGE_LAST_ACTIVE_TS = 'carorur_last_active_ts';
+  const STORAGE_SKIP_RESTORE_UNTIL = 'carorur_skip_restore_until';
 
   /* ============================================================
      HISTORY API: estado base al cargar la app
@@ -39,6 +40,7 @@
     iframeVista.src = '';
     contenedorVista.classList.add('oculto');
     localStorage.removeItem(STORAGE_VISTA_KEY);
+    localStorage.setItem(STORAGE_SKIP_RESTORE_UNTIL, String(Date.now() + 5000));
     history.replaceState({ vista: null }, '');
   }
 
@@ -58,12 +60,15 @@
     });
   });
 
-  // Restaurar solo en navegacion del historial del navegador/app.
-  // Evita que el boton volver de cabeceras reabra automaticamente la vista.
+  // Restaurar si hubo recarga breve (p.ej. picker de Android), salvo que
+  // acabemos de cerrar la vista de forma intencional.
   const nav = performance.getEntriesByType('navigation')[0];
-  const esHistorial = nav && nav.type === 'back_forward';
+  const esRecarga = nav && (nav.type === 'reload' || nav.type === 'back_forward');
   const vistaGuardada = localStorage.getItem(STORAGE_VISTA_KEY);
-  if (vistaGuardada && esHistorial) {
+  const estuvoActivaReciente = (Date.now() - Number(localStorage.getItem(STORAGE_LAST_ACTIVE_TS) || '0')) < 45000;
+  const skipRestoreUntil = Number(localStorage.getItem(STORAGE_SKIP_RESTORE_UNTIL) || '0');
+  const canRestore = Date.now() > skipRestoreUntil;
+  if (vistaGuardada && canRestore && (esRecarga || estuvoActivaReciente)) {
     abrirVista(vistaGuardada);
   }
 
