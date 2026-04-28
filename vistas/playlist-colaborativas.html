@@ -601,6 +601,18 @@ tx.oncomplete = function() { resolve(); };
 tx.onerror = function() { reject(tx.error); };
 });
 }
+async function purgeLocalAssetsForSongs(songs) {
+if (!Array.isArray(songs) || !songs.length) return;
+for (var i = 0; i < songs.length; i++) {
+  var s = songs[i];
+  if (!s || !s.local_asset_id) continue;
+  if (mediaObjectUrls[s.local_asset_id]) {
+    try { URL.revokeObjectURL(mediaObjectUrls[s.local_asset_id]); } catch(revokeErr) {}
+    delete mediaObjectUrls[s.local_asset_id];
+  }
+  try { await deleteLocalAsset(s.local_asset_id); } catch(delErr) {}
+}
+}
 async function resolveSongPlaybackUrl(song) {
 if (!song) return null;
 if (song.data_url) { return song.data_url; }
@@ -636,7 +648,13 @@ async function migrateDataUrlsToIndexedDB(dataUrlMap) {
   if (migrated > 0) { saveLocalCache(); }
 }
 async function postAppsScript(payload) {
-await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+var controller = new AbortController();
+var timeoutId = setTimeout(function() { controller.abort(); }, 10000);
+try {
+await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', signal: controller.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+} finally {
+clearTimeout(timeoutId);
+}
 }
 async function fetchFromSheets() {
 try {
@@ -713,14 +731,38 @@ function renderTabs() {
 async function deletePlaylist(idPlaylist, nombre) {
   var ok = window.confirm('Eliminar la playlist "' + nombre + '" y todas sus canciones? Esta accion no se puede deshacer.');
   if (!ok) return;
+  var prevPlaylists = playlists.slice();
+  var prevShared = canciones[idPlaylist] ? canciones[idPlaylist].slice() : [];
+  var prevLocal = localCanciones[idPlaylist] ? localCanciones[idPlaylist].slice() : [];
+
+  await purgeLocalAssetsForSongs(prevLocal);
+
   if (canciones[idPlaylist] && canciones[idPlaylist].length) {
     canciones[idPlaylist] = [];
-    saveToCache();
+    if (!saveToCache()) {
+      canciones[idPlaylist] = prevShared;
+      setPlayerNote('No se pudo eliminar la playlist por falta de espacio local para actualizar el estado.');
+      return;
+    }
     try { await syncCanciones(idPlaylist); } catch(e) {}
   }
-  if (localCanciones[idPlaylist]) { delete localCanciones[idPlaylist]; saveLocalCache(); }
+  if (localCanciones[idPlaylist]) {
+    delete localCanciones[idPlaylist];
+    if (!saveLocalCache()) {
+      localCanciones[idPlaylist] = prevLocal;
+      if (prevShared.length) canciones[idPlaylist] = prevShared;
+      setPlayerNote('No se pudo eliminar la playlist localmente. Intenta vaciar canciones locales primero.');
+      return;
+    }
+  }
   playlists = playlists.filter(function(p) { return p.id_playlist !== idPlaylist; });
-  saveToCache();
+  if (!saveToCache()) {
+    playlists = prevPlaylists;
+    if (prevShared.length) canciones[idPlaylist] = prevShared;
+    if (prevLocal.length) localCanciones[idPlaylist] = prevLocal;
+    setPlayerNote('No se pudo persistir la eliminacion de la playlist (memoria local llena).');
+    return;
+  }
   if (curPlaylist === idPlaylist) {
     curPlaylist = playlists.length ? playlists[0].id_playlist : null;
     stopPlayer();
@@ -850,14 +892,24 @@ var sharedArr = canciones[idPlaylist] || [];
 var sharedIdx = sharedArr.findIndex(function(s) { return s.id_cancion === songId; });
 if (sharedIdx !== -1) {
 sharedArr[sharedIdx].votos = (sharedArr[sharedIdx].votos || 0) + delta;
-saveToCache(); renderSongs(idPlaylist); syncCanciones(idPlaylist);
+if (!saveToCache()) {
+sharedArr[sharedIdx].votos = (sharedArr[sharedIdx].votos || 0) - delta;
+setPlayerNote('No se pudo guardar el voto por falta de espacio local.');
+renderSongs(idPlaylist);
+return;
+}
+renderSongs(idPlaylist); syncCanciones(idPlaylist);
 return;
 }
 var localArr = localCanciones[idPlaylist] || [];
 var localIdx = localArr.findIndex(function(s) { return s.id_cancion === songId; });
 if (localIdx === -1) return;
 localArr[localIdx].votos = (localArr[localIdx].votos || 0) + delta;
-saveLocalCache(); renderSongs(idPlaylist);
+if (!saveLocalCache()) {
+localArr[localIdx].votos = (localArr[localIdx].votos || 0) - delta;
+setPlayerNote('No se pudo guardar el voto local por falta de memoria.');
+}
+renderSongs(idPlaylist);
 }
 async function removeSong(idPlaylist, songId) {
 if (!idPlaylist || !songId) return;
@@ -870,16 +922,25 @@ if (!ok) return;
 var sharedArr = canciones[idPlaylist] || [];
 var sharedIdx = sharedArr.findIndex(function(s) { return s.id_cancion === songId; });
 if (sharedIdx !== -1) {
-sharedArr.splice(sharedIdx, 1);
-saveToCache();
+var removedShared = sharedArr.splice(sharedIdx, 1)[0];
+if (!saveToCache()) {
+sharedArr.splice(sharedIdx, 0, removedShared);
+setPlayerNote('No se pudo eliminar la cancion por falta de espacio local.');
+return;
+}
 await syncCanciones(idPlaylist);
 }
 else {
 var localArr = localCanciones[idPlaylist] || [];
 var localIdx = localArr.findIndex(function(s) { return s.id_cancion === songId; });
 if (localIdx !== -1) {
-localArr.splice(localIdx, 1);
-saveLocalCache();
+var removedLocal = localArr.splice(localIdx, 1)[0];
+if (!saveLocalCache()) {
+localArr.splice(localIdx, 0, removedLocal);
+setPlayerNote('No se pudo eliminar la cancion local por falta de memoria.');
+return;
+}
+await purgeLocalAssetsForSongs([removedLocal]);
 }
 }
 
@@ -901,13 +962,27 @@ var ok = window.confirm('Vas a eliminar ' + songs.length + ' canciones de esta p
 if (!ok) return;
 
 var hadSharedSongs = !!((canciones[idPlaylist] || []).length);
+var prevSharedSongs = (canciones[idPlaylist] || []).slice();
+var prevLocalSongs = (localCanciones[idPlaylist] || []).slice();
 if (!canciones[idPlaylist]) canciones[idPlaylist] = [];
 canciones[idPlaylist].length = 0;
 if (!localCanciones[idPlaylist]) localCanciones[idPlaylist] = [];
 localCanciones[idPlaylist].length = 0;
 
+if (!saveToCache()) {
+canciones[idPlaylist] = prevSharedSongs;
+localCanciones[idPlaylist] = prevLocalSongs;
+setPlayerNote('No se pudo vaciar la playlist por falta de espacio local.');
+return;
+}
+if (!saveLocalCache()) {
+canciones[idPlaylist] = prevSharedSongs;
+localCanciones[idPlaylist] = prevLocalSongs;
 saveToCache();
-saveLocalCache();
+setPlayerNote('No se pudo vaciar la playlist local por falta de memoria.');
+return;
+}
+await purgeLocalAssetsForSongs(prevLocalSongs);
 if (hadSharedSongs) { await syncCanciones(idPlaylist); }
 
 if (curSongId) {
@@ -1153,6 +1228,7 @@ else if (curPlaylist) { renderSongs(curPlaylist); }
 init();
 if (hasNativeMusicBridge()) {
 btnPickLocalFile.textContent = 'Seleccionar audio del movil (Android nativo)';
+inputLocalFile.disabled = true;
 }
 </script>
 </body>
