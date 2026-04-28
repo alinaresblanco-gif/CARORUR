@@ -80,8 +80,12 @@ class MainActivity : AppCompatActivity() {
         } catch (_: SecurityException) {
         }
 
-        val meta = readAudioMetadata(uri)
-        dispatchNativeAudioSelected(uri, meta.title, meta.artist)
+        Thread {
+            val meta = readAudioMetadata(uri)
+            runOnUiThread {
+                dispatchNativeAudioSelected(uri, meta.title, meta.artist)
+            }
+        }.start()
     }
 
     private fun readAudioMetadata(uri: Uri): AudioMeta {
@@ -98,15 +102,20 @@ class MainActivity : AppCompatActivity() {
         var title = displayName.substringBeforeLast('.')
         var artist = ""
 
+        var mmr: MediaMetadataRetriever? = null
         try {
-            val mmr = MediaMetadataRetriever()
+            mmr = MediaMetadataRetriever()
             mmr.setDataSource(this, uri)
             title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
                 ?.takeIf { it.isNotBlank() } ?: title
             artist = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?.takeIf { it.isNotBlank() } ?: ""
-            mmr.release()
         } catch (_: Exception) {
+        } finally {
+            try {
+                mmr?.release()
+            } catch (_: Exception) {
+            }
         }
 
         return AudioMeta(title.ifBlank { "Cancion local" }, artist)

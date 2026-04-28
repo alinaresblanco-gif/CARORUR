@@ -551,6 +551,11 @@ function saveToCache() {
   return okPlaylists && okCanciones;
 }
 function saveLocalCache() { return lsSet('rmh_local_canciones', localCanciones); }
+function reportAsyncError(msg, err) {
+  setSyncStatus(msg, '');
+  if (err && err.message) setPlayerNote(escHtml(msg) + ': ' + escHtml(err.message));
+  else setPlayerNote(escHtml(msg));
+}
 function getSongsForPlaylist(idPlaylist) { return (canciones[idPlaylist] || []).concat(localCanciones[idPlaylist] || []); }
 function fileToDataUrl(file) {
 return new Promise(function(resolve, reject) {
@@ -721,7 +726,12 @@ function renderTabs() {
     delBtn.innerHTML = '&#128465;';
     delBtn.title = 'Eliminar playlist';
     (function(id, nom) {
-      delBtn.addEventListener('click', function(e) { e.stopPropagation(); deletePlaylist(id, nom); });
+      delBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        deletePlaylist(id, nom).catch(function(err) {
+          reportAsyncError('Error eliminando playlist', err);
+        });
+      });
     })(pl.id_playlist, pl.nombre);
     row.appendChild(btn);
     row.appendChild(delBtn);
@@ -771,6 +781,11 @@ async function deletePlaylist(idPlaylist, nombre) {
   renderTabs();
   renderSongs(curPlaylist);
   syncBar.textContent = 'Playlist eliminada localmente';
+  try {
+    await syncPlaylists();
+  } catch(syncErr) {
+    reportAsyncError('No se pudo sincronizar la eliminacion en servidor', syncErr);
+  }
 }
 function renderSongs(idPlaylist) {
 var songs = sortedSongs(idPlaylist);
@@ -801,7 +816,9 @@ deleteBtn.setAttribute('aria-label', 'Eliminar cancion');
 deleteBtn.textContent = '\u2715';
 deleteBtn.addEventListener('click', function(e) {
 e.stopPropagation();
-removeSong(idPlaylist, song.id_cancion);
+removeSong(idPlaylist, song.id_cancion).catch(function(err) {
+reportAsyncError('Error eliminando cancion', err);
+});
 });
 item.appendChild(thumb); item.appendChild(meta); item.appendChild(voteCol); item.appendChild(deleteBtn);
 item.addEventListener('click', function() { loadSong(idPlaylist, idx); });
@@ -1045,7 +1062,11 @@ var ci = songs.findIndex(function(s) { return s.id_cancion === curSongId; });
 loadSong(curPlaylist, (ci + 1) % songs.length);
 });
 btnAddSong.addEventListener('click', openModalAddSong);
-btnClearPlaylist.addEventListener('click', function() { clearPlaylist(curPlaylist); });
+btnClearPlaylist.addEventListener('click', function() {
+clearPlaylist(curPlaylist).catch(function(err) {
+reportAsyncError('Error vaciando playlist', err);
+});
+});
 document.getElementById('btnCancelSong').addEventListener('click', closeModalAddSong);
 modalAddSong.addEventListener('click', function(e) { if (e.target === modalAddSong) closeModalAddSong(); });
 function openModalAddSong() {
