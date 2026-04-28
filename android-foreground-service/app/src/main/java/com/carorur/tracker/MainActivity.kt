@@ -2,17 +2,23 @@ package com.carorur.tracker
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.media.MediaMetadataRetriever
+import android.content.SharedPreferences
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceResponse
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
@@ -21,11 +27,14 @@ import org.json.JSONObject
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var prefs: SharedPreferences
     private lateinit var assetLoader: WebViewAssetLoader
     private var mediaPlayer: MediaPlayer? = null
+    private var isPickerOpen: Boolean = false
 
     private val pickAudioLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            isPickerOpen = false
             if (uri == null) {
                 dispatchSelectionError("No se selecciono ninguna cancion.")
                 return@registerForActivityResult
@@ -38,7 +47,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         webView = findViewById(R.id.webView)
+        val btnSetTestUrl: Button = findViewById(R.id.btnSetTestUrl)
+        val btnClearCacheReload: Button = findViewById(R.id.btnClearCacheReload)
 
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -61,10 +73,14 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            cacheMode = WebSettings.LOAD_NO_CACHE
         }
 
+        btnSetTestUrl.setOnClickListener { showTestUrlDialog() }
+        btnClearCacheReload.setOnClickListener { clearCacheAndReload() }
+
         webView.addJavascriptInterface(NativeMusicBridge(), "CarorurNativeMusic")
-        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
+        loadConfiguredUrl()
     }
 
     override fun onDestroy() {
@@ -77,13 +93,20 @@ class MainActivity : AppCompatActivity() {
     private fun handlePickedAudioUri(uri: Uri) {
         try {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } catch (_: SecurityException) {
+        } catch (_: Throwable) {
         }
 
         Thread {
-            val meta = readAudioMetadata(uri)
-            runOnUiThread {
-                dispatchNativeAudioSelected(uri, meta.title, meta.artist)
+            try {
+                val meta = readAudioMetadata(uri)
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    dispatchNativeAudioSelected(uri, meta.title, meta.artist)
+                }
+            } catch (_: Throwable) {
+                runOnUiThread {
+                    dispatchSelectionError("No se pudo procesar el audio seleccionado.")
+                }
             }
         }.start()
     }
@@ -99,26 +122,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        var title = displayName.substringBeforeLast('.')
-        var artist = ""
+        val title = displayName.substringBeforeLast('.').ifBlank { "Cancion local" }
+        val artist = ""
 
-        var mmr: MediaMetadataRetriever? = null
-        try {
-            mmr = MediaMetadataRetriever()
-            mmr.setDataSource(this, uri)
-            title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                ?.takeIf { it.isNotBlank() } ?: title
-            artist = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-                ?.takeIf { it.isNotBlank() } ?: ""
-        } catch (_: Exception) {
-        } finally {
-            try {
-                mmr?.release()
-            } catch (_: Exception) {
-            }
-        }
-
-        return AudioMeta(title.ifBlank { "Cancion local" }, artist)
+        return AudioMeta(title, artist)
     }
 
     private fun dispatchNativeAudioSelected(uri: Uri, title: String, artist: String) {
@@ -211,10 +218,62 @@ class MainActivity : AppCompatActivity() {
         mediaPlayer = null
     }
 
+    private fun loadConfiguredUrl() {
+        val remoteUrl = prefs.getString(PREF_TEST_URL, "")?.trim().orEmpty()
+        if (remoteUrl.startsWith("http://") || remoteUrl.startsWith("https://")) {
+            webView.loadUrl(remoteUrl)
+            return
+        }
+        webView.loadUrl(LOCAL_ASSET_URL)
+    }
+
+    private fun showTestUrlDialog() {
+        val input = EditText(this)
+        input.hint = "https://tu-url/index.html"
+        input.setText(prefs.getString(PREF_TEST_URL, ""))
+
+        AlertDialog.Builder(this)
+            .setTitle("URL de pruebas")
+            .setMessage("Pon una URL remota para probar cambios sin reinstalar. Dejalo vacio para volver al APK local.")
+            .setView(input)
+            .setPositiveButton("Guardar y cargar") { _, _ ->
+                val newUrl = input.text?.toString()?.trim().orEmpty()
+                if (newUrl.isNotEmpty() && !newUrl.startsWith("http://") && !newUrl.startsWith("https://")) {
+                    Toast.makeText(this, "URL invalida. Usa http:// o https://", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                prefs.edit().putString(PREF_TEST_URL, newUrl).apply()
+                clearCacheAndReload()
+            }
+            .setNeutralButton("Usar APK local") { _, _ ->
+                prefs.edit().remove(PREF_TEST_URL).apply()
+                clearCacheAndReload()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun clearCacheAndReload() {
+        try {
+            webView.stopLoading()
+            webView.clearHistory()
+            webView.clearCache(true)
+            webView.clearFormData()
+            WebStorage.getInstance().deleteAllData()
+            CookieManager.getInstance().removeAllCookies(null)
+            CookieManager.getInstance().flush()
+        } catch (_: Exception) {
+        }
+        loadConfiguredUrl()
+        Toast.makeText(this, "Cache limpiada y vista recargada", Toast.LENGTH_SHORT).show()
+    }
+
     inner class NativeMusicBridge {
         @JavascriptInterface
         fun pickAudioForPlaylist() {
             runOnUiThread {
+                if (isPickerOpen) return@runOnUiThread
+                isPickerOpen = true
                 pickAudioLauncher.launch(arrayOf("audio/*"))
             }
         }
@@ -238,4 +297,10 @@ class MainActivity : AppCompatActivity() {
         val title: String,
         val artist: String
     )
+
+    companion object {
+        private const val PREFS_NAME = "carorur_settings"
+        private const val PREF_TEST_URL = "test_url"
+        private const val LOCAL_ASSET_URL = "https://appassets.androidplatform.net/assets/web/index.html"
+    }
 }

@@ -463,6 +463,10 @@ var pendingLocalFile = null;
 var pendingNativeTrack = null;
 var pendingPortada   = '';
 var isSavingSong     = false;
+var isNativePickerPending = false;
+var nativePickerTimer = null;
+var saveSongQueue = [];
+var saveSongQueueSignatures = {};
 var mediaObjectUrls  = {};
 var MEDIA_DB_NAME    = 'carorur_local_media';
 var MEDIA_DB_VERSION = 1;
@@ -559,6 +563,24 @@ function reportAsyncError(msg, err) {
   setSyncStatus(msg, '');
   if (err && err.message) setPlayerNote(escHtml(msg) + ': ' + escHtml(err.message));
   else setPlayerNote(escHtml(msg));
+}
+function setNativePickerPending(pending) {
+  isNativePickerPending = pending;
+  btnPickLocalFile.disabled = pending;
+  if (pending) {
+    btnPickLocalFile.textContent = 'Abriendo selector...';
+    if (nativePickerTimer) clearTimeout(nativePickerTimer);
+    nativePickerTimer = setTimeout(function() {
+      isNativePickerPending = false;
+      btnPickLocalFile.disabled = false;
+      btnPickLocalFile.textContent = hasNativeMusicBridge() ? 'Seleccionar audio del movil (Android nativo)' : 'Seleccionar archivo de audio descargado';
+    }, 12000);
+  } else {
+    if (nativePickerTimer) clearTimeout(nativePickerTimer);
+    nativePickerTimer = null;
+    btnPickLocalFile.disabled = false;
+    btnPickLocalFile.textContent = hasNativeMusicBridge() ? 'Seleccionar audio del movil (Android nativo)' : 'Seleccionar archivo de audio descargado';
+  }
 }
 function getSongsForPlaylist(idPlaylist) { return (canciones[idPlaylist] || []).concat(localCanciones[idPlaylist] || []); }
 function fileToDataUrl(file) {
@@ -1078,10 +1100,12 @@ inputSongUrl.value = ''; inputSongTitle.value = ''; inputSongArtist.value = '';
 inputAddedBy.value = lsGet('rmh_lastuser', '');
 oembedStatus.textContent = ''; oembedStatus.className = 'form-hint';
 oembedPreview.hidden = true; pendingPortada = ''; pendingLocalFile = null; pendingNativeTrack = null; inputLocalFile.value = '';
+setNativePickerPending(false);
 modalAddSong.hidden = false; setTimeout(function() { inputSongUrl.focus(); }, 50);
 }
-function closeModalAddSong() { modalAddSong.hidden = true; }
+function closeModalAddSong() { setNativePickerPending(false); modalAddSong.hidden = true; }
 window.onNativeAudioSelected = function(payload) {
+setNativePickerPending(false);
 var data = payload;
 if (typeof payload === 'string') {
 try { data = JSON.parse(payload); } catch(e) { data = null; }
@@ -1106,11 +1130,14 @@ oembedStatus.textContent = 'Cancion local seleccionada en Android: ' + (pendingN
 oembedStatus.className = 'form-hint ok';
 };
 window.onNativeAudioPickerError = function(message) {
+setNativePickerPending(false);
 oembedStatus.textContent = message || 'No se pudo completar la seleccion nativa de audio.';
 oembedStatus.className = 'form-hint err';
 };
 btnPickLocalFile.addEventListener('click', function() {
 if (hasNativeMusicBridge()) {
+if (isNativePickerPending || isSavingSong) return;
+setNativePickerPending(true);
 window.CarorurNativeMusic.pickAudioForPlaylist();
 oembedStatus.textContent = 'Abriendo selector nativo de audio...';
 oembedStatus.className = 'form-hint';
@@ -1152,69 +1179,112 @@ pendingPortada = data.thumbnail_url || '';
 if (pendingPortada) { oembedThumb.src = pendingPortada; oembedTitle.textContent = data.title || ''; oembedAuthor.textContent = data.author_name || ''; oembedPreview.hidden = false; }
 oembedStatus.textContent = 'Info detectada (' + platformLabel(platform) + ')'; oembedStatus.className = 'form-hint ok';
 }
-btnSaveSong.addEventListener('click', async function() {
-if (isSavingSong) return;
-var url = inputSongUrl.value.trim(); var titulo = inputSongTitle.value.trim();
-if (!url && !pendingLocalFile && !pendingNativeTrack) { inputSongUrl.focus(); return; }
-if (!titulo) { inputSongTitle.focus(); return; }
-isSavingSong = true;
-btnSaveSong.disabled = true;
-oembedStatus.textContent = '';
-oembedStatus.className = 'form-hint';
-try {
+function buildSongSaveRequestFromForm() {
+var url = inputSongUrl.value.trim();
+var titulo = inputSongTitle.value.trim();
+var artista = inputSongArtist.value.trim();
+var addedBy = inputAddedBy.value.trim();
+if (!url && !pendingLocalFile && !pendingNativeTrack) return null;
+if (!titulo) return { invalid: 'titulo' };
+if (!curPlaylist) return { invalid: 'playlist' };
+return {
+id_playlist: curPlaylist,
+url: url,
+titulo: titulo,
+artista: artista,
+addedBy: addedBy,
+portada: pendingPortada,
+nativeTrack: pendingNativeTrack ? { uri: pendingNativeTrack.uri, title: pendingNativeTrack.title || '', artist: pendingNativeTrack.artist || '' } : null,
+localFile: pendingLocalFile || null
+};
+}
+function songRequestSignature(req) {
+if (!req) return '';
+if (req.nativeTrack) return 'native|' + (req.nativeTrack.uri || '') + '|' + req.titulo + '|' + req.id_playlist;
+if (req.localFile) return 'local|' + (req.localFile.name || '') + '|' + req.localFile.size + '|' + req.titulo + '|' + req.id_playlist;
+return 'url|' + (req.url || '') + '|' + req.titulo + '|' + req.id_playlist;
+}
+async function saveSongRequest(req) {
 var cancion;
-if (pendingNativeTrack) {
-cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim() || pendingNativeTrack.artist || '', url_stream: '', plataforma: 'native', native_uri: pendingNativeTrack.uri, portada_url: '', votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0], local_only: true };
-if (!localCanciones[curPlaylist]) localCanciones[curPlaylist] = [];
-localCanciones[curPlaylist].push(cancion);
-if (!saveLocalCache()) {
-localCanciones[curPlaylist].pop();
-oembedStatus.textContent = 'No se pudo guardar la referencia local en este dispositivo.';
-oembedStatus.className = 'form-hint err';
-return;
+if (req.nativeTrack) {
+  cancion = { id_cancion: genId('C'), id_playlist: req.id_playlist, titulo: req.titulo, artista: req.artista || req.nativeTrack.artist || '', url_stream: '', plataforma: 'native', native_uri: req.nativeTrack.uri, portada_url: '', votos: 0, anadido_por: req.addedBy, fecha_added: new Date().toISOString().split('T')[0], local_only: true };
+  if (!localCanciones[req.id_playlist]) localCanciones[req.id_playlist] = [];
+  localCanciones[req.id_playlist].push(cancion);
+  if (!saveLocalCache()) {
+    localCanciones[req.id_playlist].pop();
+    throw new Error('No se pudo guardar la referencia local en este dispositivo.');
+  }
 }
-}
-else if (pendingLocalFile) {
-var localAssetId = genId('LOCAL');
-try { await putLocalAsset(localAssetId, pendingLocalFile); }
-catch(e) {
-oembedStatus.textContent = 'No se pudo guardar el audio en el almacenamiento del dispositivo. Prueba con un archivo mas pequeño o reinicia la app.';
-oembedStatus.className = 'form-hint err';
-return;
-}
-cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim(), url_stream: '', plataforma: 'local', portada_url: '', votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0], local_only: true, local_asset_id: localAssetId, nombre_archivo: pendingLocalFile.name };
-if (!localCanciones[curPlaylist]) localCanciones[curPlaylist] = [];
-localCanciones[curPlaylist].push(cancion);
-if (!saveLocalCache()) {
-localCanciones[curPlaylist].pop();
-try { await deleteLocalAsset(localAssetId); } catch(cleanErr) {}
-oembedStatus.textContent = 'Memoria local llena. Borra canciones locales o vacia una playlist para seguir guardando.';
-oembedStatus.className = 'form-hint err';
-return;
-}
+else if (req.localFile) {
+  var localAssetId = genId('LOCAL');
+  try { await putLocalAsset(localAssetId, req.localFile); }
+  catch(e) {
+    throw new Error('No se pudo guardar el audio en el almacenamiento del dispositivo.');
+  }
+  cancion = { id_cancion: genId('C'), id_playlist: req.id_playlist, titulo: req.titulo, artista: req.artista, url_stream: '', plataforma: 'local', portada_url: '', votos: 0, anadido_por: req.addedBy, fecha_added: new Date().toISOString().split('T')[0], local_only: true, local_asset_id: localAssetId, nombre_archivo: req.localFile.name };
+  if (!localCanciones[req.id_playlist]) localCanciones[req.id_playlist] = [];
+  localCanciones[req.id_playlist].push(cancion);
+  if (!saveLocalCache()) {
+    localCanciones[req.id_playlist].pop();
+    try { await deleteLocalAsset(localAssetId); } catch(cleanErr) {}
+    throw new Error('Memoria local llena. Borra canciones locales o vacia una playlist para seguir guardando.');
+  }
 }
 else {
-var platform = detectPlatform(url);
-cancion = { id_cancion: genId('C'), id_playlist: curPlaylist, titulo: titulo, artista: inputSongArtist.value.trim(), url_stream: url, plataforma: platform, portada_url: pendingPortada, votos: 0, anadido_por: inputAddedBy.value.trim(), fecha_added: new Date().toISOString().split('T')[0] };
-if (!canciones[curPlaylist]) canciones[curPlaylist] = [];
-canciones[curPlaylist].push(cancion);
-if (!saveToCache()) {
-  canciones[curPlaylist].pop();
-  oembedStatus.textContent = 'No se pudo guardar la cancion por falta de espacio en almacenamiento local.';
-  oembedStatus.className = 'form-hint err';
-  return;
-}
-await syncCanciones(curPlaylist);
+  var platform = detectPlatform(req.url);
+  cancion = { id_cancion: genId('C'), id_playlist: req.id_playlist, titulo: req.titulo, artista: req.artista, url_stream: req.url, plataforma: platform, portada_url: req.portada, votos: 0, anadido_por: req.addedBy, fecha_added: new Date().toISOString().split('T')[0] };
+  if (!canciones[req.id_playlist]) canciones[req.id_playlist] = [];
+  canciones[req.id_playlist].push(cancion);
+  if (!saveToCache()) {
+    canciones[req.id_playlist].pop();
+    throw new Error('No se pudo guardar la cancion por falta de espacio en almacenamiento local.');
+  }
+  await syncCanciones(req.id_playlist);
 }
 lsSet('rmh_lastuser', cancion.anadido_por);
-closeModalAddSong(); renderSongs(curPlaylist);
-} catch(err) {
-oembedStatus.textContent = 'Error al guardar la cancion. Intentalo de nuevo.';
-oembedStatus.className = 'form-hint err';
-} finally {
+if (req.id_playlist === curPlaylist) renderSongs(curPlaylist);
+}
+async function processSongSaveQueue() {
+if (isSavingSong) return;
+isSavingSong = true;
+btnSaveSong.disabled = true;
+while (saveSongQueue.length) {
+  var next = saveSongQueue.shift();
+  if (next && next._sig) delete saveSongQueueSignatures[next._sig];
+  try {
+    await saveSongRequest(next);
+    oembedStatus.textContent = '';
+    oembedStatus.className = 'form-hint';
+    closeModalAddSong();
+  } catch(err) {
+    oembedStatus.textContent = (err && err.message) ? err.message : 'Error al guardar la cancion. Intentalo de nuevo.';
+    oembedStatus.className = 'form-hint err';
+    break;
+  }
+}
+setNativePickerPending(false);
 isSavingSong = false;
 btnSaveSong.disabled = false;
 }
+btnSaveSong.addEventListener('click', function() {
+var req = buildSongSaveRequestFromForm();
+if (!req) { inputSongUrl.focus(); return; }
+if (req.invalid === 'titulo') { inputSongTitle.focus(); return; }
+if (req.invalid === 'playlist') return;
+var sig = songRequestSignature(req);
+if (saveSongQueueSignatures[sig]) {
+  oembedStatus.textContent = 'Esta cancion ya esta en cola de guardado...';
+  oembedStatus.className = 'form-hint';
+  return;
+}
+req._sig = sig;
+saveSongQueueSignatures[sig] = true;
+saveSongQueue.push(req);
+if (isSavingSong) {
+  oembedStatus.textContent = 'Cancion anadida a la cola...';
+  oembedStatus.className = 'form-hint';
+}
+processSongSaveQueue();
 });
 playerAudio.addEventListener('play', function() {
 isPlaying = true;
