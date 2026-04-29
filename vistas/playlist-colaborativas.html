@@ -416,6 +416,9 @@
   var DB_NAME = 'carorur_local_music_db';
   var DB_VERSION = 1;
   var DB_STORE = 'songs';
+  var MAX_IMPORT_FILES = 120;
+  var MAX_FILE_SIZE_MB = 80;
+  var BATCH_YIELD_EVERY = 6;
 
   var state = {
     folders: [],
@@ -758,13 +761,34 @@
     var folder = state.folders.find(function (f) { return f.id === folderId; });
     if (!folder) return;
 
-    var audioFiles = Array.prototype.slice.call(files || []).filter(function (file) {
+    var rawFiles = Array.prototype.slice.call(files || []).filter(function (file) {
       return /^audio\//i.test(file.type || 'audio/unknown');
     });
 
-    if (!audioFiles.length) {
+    if (!rawFiles.length) {
       playerNote.textContent = 'No se detectaron audios validos.';
       return;
+    }
+
+    var maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
+    var skippedBySize = 0;
+    var audioFiles = rawFiles.filter(function (file) {
+      if ((file.size || 0) > maxBytes) {
+        skippedBySize += 1;
+        return false;
+      }
+      return true;
+    });
+
+    if (!audioFiles.length) {
+      playerNote.textContent = 'Los archivos seleccionados superan el limite de ' + MAX_FILE_SIZE_MB + 'MB por cancion.';
+      return;
+    }
+
+    var trimmed = false;
+    if (audioFiles.length > MAX_IMPORT_FILES) {
+      audioFiles = audioFiles.slice(0, MAX_IMPORT_FILES);
+      trimmed = true;
     }
 
     playerNote.textContent = 'Guardando ' + audioFiles.length + ' canciones en local...';
@@ -784,10 +808,21 @@
         addedAt: Date.now()
       };
       folder.songIds.push(id);
+
+      if ((i + 1) % BATCH_YIELD_EVERY === 0) {
+        await new Promise(function (resolve) { setTimeout(resolve, 0); });
+      }
     }
 
     saveState();
-    playerNote.textContent = 'Listo: ' + audioFiles.length + ' canciones guardadas en "' + folder.name + '".';
+    var note = 'Listo: ' + audioFiles.length + ' canciones guardadas en "' + folder.name + '".';
+    if (trimmed) {
+      note += ' (Se limitaron a ' + MAX_IMPORT_FILES + ' para evitar reinicios por memoria).';
+    }
+    if (skippedBySize > 0) {
+      note += ' Omitidas por tamano: ' + skippedBySize + '.';
+    }
+    playerNote.textContent = note;
     renderAll();
   }
 
@@ -870,12 +905,23 @@
       return;
     }
 
+    var processed = 0;
     for (var i = 0; i < names.length; i++) {
+      if (processed >= MAX_IMPORT_FILES) break;
       var folder = createFolder(names[i]);
-      await addFilesToFolder(groups[names[i]], folder.id);
+      var group = groups[names[i]] || [];
+      if (processed + group.length > MAX_IMPORT_FILES) {
+        group = group.slice(0, Math.max(0, MAX_IMPORT_FILES - processed));
+      }
+      processed += group.length;
+      await addFilesToFolder(group, folder.id);
     }
 
-    playerNote.textContent = 'Carpetas importadas correctamente.';
+    if (processed >= MAX_IMPORT_FILES) {
+      playerNote.textContent = 'Importacion parcial completada para proteger memoria del movil. Maximo actual: ' + MAX_IMPORT_FILES + ' canciones por importacion.';
+    } else {
+      playerNote.textContent = 'Carpetas importadas correctamente.';
+    }
     renderAll();
   }
 

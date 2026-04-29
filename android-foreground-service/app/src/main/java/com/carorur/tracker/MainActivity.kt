@@ -1,9 +1,13 @@
 package com.carorur.tracker
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -12,6 +16,7 @@ import android.webkit.WebView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
@@ -22,6 +27,45 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var prefs: SharedPreferences
     private lateinit var assetLoader: WebViewAssetLoader
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val callback = fileChooserCallback
+            fileChooserCallback = null
+            if (callback == null) return@registerForActivityResult
+
+            val uris = try {
+                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            } catch (_: Throwable) {
+                null
+            }
+
+            if (uris != null) {
+                callback.onReceiveValue(uris)
+                return@registerForActivityResult
+            }
+
+            val data = result.data
+            if (result.resultCode != RESULT_OK || data == null) {
+                callback.onReceiveValue(null)
+                return@registerForActivityResult
+            }
+
+            val fromClip = data.clipData
+            if (fromClip != null && fromClip.itemCount > 0) {
+                val out = ArrayList<Uri>(fromClip.itemCount)
+                for (i in 0 until fromClip.itemCount) {
+                    val uri = fromClip.getItemAt(i).uri
+                    if (uri != null) out.add(uri)
+                }
+                callback.onReceiveValue(if (out.isEmpty()) null else out.toTypedArray())
+                return@registerForActivityResult
+            }
+
+            val single = data.data
+            callback.onReceiveValue(if (single != null) arrayOf(single) else null)
+        }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,6 +90,48 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                if (filePathCallback == null) return false
+
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = filePathCallback
+
+                val chooserIntent = try {
+                    fileChooserParams?.createIntent()
+                } catch (_: Throwable) {
+                    null
+                } ?: Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                }
+
+                chooserIntent.addCategory(Intent.CATEGORY_OPENABLE)
+                if (chooserIntent.type.isNullOrBlank()) {
+                    chooserIntent.type = "*/*"
+                }
+
+                if (fileChooserParams?.mode == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                    chooserIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                }
+
+                try {
+                    fileChooserLauncher.launch(chooserIntent)
+                    return true
+                } catch (_: Throwable) {
+                    fileChooserCallback?.onReceiveValue(null)
+                    fileChooserCallback = null
+                    Toast.makeText(this@MainActivity, "No se pudo abrir el selector de archivos", Toast.LENGTH_SHORT).show()
+                    return false
+                }
+            }
+        }
+
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -64,6 +150,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        fileChooserCallback?.onReceiveValue(null)
+        fileChooserCallback = null
         webView.destroy()
         super.onDestroy()
     }
