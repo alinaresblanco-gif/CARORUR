@@ -10,113 +10,39 @@
 <link rel="stylesheet" href="vistas.css" />
 <style>
 .vista-contenido {
-  padding: 0.7rem !important;
+  padding: 0.55rem !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-}
-.local-music-layout {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
+  gap: 0.55rem;
   min-height: 0;
-  flex: 1;
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 0.7rem;
 }
-.panel {
+
+.player-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 25;
   background: var(--papel-claro);
   border: 2px solid var(--papel-oscuro);
   border-radius: 14px;
   box-shadow: var(--sombra-papel);
-  min-height: 0;
-  min-width: 0;
+  padding: 0.65rem;
 }
-.library-panel {
-  display: flex;
-  flex-direction: column;
-  padding: 0.7rem;
-  gap: 0.6rem;
-}
-.panel-title {
-  margin: 0;
-  font-family: 'Special Elite', cursive;
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
-  color: var(--tinta-rural);
-}
-.folder-actions {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.4rem;
-}
-.btn {
-  border: 2px solid var(--papel-oscuro);
-  border-radius: 9px;
-  background: #f3dfb5;
-  color: var(--tinta-rural);
-  font-family: 'Special Elite', cursive;
-  font-size: 0.72rem;
-  padding: 0.52rem 0.6rem;
-  cursor: pointer;
-}
-.btn:hover { background: #ecd29f; }
-.btn.danger {
-  border-color: #9a3f2e;
-  color: #9a3f2e;
-  background: #f7d7c9;
-}
-.btn.danger:hover { background: #f2c4af; }
-.folder-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding-right: 0.1rem;
-}
-.folder-item {
-  border: 1.5px solid rgba(122,82,48,0.45);
-  border-radius: 8px;
-  padding: 0.45rem 0.52rem;
-  background: #fff5de;
-  cursor: pointer;
-  font-size: 0.84rem;
-}
-.folder-item.active {
-  background: #5c3d1e;
-  border-color: #5c3d1e;
-  color: #fff;
-}
-.folder-meta {
-  font-size: 0.72rem;
-  opacity: 0.8;
-}
-.library-hint {
-  font-size: 0.72rem;
-  color: var(--tinta-rural-suave);
-  line-height: 1.35;
-}
-.player-shell {
-  padding: 0.9rem 0.8rem;
-  overflow: hidden;
-}
-.player-sticky {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-}
+
 .player-card {
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 1rem;
+  grid-template-columns: 140px minmax(0, 1fr);
   align-items: center;
-  min-width: 0;
+  gap: 0.75rem;
 }
-.vinyl-wrap { width: 180px; height: 180px; }
+
+.vinyl-wrap {
+  width: 132px;
+  height: 132px;
+  justify-self: center;
+}
+
 .vinyl-record {
   width: 100%;
   height: 100%;
@@ -127,8 +53,6 @@
     radial-gradient(circle at center, transparent 42%, rgba(255,255,255,0.03) 43%, transparent 45%),
     radial-gradient(circle at center, transparent 49%, rgba(255,255,255,0.03) 50%, transparent 52%),
     radial-gradient(circle at center, transparent 56%, rgba(255,255,255,0.03) 57%, transparent 59%),
-    radial-gradient(circle at center, transparent 63%, rgba(255,255,255,0.03) 64%, transparent 66%),
-    radial-gradient(circle at center, transparent 70%, rgba(255,255,255,0.03) 71%, transparent 73%),
     linear-gradient(135deg, #2a1810 0%, #1a0f0a 50%, #2a1810 100%);
   display: flex;
   align-items: center;
@@ -137,10 +61,12 @@
   animation-play-state: paused;
   box-shadow: 0 8px 24px rgba(0,0,0,0.42), inset 0 0 18px rgba(0,0,0,0.32);
 }
+
 .vinyl-record.spinning { animation-play-state: running; }
+
 .vinyl-center {
-  width: 74px;
-  height: 74px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   background: var(--papel-medio);
   border: 3px solid #7a5230;
@@ -148,114 +74,244 @@
   align-items: center;
   justify-content: center;
 }
-.vinyl-center-icon { font-size: 1.9rem; }
+
+.vinyl-center-icon { font-size: 1.55rem; }
+
 @keyframes vinylSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+.player-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .song-info-title {
   margin: 0;
+  max-width: 100%;
   font-family: 'Special Elite', cursive;
-  font-size: 1rem;
+  font-size: 0.96rem;
   color: var(--tinta-rural);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .song-info-artist {
-  margin: 0.2rem 0 0;
-  font-size: 0.86rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
   color: var(--tinta-rural-suave);
 }
+
 .song-info-folder {
-  margin: 0.35rem 0 0;
+  margin: 0.18rem 0 0;
   font-size: 0.72rem;
   color: var(--tinta-rural-suave);
 }
+
 .player-audio-wrap {
-  margin-top: 0.6rem;
+  margin-top: 0.45rem;
   width: 100%;
-  max-width: 460px;
+  max-width: 520px;
 }
+
 .player-audio-wrap audio { width: 100%; }
+
 .player-controls {
-  margin-top: 0.7rem;
+  margin-top: 0.45rem;
   display: flex;
-  gap: 0.8rem;
   justify-content: center;
+  gap: 0.62rem;
 }
+
 .ctrl-btn {
   background: none;
   border: 2px solid var(--papel-oscuro);
   border-radius: 50%;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   color: var(--tinta-rural);
   cursor: pointer;
 }
+
 .ctrl-btn.play-btn {
-  width: 54px;
-  height: 54px;
+  width: 50px;
+  height: 50px;
   background: var(--tinta-rural);
   color: var(--papel-claro);
   border-color: var(--tinta-rural);
 }
+
 .player-note {
-  margin-top: 0.45rem;
+  margin-top: 0.25rem;
   min-height: 1rem;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: var(--tinta-rural-suave);
+  text-align: center;
 }
-.song-list-panel {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.panel {
+  background: var(--papel-claro);
+  border: 2px solid var(--papel-oscuro);
+  border-radius: 14px;
+  box-shadow: var(--sombra-papel);
   min-width: 0;
 }
+
+.library-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.65rem;
+}
+
+.panel-title {
+  margin: 0;
+  font-family: 'Special Elite', cursive;
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  color: var(--tinta-rural);
+}
+
+.folder-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.34rem;
+}
+
+.btn {
+  border: 2px solid var(--papel-oscuro);
+  border-radius: 9px;
+  background: #f3dfb5;
+  color: var(--tinta-rural);
+  font-family: 'Special Elite', cursive;
+  font-size: 0.7rem;
+  padding: 0.48rem 0.55rem;
+  cursor: pointer;
+}
+
+.btn:hover { background: #ecd29f; }
+
+.btn.danger {
+  border-color: #9a3f2e;
+  color: #9a3f2e;
+  background: #f7d7c9;
+}
+
+.btn.danger:hover { background: #f2c4af; }
+
+.folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.folder-item {
+  border: 1.5px solid rgba(122,82,48,0.45);
+  border-radius: 8px;
+  padding: 0.4rem 0.52rem;
+  background: #fff5de;
+  cursor: pointer;
+  font-size: 0.84rem;
+}
+
+.folder-item.active {
+  background: #5c3d1e;
+  border-color: #5c3d1e;
+  color: #fff;
+}
+
+.folder-meta {
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.library-hint {
+  font-size: 0.72rem;
+  color: var(--tinta-rural-suave);
+}
+
+.song-list-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .song-list-header {
-  padding: 0.55rem 0.8rem;
+  padding: 0.52rem 0.7rem;
   border-bottom: 1px solid rgba(122,82,48,0.4);
   font-family: 'Special Elite', cursive;
   font-size: 0.78rem;
   color: var(--tinta-rural);
 }
+
 .song-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.45rem;
+  padding: 0.42rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
+
 .song-item {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
-  align-items: center;
+  align-items: start;
   border-radius: 8px;
   border: 1px solid rgba(122,82,48,0.3);
-  padding: 0.45rem 0.55rem;
+  padding: 0.46rem 0.52rem;
   background: #fff5de;
 }
-.song-item.active { background: #5c3d1e; color: #fff; }
+
+.song-item.active {
+  background: #5c3d1e;
+  color: #fff;
+}
+
+.song-main {
+  min-width: 0;
+}
+
 .song-line-title {
   font-size: 0.86rem;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.2;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-clamp: 2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
+
 .song-line-sub {
-  font-size: 0.73rem;
-  opacity: 0.82;
+  font-size: 0.72rem;
+  opacity: 0.85;
+  margin-top: 0.14rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .song-item-actions {
   display: flex;
-  gap: 0.35rem;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-items: center;
 }
+
 .mini-btn {
   border: 1px solid rgba(122,82,48,0.5);
   border-radius: 6px;
@@ -263,50 +319,26 @@
   color: var(--tinta-rural);
   font-size: 0.72rem;
   cursor: pointer;
-  padding: 0.24rem 0.36rem;
+  padding: 0.23rem 0.36rem;
+  min-width: 56px;
 }
+
 .song-item.active .mini-btn {
   background: rgba(255,255,255,0.2);
   color: #fff;
-  border-color: rgba(255,255,255,0.4);
+  border-color: rgba(255,255,255,0.45);
 }
+
 .empty-state {
   text-align: center;
-  padding: 1.8rem 0.8rem;
+  padding: 1.1rem 0.65rem;
   color: var(--tinta-rural-suave);
 }
-@media (max-width: 900px) {
-  html, body {
-    overflow-x: hidden;
+
+@media (min-width: 960px) {
+  .content-grid {
+    grid-template-columns: 340px 1fr;
   }
-  .local-music-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-    overflow: visible;
-    width: 100%;
-    max-width: 100%;
-  }
-  .library-panel { min-height: 200px; }
-  .player-shell,
-  .song-list-panel,
-  .library-panel,
-  .player-sticky {
-    width: 100%;
-    max-width: 100%;
-  }
-  .player-card {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
-  }
-  .player-card > div:last-child {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 0;
-  }
-  .song-info-title { max-width: 88vw; }
 }
 </style>
 </head>
@@ -321,7 +353,7 @@
   </header>
 
   <main class="vista-contenido">
-    <section class="panel player-shell player-sticky">
+    <section class="player-sticky" aria-label="Reproductor">
       <div class="player-card">
         <div class="vinyl-wrap">
           <div class="vinyl-record" id="vinylRecord">
@@ -331,7 +363,7 @@
           </div>
         </div>
 
-        <div>
+        <div class="player-info">
           <p class="song-info-title" id="songTitle">Selecciona una cancion local</p>
           <p class="song-info-artist" id="songArtist">&#8212;</p>
           <p class="song-info-folder" id="songFolder">Sin carpeta activa</p>
@@ -351,7 +383,7 @@
       </div>
     </section>
 
-    <div class="local-music-layout">
+    <section class="content-grid">
       <aside class="panel library-panel">
         <h2 class="panel-title">MIS CARPETAS LOCALES</h2>
 
@@ -364,16 +396,14 @@
 
         <div class="folder-list" id="folderList"></div>
 
-        <div class="library-hint" id="libraryHint">
-          Todo esto es local en tu movil. No se sincroniza con nadie.
-        </div>
+        <div class="library-hint">Todo esto es local en tu movil. No se sincroniza con nadie.</div>
       </aside>
 
-      <div class="panel song-list-panel">
+      <section class="panel song-list-panel">
         <div class="song-list-header" id="songListHeader">CANCIONES DE LA CARPETA</div>
         <div class="song-list" id="songList"></div>
-      </div>
-    </div>
+      </section>
+    </section>
   </main>
 </div>
 
@@ -418,6 +448,14 @@
 
   function uid(prefix) {
     return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+  }
+
+  function escHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   function openDb() {
@@ -506,14 +544,6 @@
     return String(name || '').trim().replace(/\s+/g, ' ');
   }
 
-  function escHtml(value) {
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
   function parseSongMeta(file) {
     var baseName = String(file.name || 'Cancion').replace(/\.[^.]+$/, '');
     var title = baseName;
@@ -540,7 +570,7 @@
       var div = document.createElement('div');
       div.className = 'folder-item' + (folder.id === state.selectedFolderId ? ' active' : '');
       div.innerHTML =
-        '<div>' + folder.name + '</div>' +
+        '<div>' + escHtml(folder.name) + '</div>' +
         '<div class="folder-meta">' + folder.songIds.length + ' canciones</div>';
       div.addEventListener('click', function () {
         state.selectedFolderId = folder.id;
@@ -576,6 +606,7 @@
       row.className = 'song-item' + (song.id === state.currentSongId ? ' active' : '');
 
       var left = document.createElement('div');
+      left.className = 'song-main';
       left.innerHTML =
         '<div class="song-line-title">' + escHtml(song.title) + '</div>' +
         '<div class="song-line-sub">' + escHtml(song.artist) + '</div>';
@@ -765,10 +796,7 @@
     if (!clean) clean = 'NUEVA CARPETA';
     var name = clean;
     var n = 2;
-    var exists = function (x) {
-      return state.folders.some(function (f) { return f.name === x; });
-    };
-    while (exists(name)) {
+    while (state.folders.some(function (f) { return f.name === name; })) {
       name = clean + ' (' + n + ')';
       n += 1;
     }
@@ -842,12 +870,9 @@
       return;
     }
 
-    playerNote.textContent = 'Importando carpetas locales...';
-
     for (var i = 0; i < names.length; i++) {
-      var folderName = names[i];
-      var folder = createFolder(folderName);
-      await addFilesToFolder(groups[folderName], folder.id);
+      var folder = createFolder(names[i]);
+      await addFilesToFolder(groups[names[i]], folder.id);
     }
 
     playerNote.textContent = 'Carpetas importadas correctamente.';
@@ -970,982 +995,6 @@
   loadState();
   ensureDefaultFolder();
   renderAll();
-})();
-</script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>NUESTRA MUSICA FAVORITA</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="vistas.css" />
-<style>
-.vista-contenido {
-  padding: 0.7rem !important;
-  overflow: hidden !important;
-}
-.music-layout {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
-  gap: 0.7rem;
-}
-.panel {
-  background: var(--papel-claro);
-  border: 2px solid var(--papel-oscuro);
-  border-radius: 14px;
-  box-shadow: var(--sombra-papel);
-  min-height: 0;
-}
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.sidebar-head {
-  padding: 0.7rem 0.8rem;
-  border-bottom: 1px solid rgba(92, 61, 30, 0.3);
-}
-.sidebar-title {
-  margin: 0;
-  font-family: 'Special Elite', cursive;
-  font-size: 0.84rem;
-  letter-spacing: 0.08em;
-  color: var(--tinta-rural);
-}
-.sidebar-tools {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.45rem;
-  margin-top: 0.6rem;
-}
-.btn-tool {
-  width: 100%;
-  border: 2px solid var(--papel-oscuro);
-  background: transparent;
-  border-radius: 9px;
-  padding: 0.5rem 0.7rem;
-  text-align: left;
-  font-family: 'Crimson Text', serif;
-  font-size: 0.9rem;
-  color: var(--tinta-rural);
-  cursor: pointer;
-}
-.btn-tool:hover {
-  background: var(--papel-medio);
-}
-.folder-list {
-  padding: 0.55rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  overflow-y: auto;
-}
-.folder-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 0.3rem;
-  align-items: center;
-}
-.folder-btn {
-  border: 2px solid rgba(92, 61, 30, 0.35);
-  background: #f6ead0;
-  border-radius: 8px;
-  padding: 0.5rem 0.55rem;
-  text-align: left;
-  font-family: 'Crimson Text', serif;
-  font-size: 0.9rem;
-  color: var(--tinta-rural);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.folder-btn.active {
-  background: #5c3d1e;
-  color: var(--papel-claro);
-  border-color: #5c3d1e;
-}
-.btn-mini {
-  border: 1px solid rgba(92, 61, 30, 0.4);
-  background: transparent;
-  color: #7a5230;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  cursor: pointer;
-}
-.btn-mini:hover {
-  background: #7a5230;
-  color: #fff;
-}
-.main-panel {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  overflow: hidden;
-}
-.main-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid rgba(92, 61, 30, 0.3);
-}
-.main-title {
-  margin: 0;
-  font-family: 'Special Elite', cursive;
-  font-size: 0.86rem;
-  letter-spacing: 0.08em;
-  color: var(--tinta-rural);
-}
-.main-meta {
-  font-size: 0.76rem;
-  color: var(--tinta-rural-suave);
-}
-.main-body {
-  display: grid;
-  grid-template-columns: minmax(280px, 350px) 1fr;
-  gap: 0.7rem;
-  padding: 0.7rem;
-  min-height: 0;
-}
-.player-shell {
-  background: rgba(255, 255, 255, 0.25);
-  border: 1px solid rgba(92, 61, 30, 0.25);
-  border-radius: 12px;
-  padding: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 0;
-}
-.vinyl-wrap {
-  width: 190px;
-  height: 190px;
-}
-.vinyl-record {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at center, transparent 28%, rgba(255,255,255,0.04) 29%, transparent 31%),
-    radial-gradient(circle at center, transparent 35%, rgba(255,255,255,0.03) 36%, transparent 38%),
-    radial-gradient(circle at center, transparent 42%, rgba(255,255,255,0.03) 43%, transparent 45%),
-    radial-gradient(circle at center, transparent 49%, rgba(255,255,255,0.03) 50%, transparent 52%),
-    radial-gradient(circle at center, transparent 56%, rgba(255,255,255,0.03) 57%, transparent 59%),
-    radial-gradient(circle at center, transparent 63%, rgba(255,255,255,0.03) 64%, transparent 66%),
-    radial-gradient(circle at center, transparent 70%, rgba(255,255,255,0.03) 71%, transparent 73%),
-    linear-gradient(135deg, #2a1810 0%, #1a0f0a 50%, #2a1810 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: vinylSpin 5s linear infinite;
-  animation-play-state: paused;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4), inset 0 0 18px rgba(0,0,0,0.32);
-}
-.vinyl-record.spinning {
-  animation-play-state: running;
-}
-.vinyl-center {
-  width: 74px;
-  height: 74px;
-  border-radius: 50%;
-  background: var(--papel-medio);
-  border: 3px solid #7a5230;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.vinyl-center-icon {
-  font-size: 1.9rem;
-  line-height: 1;
-}
-@keyframes vinylSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.song-info {
-  text-align: center;
-  max-width: 280px;
-}
-.song-info-title {
-  margin: 0;
-  font-family: 'Special Elite', cursive;
-  font-size: 1rem;
-  color: var(--tinta-rural);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.song-info-artist {
-  margin: 0.2rem 0 0;
-  font-size: 0.88rem;
-  color: var(--tinta-rural-suave);
-}
-.player-audio {
-  width: 100%;
-}
-.player-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-.ctrl-btn {
-  background: none;
-  border: 2px solid var(--papel-oscuro);
-  border-radius: 50%;
-  width: 42px;
-  height: 42px;
-  cursor: pointer;
-  color: var(--tinta-rural);
-}
-.ctrl-btn.play-btn {
-  width: 54px;
-  height: 54px;
-  font-size: 1.16rem;
-  background: var(--tinta-rural);
-  color: var(--papel-claro);
-  border-color: var(--tinta-rural);
-}
-.player-note {
-  min-height: 1rem;
-  text-align: center;
-  font-size: 0.74rem;
-  color: var(--tinta-rural-suave);
-}
-.songs-panel {
-  background: rgba(255, 255, 255, 0.25);
-  border: 1px solid rgba(92, 61, 30, 0.25);
-  border-radius: 12px;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.songs-head {
-  padding: 0.6rem 0.7rem;
-  font-size: 0.74rem;
-  color: var(--tinta-rural-suave);
-  border-bottom: 1px solid rgba(92, 61, 30, 0.2);
-}
-.songs-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.4rem;
-}
-.song-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.4rem;
-  align-items: center;
-  border-radius: 8px;
-  padding: 0.45rem 0.5rem;
-  cursor: pointer;
-}
-.song-item:hover {
-  background: var(--papel-medio);
-}
-.song-item.active {
-  background: #5c3d1e;
-  color: var(--papel-claro);
-}
-.song-item-title {
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.song-item-sub {
-  font-size: 0.74rem;
-  color: var(--tinta-rural-suave);
-}
-.song-item.active .song-item-sub {
-  color: #d6b68e;
-}
-.empty-state {
-  text-align: center;
-  padding: 1.2rem 0.8rem;
-  color: var(--tinta-rural-suave);
-}
-.note-box {
-  margin: 0.5rem 0.8rem 0.75rem;
-  padding: 0.5rem 0.6rem;
-  border: 1px dashed rgba(92,61,30,0.35);
-  border-radius: 8px;
-  font-size: 0.73rem;
-  color: var(--tinta-rural-suave);
-}
-input[type="file"] {
-  display: none;
-}
-@media (max-width: 900px) {
-  .music-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    overflow: auto;
-  }
-  .sidebar {
-    min-height: 250px;
-  }
-  .main-body {
-    grid-template-columns: 1fr;
-  }
-  .vinyl-wrap {
-    width: 160px;
-    height: 160px;
-  }
-}
-</style>
-</head>
-<body>
-<div class="vista-app">
-  <header class="vista-header">
-    <a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio" id="btnVolverCabecera">
-      <img src="../iconos/volver.png" alt="Volver" />
-    </a>
-    <h1>NUESTRA MUSICA FAVORITA</h1>
-    <div class="header-espaciador" aria-hidden="true"></div>
-  </header>
-
-  <main class="vista-contenido">
-    <div class="music-layout">
-      <aside class="panel sidebar" aria-label="Carpetas personales">
-        <div class="sidebar-head">
-          <p class="sidebar-title">MIS CARPETAS LOCALES</p>
-          <div class="sidebar-tools">
-            <button class="btn-tool" id="btnNewFolder" type="button">+ Crear carpeta con nombre</button>
-            <button class="btn-tool" id="btnAddFiles" type="button">+ Anadir canciones sueltas</button>
-            <button class="btn-tool" id="btnImportDir" type="button">+ Importar carpeta del movil</button>
-          </div>
-        </div>
-        <div class="folder-list" id="folderList"></div>
-        <div class="note-box" id="storageNote">Todo queda guardado solo en este movil y no se comparte.</div>
-      </aside>
-
-      <section class="panel main-panel" aria-label="Reproductor y canciones">
-        <div class="main-head">
-          <p class="main-title" id="currentFolderTitle">SIN CARPETA</p>
-          <span class="main-meta" id="currentFolderMeta">0 canciones</span>
-        </div>
-        <div class="main-body">
-          <div class="player-shell">
-            <div class="vinyl-wrap">
-              <div class="vinyl-record" id="vinylRecord">
-                <div class="vinyl-center"><span class="vinyl-center-icon">&#127925;</span></div>
-              </div>
-            </div>
-            <div class="song-info">
-              <p class="song-info-title" id="songTitle">Sin cancion</p>
-              <p class="song-info-artist" id="songArtist">&#8212;</p>
-            </div>
-            <audio class="player-audio" id="playerAudio" controls preload="metadata"></audio>
-            <div class="player-controls">
-              <button class="ctrl-btn" id="btnPrev" aria-label="Anterior">&#9198;</button>
-              <button class="ctrl-btn play-btn" id="btnPlayPause" aria-label="Play/Pausa">&#9654;</button>
-              <button class="ctrl-btn" id="btnNext" aria-label="Siguiente">&#9197;</button>
-            </div>
-            <div class="player-note" id="playerNote">Crea una carpeta y anade canciones del movil.</div>
-          </div>
-
-          <div class="songs-panel">
-            <div class="songs-head" id="songsHead">Biblioteca local personal</div>
-            <div class="songs-list" id="songsList"></div>
-          </div>
-        </div>
-      </section>
-    </div>
-  </main>
-</div>
-
-<input id="filePicker" type="file" accept="audio/*" multiple />
-<input id="dirPicker" type="file" accept="audio/*" multiple webkitdirectory directory />
-
-<script>
-(function () {
-  var LS_KEY = 'carorur_local_music_v2';
-  var DB_NAME = 'carorur_local_music_db';
-  var DB_VERSION = 1;
-  var DB_STORE = 'songs';
-
-  var state = {
-    folders: [],
-    songs: {},
-    selectedFolderId: null,
-    currentSongId: null
-  };
-
-  var objectUrls = {};
-
-  var btnVolverCabecera = document.getElementById('btnVolverCabecera');
-  var btnNewFolder = document.getElementById('btnNewFolder');
-  var btnAddFiles = document.getElementById('btnAddFiles');
-  var btnImportDir = document.getElementById('btnImportDir');
-  var folderList = document.getElementById('folderList');
-  var songsList = document.getElementById('songsList');
-  var songsHead = document.getElementById('songsHead');
-  var currentFolderTitle = document.getElementById('currentFolderTitle');
-  var currentFolderMeta = document.getElementById('currentFolderMeta');
-  var playerNote = document.getElementById('playerNote');
-  var vinylRecord = document.getElementById('vinylRecord');
-  var songTitle = document.getElementById('songTitle');
-  var songArtist = document.getElementById('songArtist');
-  var playerAudio = document.getElementById('playerAudio');
-  var btnPrev = document.getElementById('btnPrev');
-  var btnPlayPause = document.getElementById('btnPlayPause');
-  var btnNext = document.getElementById('btnNext');
-  var filePicker = document.getElementById('filePicker');
-  var dirPicker = document.getElementById('dirPicker');
-
-  function uid(prefix) {
-    return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
-  }
-
-  function saveState() {
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-  }
-
-  function loadState() {
-    try {
-      var parsed = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
-      if (Array.isArray(parsed.folders)) state.folders = parsed.folders;
-      if (parsed.songs && typeof parsed.songs === 'object') state.songs = parsed.songs;
-      if (parsed.selectedFolderId) state.selectedFolderId = parsed.selectedFolderId;
-      if (parsed.currentSongId) state.currentSongId = parsed.currentSongId;
-    } catch (e) {
-      state.folders = [];
-      state.songs = {};
-      state.selectedFolderId = null;
-      state.currentSongId = null;
-    }
-  }
-
-  function getFolderById(folderId) {
-    return state.folders.find(function (f) { return f.id === folderId; }) || null;
-  }
-
-  function getSelectedFolder() {
-    return getFolderById(state.selectedFolderId);
-  }
-
-  function ensureBaseFolder() {
-    if (state.folders.length) return;
-    var folder = { id: uid('F'), name: 'MI MUSICA', songIds: [] };
-    state.folders.push(folder);
-    state.selectedFolderId = folder.id;
-    saveState();
-  }
-
-  function parseTrackName(filename) {
-    var clean = String(filename || 'Cancion local').replace(/\.[^.]+$/, '');
-    var parts = clean.split(' - ');
-    if (parts.length >= 2) {
-      return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
-    }
-    return { artist: '', title: clean };
-  }
-
-  function openDb() {
-    return new Promise(function (resolve, reject) {
-      if (!window.indexedDB) {
-        reject(new Error('IndexedDB no disponible'));
-        return;
-      }
-      var request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = function (event) {
-        var db = event.target.result;
-        if (!db.objectStoreNames.contains(DB_STORE)) {
-          db.createObjectStore(DB_STORE, { keyPath: 'id' });
-        }
-      };
-      request.onsuccess = function () { resolve(request.result); };
-      request.onerror = function () { reject(request.error || new Error('No se pudo abrir IndexedDB')); };
-    });
-  }
-
-  async function putSongBlob(songId, file) {
-    var db = await openDb();
-    return new Promise(function (resolve, reject) {
-      var tx = db.transaction(DB_STORE, 'readwrite');
-      tx.objectStore(DB_STORE).put({ id: songId, file: file });
-      tx.oncomplete = function () { resolve(); };
-      tx.onerror = function () { reject(tx.error); };
-    });
-  }
-
-  async function getSongBlob(songId) {
-    var db = await openDb();
-    return new Promise(function (resolve, reject) {
-      var tx = db.transaction(DB_STORE, 'readonly');
-      var req = tx.objectStore(DB_STORE).get(songId);
-      req.onsuccess = function () {
-        resolve(req.result ? req.result.file : null);
-      };
-      req.onerror = function () { reject(req.error); };
-    });
-  }
-
-  async function deleteSongBlob(songId) {
-    var db = await openDb();
-    return new Promise(function (resolve, reject) {
-      var tx = db.transaction(DB_STORE, 'readwrite');
-      tx.objectStore(DB_STORE).delete(songId);
-      tx.oncomplete = function () { resolve(); };
-      tx.onerror = function () { reject(tx.error); };
-    });
-  }
-
-  function getSongsForFolder(folderId) {
-    var folder = getFolderById(folderId);
-    if (!folder) return [];
-    return folder.songIds.map(function (id) { return state.songs[id]; }).filter(Boolean);
-  }
-
-  function setPlayerMeta(song) {
-    if (!song) {
-      songTitle.textContent = 'Sin cancion';
-      songArtist.innerHTML = '&#8212;';
-      return;
-    }
-    songTitle.textContent = song.title || 'Sin titulo';
-    songArtist.textContent = song.artist || 'Artista desconocido';
-  }
-
-  function setPlayingVisual(isPlaying) {
-    vinylRecord.classList.toggle('spinning', !!isPlaying);
-    btnPlayPause.innerHTML = isPlaying ? '&#9208;' : '&#9654;';
-  }
-
-  async function playSong(songId) {
-    var song = state.songs[songId];
-    if (!song) return;
-
-    state.currentSongId = songId;
-    saveState();
-
-    setPlayerMeta(song);
-
-    try {
-      var url = objectUrls[songId];
-      if (!url) {
-        var blob = await getSongBlob(songId);
-        if (!blob) {
-          playerNote.textContent = 'No se encontro el archivo. Puedes volver a importarlo.';
-          return;
-        }
-        url = URL.createObjectURL(blob);
-        objectUrls[songId] = url;
-      }
-      playerAudio.src = url;
-      await playerAudio.play();
-      setPlayingVisual(true);
-      playerNote.textContent = '';
-      renderSongs();
-    } catch (err) {
-      setPlayingVisual(false);
-      playerNote.textContent = 'No se pudo reproducir esta cancion.';
-    }
-  }
-
-  function stopCurrentAudio() {
-    playerAudio.pause();
-    setPlayingVisual(false);
-  }
-
-  function selectFolder(folderId) {
-    state.selectedFolderId = folderId;
-    state.currentSongId = null;
-    stopCurrentAudio();
-    playerAudio.removeAttribute('src');
-    playerAudio.load();
-    setPlayerMeta(null);
-    saveState();
-    renderFolders();
-    renderSongs();
-    playerNote.textContent = 'Carpeta lista. Selecciona una cancion para reproducir.';
-  }
-
-  function renderFolders() {
-    folderList.innerHTML = '';
-    if (!state.folders.length) {
-      folderList.innerHTML = '<div class="empty-state">No hay carpetas aun</div>';
-      return;
-    }
-
-    state.folders.forEach(function (folder) {
-      var row = document.createElement('div');
-      row.className = 'folder-row';
-
-      var btn = document.createElement('button');
-      btn.className = 'folder-btn' + (folder.id === state.selectedFolderId ? ' active' : '');
-      btn.type = 'button';
-      btn.title = folder.name;
-      btn.textContent = folder.name + ' (' + folder.songIds.length + ')';
-      btn.addEventListener('click', function () {
-        selectFolder(folder.id);
-      });
-
-      var renameBtn = document.createElement('button');
-      renameBtn.className = 'btn-mini';
-      renameBtn.type = 'button';
-      renameBtn.title = 'Renombrar carpeta';
-      renameBtn.textContent = 'R';
-      renameBtn.addEventListener('click', function () {
-        var nextName = prompt('Nuevo nombre de carpeta:', folder.name);
-        if (!nextName) return;
-        folder.name = nextName.trim().toUpperCase();
-        saveState();
-        renderFolders();
-        renderSongs();
-      });
-
-      var deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn-mini';
-      deleteBtn.type = 'button';
-      deleteBtn.title = 'Eliminar carpeta';
-      deleteBtn.textContent = 'X';
-      deleteBtn.addEventListener('click', function () {
-        removeFolder(folder.id);
-      });
-
-      row.appendChild(btn);
-      row.appendChild(renameBtn);
-      row.appendChild(deleteBtn);
-      folderList.appendChild(row);
-    });
-  }
-
-  function renderSongs() {
-    songsList.innerHTML = '';
-    var folder = getSelectedFolder();
-    if (!folder) {
-      currentFolderTitle.textContent = 'SIN CARPETA';
-      currentFolderMeta.textContent = '0 canciones';
-      songsHead.textContent = 'Biblioteca local personal';
-      songsList.innerHTML = '<div class="empty-state">Crea una carpeta para empezar</div>';
-      return;
-    }
-
-    var songs = getSongsForFolder(folder.id);
-    currentFolderTitle.textContent = folder.name;
-    currentFolderMeta.textContent = songs.length + ' canciones';
-    songsHead.textContent = 'Carpeta actual: ' + folder.name;
-
-    if (!songs.length) {
-      songsList.innerHTML = '<div class="empty-state">Sin canciones en esta carpeta</div>';
-      return;
-    }
-
-    songs.forEach(function (song, index) {
-      var item = document.createElement('div');
-      item.className = 'song-item' + (song.id === state.currentSongId ? ' active' : '');
-
-      var left = document.createElement('div');
-      left.innerHTML =
-        '<div class="song-item-title">' + escapeHtml(song.title) + '</div>' +
-        '<div class="song-item-sub">' + escapeHtml(song.artist || 'Artista desconocido') + '</div>';
-
-      var right = document.createElement('button');
-      right.className = 'btn-mini';
-      right.type = 'button';
-      right.title = 'Quitar cancion';
-      right.textContent = 'X';
-      right.addEventListener('click', function (e) {
-        e.stopPropagation();
-        removeSongFromFolder(folder.id, song.id);
-      });
-
-      item.addEventListener('click', function () {
-        playSong(song.id);
-      });
-
-      item.appendChild(left);
-      item.appendChild(right);
-      songsList.appendChild(item);
-
-      if (index === 0 && !state.currentSongId) {
-        setPlayerMeta(song);
-      }
-    });
-  }
-
-  function escapeHtml(value) {
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  async function removeSongFromFolder(folderId, songId) {
-    var folder = getFolderById(folderId);
-    if (!folder) return;
-    var ok = confirm('Quitar esta cancion de la carpeta?');
-    if (!ok) return;
-
-    folder.songIds = folder.songIds.filter(function (id) { return id !== songId; });
-    delete state.songs[songId];
-
-    if (state.currentSongId === songId) {
-      state.currentSongId = null;
-      stopCurrentAudio();
-      playerAudio.removeAttribute('src');
-      playerAudio.load();
-      setPlayerMeta(null);
-    }
-
-    if (objectUrls[songId]) {
-      URL.revokeObjectURL(objectUrls[songId]);
-      delete objectUrls[songId];
-    }
-
-    try { await deleteSongBlob(songId); } catch (e) {}
-
-    saveState();
-    renderFolders();
-    renderSongs();
-  }
-
-  async function removeFolder(folderId) {
-    var folder = getFolderById(folderId);
-    if (!folder) return;
-    var ok = confirm('Eliminar carpeta "' + folder.name + '" y todas sus canciones?');
-    if (!ok) return;
-
-    for (var i = 0; i < folder.songIds.length; i++) {
-      var songId = folder.songIds[i];
-      delete state.songs[songId];
-      if (objectUrls[songId]) {
-        URL.revokeObjectURL(objectUrls[songId]);
-        delete objectUrls[songId];
-      }
-      try { await deleteSongBlob(songId); } catch (e) {}
-    }
-
-    state.folders = state.folders.filter(function (f) { return f.id !== folderId; });
-
-    if (state.selectedFolderId === folderId) {
-      state.selectedFolderId = state.folders.length ? state.folders[0].id : null;
-      state.currentSongId = null;
-      stopCurrentAudio();
-      playerAudio.removeAttribute('src');
-      playerAudio.load();
-      setPlayerMeta(null);
-    }
-
-    if (!state.folders.length) {
-      ensureBaseFolder();
-    }
-
-    saveState();
-    renderFolders();
-    renderSongs();
-  }
-
-  async function addFilesToFolder(files, folderId) {
-    var folder = getFolderById(folderId);
-    if (!folder) {
-      playerNote.textContent = 'Primero crea o selecciona una carpeta.';
-      return;
-    }
-
-    var validFiles = Array.prototype.slice.call(files || []).filter(function (file) {
-      return file && /^audio\//i.test(file.type || 'audio/unknown');
-    });
-
-    if (!validFiles.length) {
-      playerNote.textContent = 'No se detectaron audios validos en la seleccion.';
-      return;
-    }
-
-    playerNote.textContent = 'Guardando ' + validFiles.length + ' canciones en local...';
-
-    for (var i = 0; i < validFiles.length; i++) {
-      var file = validFiles[i];
-      var parsed = parseTrackName(file.name);
-      var songId = uid('S');
-
-      try {
-        await putSongBlob(songId, file);
-      } catch (err) {
-        playerNote.textContent = 'Error guardando archivos. Revisa espacio del movil.';
-        continue;
-      }
-
-      state.songs[songId] = {
-        id: songId,
-        title: parsed.title || 'Cancion local',
-        artist: parsed.artist || '',
-        addedAt: Date.now()
-      };
-      folder.songIds.push(songId);
-    }
-
-    saveState();
-    renderFolders();
-    renderSongs();
-    playerNote.textContent = 'Canciones importadas en "' + folder.name + '".';
-  }
-
-  async function importDirectoryAsFolders(files) {
-    var list = Array.prototype.slice.call(files || []);
-    if (!list.length) {
-      playerNote.textContent = 'No se selecciono ninguna carpeta.';
-      return;
-    }
-
-    var groups = {};
-    list.forEach(function (file) {
-      if (!file || !/^audio\//i.test(file.type || 'audio/unknown')) return;
-      var rel = String(file.webkitRelativePath || file.name || '');
-      var topFolder = rel.split('/')[0] || 'IMPORTADA';
-      if (!groups[topFolder]) groups[topFolder] = [];
-      groups[topFolder].push(file);
-    });
-
-    var folderNames = Object.keys(groups);
-    if (!folderNames.length) {
-      playerNote.textContent = 'No habia audios dentro de la carpeta seleccionada.';
-      return;
-    }
-
-    for (var i = 0; i < folderNames.length; i++) {
-      var originalName = folderNames[i].trim() || 'IMPORTADA';
-      var finalName = originalName.toUpperCase();
-      var suffix = 2;
-      while (state.folders.some(function (f) { return f.name === finalName; })) {
-        finalName = originalName.toUpperCase() + ' (' + suffix + ')';
-        suffix += 1;
-      }
-
-      var folderId = uid('F');
-      state.folders.push({ id: folderId, name: finalName, songIds: [] });
-      await addFilesToFolder(groups[folderNames[i]], folderId);
-      state.selectedFolderId = folderId;
-    }
-
-    saveState();
-    renderFolders();
-    renderSongs();
-    playerNote.textContent = 'Carpeta(s) importada(s) desde tu movil.';
-  }
-
-  function createFolder() {
-    var name = prompt('Nombre de la nueva carpeta:', 'Mis favoritas');
-    if (!name) return;
-    var clean = name.trim();
-    if (!clean) return;
-
-    var folder = { id: uid('F'), name: clean.toUpperCase(), songIds: [] };
-    state.folders.push(folder);
-    state.selectedFolderId = folder.id;
-    state.currentSongId = null;
-    saveState();
-    renderFolders();
-    renderSongs();
-  }
-
-  function playRelative(delta) {
-    var folder = getSelectedFolder();
-    if (!folder || !folder.songIds.length) return;
-
-    var idx = folder.songIds.indexOf(state.currentSongId);
-    if (idx === -1) {
-      playSong(folder.songIds[0]);
-      return;
-    }
-
-    var nextIndex = idx + delta;
-    if (nextIndex < 0) nextIndex = folder.songIds.length - 1;
-    if (nextIndex >= folder.songIds.length) nextIndex = 0;
-    playSong(folder.songIds[nextIndex]);
-  }
-
-  btnVolverCabecera.addEventListener('click', function (e) {
-    e.preventDefault();
-    try {
-      if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
-        window.top.carorurCloseVista();
-      } else if (window.top !== window && window.top.postMessage) {
-        window.top.postMessage('carorur:close-vista', '*');
-      } else {
-        window.location.href = '../index.html';
-      }
-    } catch (err) {
-      window.location.href = '../index.html';
-    }
-  });
-
-  btnNewFolder.addEventListener('click', createFolder);
-
-  btnAddFiles.addEventListener('click', function () {
-    if (!getSelectedFolder()) {
-      playerNote.textContent = 'Selecciona o crea una carpeta primero.';
-      return;
-    }
-    filePicker.click();
-  });
-
-  btnImportDir.addEventListener('click', function () {
-    dirPicker.click();
-  });
-
-  filePicker.addEventListener('change', function () {
-    addFilesToFolder(filePicker.files, state.selectedFolderId).finally(function () {
-      filePicker.value = '';
-    });
-  });
-
-  dirPicker.addEventListener('change', function () {
-    importDirectoryAsFolders(dirPicker.files).finally(function () {
-      dirPicker.value = '';
-    });
-  });
-
-  btnPlayPause.addEventListener('click', function () {
-    if (!playerAudio.src) {
-      var folder = getSelectedFolder();
-      if (folder && folder.songIds.length) {
-        playSong(folder.songIds[0]);
-      }
-      return;
-    }
-
-    if (playerAudio.paused) {
-      playerAudio.play().then(function () { setPlayingVisual(true); });
-    } else {
-      playerAudio.pause();
-      setPlayingVisual(false);
-    }
-  });
-
-  btnPrev.addEventListener('click', function () { playRelative(-1); });
-  btnNext.addEventListener('click', function () { playRelative(1); });
-
-  playerAudio.addEventListener('play', function () { setPlayingVisual(true); renderSongs(); });
-  playerAudio.addEventListener('pause', function () {
-    if (!playerAudio.ended) {
-      setPlayingVisual(false);
-      renderSongs();
-    }
-  });
-  playerAudio.addEventListener('ended', function () { playRelative(1); });
-
-  loadState();
-  ensureBaseFolder();
-  if (!state.selectedFolderId || !getFolderById(state.selectedFolderId)) {
-    state.selectedFolderId = state.folders[0].id;
-  }
-  saveState();
-  renderFolders();
-  renderSongs();
 })();
 </script>
 </body>
