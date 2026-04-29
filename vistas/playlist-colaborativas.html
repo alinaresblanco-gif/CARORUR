@@ -392,6 +392,7 @@ allowfullscreen loading="lazy">
 <button class="btn-local-file" id="btnPickLocalFile" type="button">Seleccionar archivo de audio descargado</button>
 <button class="btn-local-file" id="btnOpenNativeLibrary" type="button">Ver musica por carpetas del movil</button>
 <input type="file" id="inputLocalFile" accept="audio/*" hidden />
+<input type="file" id="inputWebLibraryFiles" accept="audio/*" multiple webkitdirectory directory hidden />
 <div class="oembed-preview" id="oembedPreview" hidden>
 <img id="oembedThumb" src="" alt="Portada" />
 <div style="flex:1;min-width:0;">
@@ -492,6 +493,7 @@ var playerNote       = document.getElementById('playerNote');
 var btnPickLocalFile = document.getElementById('btnPickLocalFile');
 var btnOpenNativeLibrary = document.getElementById('btnOpenNativeLibrary');
 var inputLocalFile   = document.getElementById('inputLocalFile');
+var inputWebLibraryFiles = document.getElementById('inputWebLibraryFiles');
 var modalNativeLibrary = document.getElementById('modalNativeLibrary');
 var nativeFolderSelect = document.getElementById('nativeFolderSelect');
 var nativeLibrarySearch = document.getElementById('nativeLibrarySearch');
@@ -511,6 +513,7 @@ var nativePickerTimer = null;
 var saveSongQueue = [];
 var saveSongQueueSignatures = {};
 var nativeLibraryTracks = [];
+var webLibraryFileMap = {};
 var mediaObjectUrls  = {};
 var MEDIA_DB_NAME    = 'carorur_local_media';
 var MEDIA_DB_VERSION = 1;
@@ -652,17 +655,18 @@ function folderLabel(path) {
   return parts[parts.length - 1] || clean;
 }
 function openNativeLibraryModal() {
-  if (!hasNativeMusicBridge() || !window.CarorurNativeMusic || typeof window.CarorurNativeMusic.listDeviceAudio !== 'function') {
-    oembedStatus.textContent = 'Esta funcion requiere la app Android nativa CARORUR.';
-    oembedStatus.className = 'form-hint err';
-    return;
-  }
   modalNativeLibrary.hidden = false;
   nativeLibraryMeta.textContent = 'Cargando biblioteca del movil...';
   nativeLibraryList.innerHTML = '<div class="empty-state" style="padding:1rem;">Cargando...</div>';
   nativeFolderSelect.innerHTML = '<option value="">Todas las carpetas</option>';
   nativeLibrarySearch.value = '';
-  window.CarorurNativeMusic.listDeviceAudio();
+  if (hasNativeMusicBridge() && window.CarorurNativeMusic && typeof window.CarorurNativeMusic.listDeviceAudio === 'function') {
+    window.CarorurNativeMusic.listDeviceAudio();
+    return;
+  }
+  nativeLibraryMeta.textContent = 'Selecciona una carpeta o varias canciones del movil...';
+  nativeLibraryList.innerHTML = '<div class="empty-state" style="padding:1rem;">Pulsa aceptar en el selector de archivos para cargar la biblioteca web.</div>';
+  if (inputWebLibraryFiles) inputWebLibraryFiles.click();
 }
 function closeNativeLibraryModal() { modalNativeLibrary.hidden = true; }
 function renderNativeLibraryTracks() {
@@ -679,7 +683,7 @@ function renderNativeLibraryTracks() {
     return;
   }
   nativeLibraryList.innerHTML = filtered.map(function(t) {
-    return '<div class="native-library-item" data-uri="' + escAttr(t.uri) + '" data-title="' + escAttr(t.title) + '" data-artist="' + escAttr(t.artist || '') + '">' +
+    return '<div class="native-library-item" data-uri="' + escAttr(t.uri || '') + '" data-file-id="' + escAttr(t.fileId || '') + '" data-title="' + escAttr(t.title) + '" data-artist="' + escAttr(t.artist || '') + '">' +
       '<div class="native-library-item-title">' + escHtml(t.title || 'Cancion local') + '</div>' +
       '<div class="native-library-item-sub">' + escHtml((t.artist || 'Sin artista') + ' | ' + folderLabel(t.folder || '')) + '</div>' +
       '</div>';
@@ -710,6 +714,24 @@ window.onNativeAudioLibraryError = function(message) {
   nativeLibraryMeta.textContent = message || 'No se pudo cargar la biblioteca.';
   nativeLibraryList.innerHTML = '<div class="empty-state" style="padding:1rem;">' + escHtml(message || 'Error al cargar') + '</div>';
 };
+function loadWebLibraryFromFiles(files) {
+  webLibraryFileMap = {};
+  nativeLibraryTracks = [];
+  var arr = Array.prototype.slice.call(files || []);
+  arr.forEach(function(file, idx) {
+    if (!file || !/^audio\//i.test(file.type || 'audio/unknown')) return;
+    var fileId = 'WF_' + Date.now() + '_' + idx;
+    webLibraryFileMap[fileId] = file;
+    var rel = file.webkitRelativePath || file.name || '';
+    var folder = rel.indexOf('/') !== -1 ? rel.substring(0, rel.lastIndexOf('/')) : 'Sin carpeta';
+    var title = (file.name || 'Cancion local').replace(/\.[^.]+$/, '');
+    nativeLibraryTracks.push({ fileId: fileId, title: title, artist: '', folder: folder, uri: '' });
+  });
+  nativeLibraryTracks.sort(function(a, b) { return String(a.title || '').localeCompare(String(b.title || '')); });
+  var fakePayload = { tracks: nativeLibraryTracks, truncated: false };
+  window.onNativeAudioLibrary(fakePayload);
+  nativeLibraryMeta.textContent = 'Biblioteca web cargada: ' + nativeLibraryTracks.length + ' canciones';
+}
 function getSongsForPlaylist(idPlaylist) { return (canciones[idPlaylist] || []).concat(localCanciones[idPlaylist] || []); }
 function fileToDataUrl(file) {
 return new Promise(function(resolve, reject) {
@@ -1268,23 +1290,39 @@ document.getElementById('btnCloseNativeLibrary').addEventListener('click', close
 modalNativeLibrary.addEventListener('click', function(e) { if (e.target === modalNativeLibrary) closeNativeLibraryModal(); });
 nativeFolderSelect.addEventListener('change', renderNativeLibraryTracks);
 nativeLibrarySearch.addEventListener('input', renderNativeLibraryTracks);
+if (inputWebLibraryFiles) {
+  inputWebLibraryFiles.addEventListener('change', function() {
+    if (!inputWebLibraryFiles.files || !inputWebLibraryFiles.files.length) {
+      nativeLibraryMeta.textContent = 'No se seleccionaron archivos de audio.';
+      return;
+    }
+    loadWebLibraryFromFiles(inputWebLibraryFiles.files);
+  });
+}
 nativeLibraryList.addEventListener('click', function(e) {
   var item = e.target.closest('.native-library-item');
   if (!item) return;
   var uri = item.getAttribute('data-uri') || '';
-  if (!uri) return;
-  pendingNativeTrack = {
-    uri: uri,
-    title: item.getAttribute('data-title') || 'Cancion local',
-    artist: item.getAttribute('data-artist') || ''
-  };
-  pendingLocalFile = null;
+  var fileId = item.getAttribute('data-file-id') || '';
+  var file = fileId ? webLibraryFileMap[fileId] : null;
+  if (!uri && !file) return;
+  if (file) {
+    pendingLocalFile = file;
+    pendingNativeTrack = null;
+  } else {
+    pendingNativeTrack = {
+      uri: uri,
+      title: item.getAttribute('data-title') || 'Cancion local',
+      artist: item.getAttribute('data-artist') || ''
+    };
+    pendingLocalFile = null;
+  }
   inputSongUrl.value = '';
   pendingPortada = '';
-  inputSongTitle.value = pendingNativeTrack.title;
-  inputSongArtist.value = pendingNativeTrack.artist;
+  inputSongTitle.value = item.getAttribute('data-title') || 'Cancion local';
+  inputSongArtist.value = item.getAttribute('data-artist') || '';
   oembedPreview.hidden = true;
-  oembedStatus.textContent = 'Cancion seleccionada desde biblioteca del movil.';
+  oembedStatus.textContent = file ? 'Cancion seleccionada desde biblioteca web.' : 'Cancion seleccionada desde biblioteca del movil.';
   oembedStatus.className = 'form-hint ok';
   closeNativeLibraryModal();
 });
@@ -1489,10 +1527,10 @@ init();
 if (hasNativeMusicBridge()) {
 btnPickLocalFile.textContent = 'Seleccionar audio del movil (Android nativo)';
 inputLocalFile.disabled = true;
-if (btnOpenNativeLibrary) btnOpenNativeLibrary.hidden = false;
+if (btnOpenNativeLibrary) btnOpenNativeLibrary.textContent = 'Ver musica por carpetas del movil';
 }
 else if (btnOpenNativeLibrary) {
-btnOpenNativeLibrary.hidden = true;
+btnOpenNativeLibrary.textContent = 'Cargar carpeta/canciones (modo web)';
 }
 </script>
 </body>
