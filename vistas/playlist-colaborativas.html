@@ -11,12 +11,18 @@
 <style>
 .vista-contenido {
   padding: 0.7rem !important;
-  overflow: hidden !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
 }
 .local-music-layout {
   width: 100%;
   max-width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 0;
+  flex: 1;
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 0.7rem;
@@ -94,15 +100,14 @@
   color: var(--tinta-rural-suave);
   line-height: 1.35;
 }
-.player-area {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 0.7rem;
-  min-height: 0;
-}
 .player-shell {
   padding: 0.9rem 0.8rem;
   overflow: hidden;
+}
+.player-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 .player-card {
   display: grid;
@@ -276,15 +281,16 @@
   }
   .local-music-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    overflow: auto;
+    grid-template-rows: auto auto;
+    overflow: visible;
     width: 100%;
     max-width: 100%;
   }
-  .library-panel { min-height: 230px; }
+  .library-panel { min-height: 200px; }
   .player-shell,
   .song-list-panel,
-  .library-panel {
+  .library-panel,
+  .player-sticky {
     width: 100%;
     max-width: 100%;
   }
@@ -315,6 +321,36 @@
   </header>
 
   <main class="vista-contenido">
+    <section class="panel player-shell player-sticky">
+      <div class="player-card">
+        <div class="vinyl-wrap">
+          <div class="vinyl-record" id="vinylRecord">
+            <div class="vinyl-center">
+              <span class="vinyl-center-icon">&#127925;</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="song-info-title" id="songTitle">Selecciona una cancion local</p>
+          <p class="song-info-artist" id="songArtist">&#8212;</p>
+          <p class="song-info-folder" id="songFolder">Sin carpeta activa</p>
+
+          <div class="player-audio-wrap">
+            <audio id="playerAudio" controls preload="metadata"></audio>
+          </div>
+
+          <div class="player-controls">
+            <button class="ctrl-btn" id="btnPrev" aria-label="Anterior">&#9198;</button>
+            <button class="ctrl-btn play-btn" id="btnPlayPause" aria-label="Reproducir">&#9654;</button>
+            <button class="ctrl-btn" id="btnNext" aria-label="Siguiente">&#9197;</button>
+          </div>
+
+          <div class="player-note" id="playerNote">Crea una carpeta y mete canciones para arrancar.</div>
+        </div>
+      </div>
+    </section>
+
     <div class="local-music-layout">
       <aside class="panel library-panel">
         <h2 class="panel-title">MIS CARPETAS LOCALES</h2>
@@ -333,42 +369,10 @@
         </div>
       </aside>
 
-      <section class="player-area">
-        <div class="panel player-shell">
-          <div class="player-card">
-            <div class="vinyl-wrap">
-              <div class="vinyl-record" id="vinylRecord">
-                <div class="vinyl-center">
-                  <span class="vinyl-center-icon">&#127925;</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <p class="song-info-title" id="songTitle">Selecciona una cancion local</p>
-              <p class="song-info-artist" id="songArtist">&#8212;</p>
-              <p class="song-info-folder" id="songFolder">Sin carpeta activa</p>
-
-              <div class="player-audio-wrap">
-                <audio id="playerAudio" controls preload="metadata"></audio>
-              </div>
-
-              <div class="player-controls">
-                <button class="ctrl-btn" id="btnPrev" aria-label="Anterior">&#9198;</button>
-                <button class="ctrl-btn play-btn" id="btnPlayPause" aria-label="Reproducir">&#9654;</button>
-                <button class="ctrl-btn" id="btnNext" aria-label="Siguiente">&#9197;</button>
-              </div>
-
-              <div class="player-note" id="playerNote">Crea una carpeta y mete canciones para arrancar.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel song-list-panel">
-          <div class="song-list-header" id="songListHeader">CANCIONES DE LA CARPETA</div>
-          <div class="song-list" id="songList"></div>
-        </div>
-      </section>
+      <div class="panel song-list-panel">
+        <div class="song-list-header" id="songListHeader">CANCIONES DE LA CARPETA</div>
+        <div class="song-list" id="songList"></div>
+      </div>
     </div>
   </main>
 </div>
