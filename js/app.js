@@ -60,7 +60,7 @@
     });
   });
 
-  // Restaurar si hubo recarga breve (p.ej. picker de Android), salvo que
+  // Restaurar si hubo recarga breve, salvo que
   // acabemos de cerrar la vista de forma intencional.
   const nav = performance.getEntriesByType('navigation')[0];
   const esRecarga = nav && (nav.type === 'reload' || nav.type === 'back_forward');
