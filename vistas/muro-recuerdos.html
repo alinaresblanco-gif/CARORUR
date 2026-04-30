@@ -3,11 +3,245 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Nuestras Fotos De Recuerdo</title>
+	<title>MURO DE RECUERDOS</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="vistas.css" />
+	<style>
+		.vista-contenido {
+			padding: 0.65rem !important;
+			display: flex;
+			flex-direction: column;
+			gap: 0.65rem;
+			overflow-y: auto !important;
+		}
+
+		.muro-toolbar {
+			display: flex;
+			justify-content: center;
+		}
+
+		.btn-nuevo {
+			border: 2px solid var(--papel-oscuro);
+			border-radius: 10px;
+			background: #f3dfb5;
+			color: var(--tinta-rural);
+			font-family: 'Special Elite', cursive;
+			font-size: 0.78rem;
+			padding: 0.52rem 0.8rem;
+			cursor: pointer;
+		}
+
+		.btn-nuevo:hover { background: #ecd29f; }
+
+		.muro-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.55rem;
+		}
+
+		.recuerdo-card {
+			background: #fff5de;
+			border: 2px solid var(--papel-oscuro);
+			border-radius: 12px;
+			overflow: hidden;
+			box-shadow: var(--sombra-papel);
+			display: flex;
+			flex-direction: column;
+			min-height: 210px;
+		}
+
+		.recuerdo-thumb {
+			width: 100%;
+			height: 96px;
+			object-fit: cover;
+			background: #dcc38f;
+		}
+
+		.recuerdo-body {
+			padding: 0.45rem 0.5rem 0.55rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.25rem;
+			flex: 1;
+		}
+
+		.recuerdo-title {
+			margin: 0;
+			font-size: 0.8rem;
+			font-weight: 700;
+			color: var(--tinta-rural);
+			line-height: 1.25;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.recuerdo-date {
+			font-size: 0.7rem;
+			color: var(--tinta-rural-suave);
+		}
+
+		.recuerdo-desc {
+			margin: 0;
+			font-size: 0.72rem;
+			color: var(--tinta-rural);
+			line-height: 1.2;
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+
+		.recuerdo-footer {
+			margin-top: auto;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.3rem;
+		}
+
+		.recuerdo-count {
+			font-size: 0.68rem;
+			color: var(--tinta-rural-suave);
+		}
+
+		.icon-actions {
+			display: flex;
+			gap: 0.28rem;
+		}
+
+		.icon-btn {
+			width: 30px;
+			height: 30px;
+			border-radius: 50%;
+			border: 1px solid rgba(122,82,48,0.45);
+			background: #f7e6bf;
+			color: var(--tinta-rural);
+			cursor: pointer;
+			font-size: 0.85rem;
+			line-height: 1;
+		}
+
+		.icon-btn:hover { background: #edd7a8; }
+
+		.icon-btn.delete { color: #9a3f2e; border-color: rgba(154,63,46,0.45); }
+
+		.open-overlay {
+			position: fixed;
+			inset: 0;
+			background: rgba(25, 16, 9, 0.52);
+			backdrop-filter: blur(2px);
+			z-index: 90;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			padding: 0.75rem;
+		}
+
+		.open-overlay[hidden] { display: none; }
+
+		.dialog {
+			width: min(640px, 100%);
+			max-height: 88vh;
+			overflow: auto;
+			background: #fff5de;
+			border: 2px solid var(--papel-oscuro);
+			border-radius: 14px;
+			box-shadow: 0 20px 45px rgba(0,0,0,0.24);
+			padding: 0.7rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.55rem;
+		}
+
+		.dialog h2 {
+			margin: 0;
+			font-family: 'Special Elite', cursive;
+			font-size: 0.92rem;
+			color: var(--tinta-rural);
+		}
+
+		.form-grid {
+			display: grid;
+			grid-template-columns: 1fr;
+			gap: 0.42rem;
+		}
+
+		.field-label {
+			font-size: 0.72rem;
+			font-weight: 700;
+			color: var(--tinta-rural);
+		}
+
+		.field-input,
+		.field-textarea {
+			width: 100%;
+			border: 1.5px solid rgba(122,82,48,0.45);
+			border-radius: 8px;
+			background: #fff9eb;
+			color: var(--tinta-rural);
+			padding: 0.42rem 0.5rem;
+			font-size: 0.8rem;
+		}
+
+		.field-textarea {
+			min-height: 76px;
+			resize: vertical;
+		}
+
+		.dialog-actions {
+			display: flex;
+			gap: 0.4rem;
+			justify-content: flex-end;
+		}
+
+		.btn-lite,
+		.btn-save {
+			border: 2px solid var(--papel-oscuro);
+			border-radius: 9px;
+			font-family: 'Special Elite', cursive;
+			font-size: 0.74rem;
+			padding: 0.42rem 0.62rem;
+			cursor: pointer;
+		}
+
+		.btn-lite {
+			background: #f2e5c8;
+			color: var(--tinta-rural);
+		}
+
+		.btn-save {
+			background: var(--tinta-rural);
+			border-color: var(--tinta-rural);
+			color: var(--papel-claro);
+		}
+
+		.galeria-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.42rem;
+		}
+
+		.galeria-img {
+			width: 100%;
+			height: 118px;
+			object-fit: cover;
+			border-radius: 8px;
+			border: 1px solid rgba(122,82,48,0.35);
+		}
+
+		.empty-muro {
+			background: #fff5de;
+			border: 2px dashed rgba(122,82,48,0.5);
+			border-radius: 12px;
+			padding: 1rem;
+			text-align: center;
+			font-size: 0.76rem;
+			color: var(--tinta-rural-suave);
+		}
+	</style>
 </head>
 <body>
 	<div class="vista-app">
@@ -15,17 +249,337 @@
 			<a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio">
 				<img src="../iconos/volver.png" alt="Volver" />
 			</a>
-			<h1>Nuestras Fotos De Recuerdo</h1>
+			<h1>MURO DE RECUERDOS</h1>
 			<div class="header-espaciador" aria-hidden="true"></div>
 		</header>
 
 		<main class="vista-contenido">
-			<section class="tarjeta-construccion" aria-label="Vista en construccion">
-				<h2>Vista en construccion</h2>
-				<p>Pronto añadiremos contenido rural para esta seccion.</p>
-				<img class="img-rustica" src="../imagenes/rustica-vista.svg" alt="Ilustracion rustica de campo" />
+			<section class="muro-toolbar">
+				<button id="btnNuevoRecuerdo" class="btn-nuevo" type="button">+ NUEVO RECUERDO</button>
 			</section>
+
+			<section id="emptyMuro" class="empty-muro">
+				Aun no hay recuerdos. Crea el primero con nombre, fecha, descripcion y fotos.
+			</section>
+
+			<section id="muroGrid" class="muro-grid" aria-label="Muro de recuerdos"></section>
 		</main>
 	</div>
+
+	<div id="modalNuevo" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Crear recuerdo">
+			<h2>NUEVO RECUERDO</h2>
+			<div class="form-grid">
+				<label>
+					<span class="field-label">Nombre del momento</span>
+					<input id="inputNombre" class="field-input" type="text" maxlength="80" placeholder="Ej: Fin de semana en la casa" />
+				</label>
+				<label>
+					<span class="field-label">Fecha</span>
+					<input id="inputFecha" class="field-input" type="date" />
+				</label>
+				<label>
+					<span class="field-label">Descripcion</span>
+					<textarea id="inputDesc" class="field-textarea" maxlength="280" placeholder="Cuatro lineas sobre el recuerdo"></textarea>
+				</label>
+				<label>
+					<span class="field-label">Fotos del momento</span>
+					<input id="inputFotos" class="field-input" type="file" accept="image/*" multiple />
+				</label>
+			</div>
+			<div class="dialog-actions">
+				<button id="btnCancelarNuevo" type="button" class="btn-lite">Cancelar</button>
+				<button id="btnGuardarNuevo" type="button" class="btn-save">Guardar tarjeta</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="modalGaleria" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Galeria del recuerdo">
+			<h2 id="galeriaTitulo">GALERIA</h2>
+			<div id="galeriaInfo" class="field-label"></div>
+			<div id="galeriaGrid" class="galeria-grid"></div>
+			<div class="dialog-actions">
+				<button id="btnCerrarGaleria" type="button" class="btn-save">Cerrar</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+	(function () {
+		var STORAGE_KEY = 'carorur_muro_recuerdos_v1';
+		var recuerdos = [];
+		var fotosMemoria = {};
+
+		var btnNuevoRecuerdo = document.getElementById('btnNuevoRecuerdo');
+		var emptyMuro = document.getElementById('emptyMuro');
+		var muroGrid = document.getElementById('muroGrid');
+
+		var modalNuevo = document.getElementById('modalNuevo');
+		var inputNombre = document.getElementById('inputNombre');
+		var inputFecha = document.getElementById('inputFecha');
+		var inputDesc = document.getElementById('inputDesc');
+		var inputFotos = document.getElementById('inputFotos');
+		var btnCancelarNuevo = document.getElementById('btnCancelarNuevo');
+		var btnGuardarNuevo = document.getElementById('btnGuardarNuevo');
+
+		var modalGaleria = document.getElementById('modalGaleria');
+		var galeriaTitulo = document.getElementById('galeriaTitulo');
+		var galeriaInfo = document.getElementById('galeriaInfo');
+		var galeriaGrid = document.getElementById('galeriaGrid');
+		var btnCerrarGaleria = document.getElementById('btnCerrarGaleria');
+
+		function uid(prefix) {
+			return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+		}
+
+		function escHtml(value) {
+			return String(value || '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;');
+		}
+
+		function humanDate(iso) {
+			if (!iso) return 'Sin fecha';
+			var d = new Date(iso + 'T00:00:00');
+			if (isNaN(d.getTime())) return iso;
+			return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+		}
+
+		function saveRecuerdos() {
+			try {
+				var safe = recuerdos.map(function (r) {
+					return {
+						id: r.id,
+						nombre: r.nombre,
+						fecha: r.fecha,
+						descripcion: r.descripcion,
+						fotoCount: r.fotoCount
+					};
+				});
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+			} catch (e) {
+			}
+		}
+
+		function loadRecuerdos() {
+			try {
+				var raw = localStorage.getItem(STORAGE_KEY);
+				if (!raw) return;
+				var parsed = JSON.parse(raw);
+				if (!Array.isArray(parsed)) return;
+				recuerdos = parsed.map(function (r) {
+					return {
+						id: r.id || uid('RC'),
+						nombre: r.nombre || 'Recuerdo',
+						fecha: r.fecha || '',
+						descripcion: r.descripcion || '',
+						fotoCount: Number(r.fotoCount || 0),
+						thumbUrl: '',
+						hasSessionPhotos: false
+					};
+				});
+			} catch (e) {
+				recuerdos = [];
+			}
+		}
+
+		function openNuevoModal() {
+			modalNuevo.hidden = false;
+			if (!inputFecha.value) {
+				inputFecha.valueAsDate = new Date();
+			}
+			inputNombre.focus();
+		}
+
+		function closeNuevoModal() {
+			modalNuevo.hidden = true;
+		}
+
+		function clearNuevoForm() {
+			inputNombre.value = '';
+			inputFecha.value = '';
+			inputDesc.value = '';
+			inputFotos.value = '';
+		}
+
+		function renderMuro() {
+			muroGrid.innerHTML = '';
+			emptyMuro.hidden = recuerdos.length > 0;
+
+			recuerdos.forEach(function (r) {
+				var card = document.createElement('article');
+				card.className = 'recuerdo-card';
+				card.innerHTML =
+					'<img class="recuerdo-thumb" src="' + escHtml(r.thumbUrl || '../imagenes/rustica-vista.svg') + '" alt="Miniatura del recuerdo" />' +
+					'<div class="recuerdo-body">' +
+						'<h3 class="recuerdo-title">' + escHtml(r.nombre) + '</h3>' +
+						'<div class="recuerdo-date">' + escHtml(humanDate(r.fecha)) + '</div>' +
+						'<p class="recuerdo-desc">' + escHtml(r.descripcion || 'Sin descripcion todavia.') + '</p>' +
+						'<div class="recuerdo-footer">' +
+							'<span class="recuerdo-count">' + escHtml(String(r.fotoCount || 0)) + ' fotos</span>' +
+							'<div class="icon-actions">' +
+								'<button type="button" class="icon-btn share" data-action="share" data-id="' + escHtml(r.id) + '" aria-label="Compartir recuerdo">&#128257;</button>' +
+								'<button type="button" class="icon-btn delete" data-action="delete" data-id="' + escHtml(r.id) + '" aria-label="Eliminar recuerdo">&#128465;</button>' +
+							'</div>' +
+						'</div>' +
+					'</div>';
+
+				card.addEventListener('click', function (event) {
+					var target = event.target;
+					if (target && target.closest && target.closest('.icon-btn')) return;
+					openGaleria(r.id);
+				});
+
+				muroGrid.appendChild(card);
+			});
+		}
+
+		function guardarNuevoRecuerdo() {
+			var nombre = String(inputNombre.value || '').trim();
+			if (!nombre) {
+				inputNombre.focus();
+				return;
+			}
+
+			var files = Array.prototype.slice.call(inputFotos.files || []);
+			var id = uid('RC');
+			var fotoUrls = files.map(function (file) {
+				return URL.createObjectURL(file);
+			});
+
+			fotosMemoria[id] = fotoUrls;
+			recuerdos.unshift({
+				id: id,
+				nombre: nombre,
+				fecha: inputFecha.value || '',
+				descripcion: String(inputDesc.value || '').trim(),
+				fotoCount: files.length,
+				thumbUrl: fotoUrls[0] || '../imagenes/rustica-vista.svg',
+				hasSessionPhotos: files.length > 0
+			});
+
+			saveRecuerdos();
+			renderMuro();
+			clearNuevoForm();
+			closeNuevoModal();
+		}
+
+		function openGaleria(id) {
+			var rec = recuerdos.find(function (r) { return r.id === id; });
+			if (!rec) return;
+
+			galeriaTitulo.textContent = rec.nombre;
+			galeriaInfo.textContent = humanDate(rec.fecha) + '  |  ' + (rec.fotoCount || 0) + ' fotos';
+			galeriaGrid.innerHTML = '';
+
+			var fotos = fotosMemoria[id] || [];
+			if (!fotos.length) {
+				galeriaGrid.innerHTML = '<div class="empty-muro" style="grid-column: 1 / -1;">Las fotos reales se ven en la sesion actual. Al conectar Drive/Sheets quedaran persistentes.</div>';
+			} else {
+				fotos.forEach(function (url) {
+					var img = document.createElement('img');
+					img.className = 'galeria-img';
+					img.src = url;
+					img.alt = 'Foto del recuerdo';
+					galeriaGrid.appendChild(img);
+				});
+			}
+
+			modalGaleria.hidden = false;
+		}
+
+		function closeGaleria() {
+			modalGaleria.hidden = true;
+		}
+
+		function deleteRecuerdo(id) {
+			var rec = recuerdos.find(function (r) { return r.id === id; });
+			if (!rec) return;
+
+			if (!window.confirm('Eliminar "' + rec.nombre + '" del muro?')) {
+				return;
+			}
+
+			var fotos = fotosMemoria[id] || [];
+			fotos.forEach(function (url) {
+				try {
+					URL.revokeObjectURL(url);
+				} catch (e) {
+				}
+			});
+			delete fotosMemoria[id];
+
+			recuerdos = recuerdos.filter(function (r) { return r.id !== id; });
+			saveRecuerdos();
+			renderMuro();
+		}
+
+		function shareRecuerdo(id) {
+			var rec = recuerdos.find(function (r) { return r.id === id; });
+			if (!rec) return;
+
+			var text = rec.nombre + '\n' + humanDate(rec.fecha) + '\n' + (rec.descripcion || '');
+			if (navigator.share) {
+				navigator.share({
+					title: rec.nombre,
+					text: text
+				}).catch(function () {
+				});
+				return;
+			}
+
+			if (navigator.clipboard && navigator.clipboard.writeText) {
+				navigator.clipboard.writeText(text).then(function () {
+					window.alert('Texto del recuerdo copiado para compartir.');
+				}).catch(function () {
+					window.alert('No se pudo compartir en este navegador.');
+				});
+				return;
+			}
+
+			window.alert('Este navegador no soporta compartir automaticamente.');
+		}
+
+		btnNuevoRecuerdo.addEventListener('click', openNuevoModal);
+		btnCancelarNuevo.addEventListener('click', function () {
+			closeNuevoModal();
+		});
+		btnGuardarNuevo.addEventListener('click', guardarNuevoRecuerdo);
+
+		modalNuevo.addEventListener('click', function (event) {
+			if (event.target === modalNuevo) closeNuevoModal();
+		});
+
+		btnCerrarGaleria.addEventListener('click', closeGaleria);
+		modalGaleria.addEventListener('click', function (event) {
+			if (event.target === modalGaleria) closeGaleria();
+		});
+
+		muroGrid.addEventListener('click', function (event) {
+			var btn = event.target && event.target.closest ? event.target.closest('.icon-btn') : null;
+			if (!btn) return;
+			var id = btn.getAttribute('data-id');
+			var action = btn.getAttribute('data-action');
+			if (!id || !action) return;
+
+			if (action === 'delete') {
+				event.stopPropagation();
+				deleteRecuerdo(id);
+				return;
+			}
+
+			if (action === 'share') {
+				event.stopPropagation();
+				shareRecuerdo(id);
+			}
+		});
+
+		loadRecuerdos();
+		renderMuro();
+	})();
+	</script>
 </body>
 </html>
