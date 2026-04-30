@@ -549,9 +549,6 @@
   }
 
   function saveState() {
-    if (WEB_LITE_MODE) {
-      return;
-    }
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(state));
     } catch (e) {
@@ -564,10 +561,6 @@
   }
 
   function loadState() {
-    if (WEB_LITE_MODE) {
-      state = { folders: [], songs: {}, selectedFolderId: null, currentSongId: null };
-      return;
-    }
     try {
       var raw = localStorage.getItem(LS_KEY);
       if (!raw) return;
@@ -579,6 +572,32 @@
       state.currentSongId = parsed.currentSongId || null;
     } catch (e) {
       state = { folders: [], songs: {}, selectedFolderId: null, currentSongId: null };
+    }
+
+    // Los archivos solo en RAM no sobreviven al cerrar app/navegador.
+    if (WEB_LITE_MODE) {
+      var validSongs = {};
+      var removed = {};
+      Object.keys(state.songs || {}).forEach(function (id) {
+        var s = state.songs[id];
+        if (s && s.sourceType === 'volatile-file') {
+          removed[id] = true;
+          return;
+        }
+        validSongs[id] = s;
+      });
+
+      state.songs = validSongs;
+      state.folders = (state.folders || []).map(function (folder) {
+        folder.songIds = (folder.songIds || []).filter(function (id) {
+          return !!state.songs[id] && !removed[id];
+        });
+        return folder;
+      });
+
+      if (state.currentSongId && !state.songs[state.currentSongId]) {
+        state.currentSongId = null;
+      }
     }
   }
 
@@ -854,7 +873,7 @@
     delete state.songs[songId];
     saveState();
 
-    if (!isNativeUriSong(song)) {
+    if (!isNativeUriSong(song) && (!song || song.sourceType !== 'volatile-file')) {
       await deleteSongBlob(songId);
     }
     playerNote.textContent = 'Cancion eliminada.';
@@ -885,6 +904,8 @@
     var skippedBySize = 0;
     var skippedByTotal = 0;
     var saved = 0;
+    var persistentSaved = 0;
+    var volatileSaved = 0;
 
     var audioFiles = rawFiles.filter(function (file) {
       var size = file.size || 0;
@@ -910,8 +931,22 @@
         var file = audioFiles[i];
         var id = uid('SG');
         var meta = parseSongMeta(file);
+        var isPersisted = false;
 
-        volatileFileStore[id] = file;
+        try {
+          await putSongBlob(id, file);
+          isPersisted = true;
+        } catch (err) {
+          isPersisted = false;
+        }
+
+        if (!isPersisted) {
+          volatileFileStore[id] = file;
+          volatileSaved += 1;
+        } else {
+          persistentSaved += 1;
+        }
+
         state.songs[id] = {
           id: id,
           folderId: folderId,
@@ -919,7 +954,7 @@
           artist: meta.artist,
           fileName: file.name,
           addedAt: Date.now(),
-          sourceType: 'volatile-file'
+          sourceType: isPersisted ? 'idb-file' : 'volatile-file'
         };
         folder.songIds.push(id);
         saved += 1;
@@ -932,10 +967,16 @@
       setImporting(false);
     }
 
-    var note = 'Modo URL: ' + saved + ' canciones cargadas en memoria temporal.';
+    saveState();
+    var note = 'Modo URL: ' + saved + ' canciones cargadas.';
+    if (persistentSaved > 0) {
+      note += ' Guardadas para la proxima vez: ' + persistentSaved + '.';
+    }
+    if (volatileSaved > 0) {
+      note += ' Temporales (no persisten): ' + volatileSaved + '.';
+    }
     if (skippedBySize > 0) note += ' Omitidas por tamano: ' + skippedBySize + '.';
     if (skippedByTotal > 0) note += ' Omitidas por lote grande: ' + skippedByTotal + '.';
-    note += ' Si recargas, tendras que importarlas otra vez.';
     playerNote.textContent = note;
     renderAll();
   }
@@ -1197,7 +1238,7 @@
         delete volatileFileStore[id];
       }
       delete state.songs[id];
-      if (!isNativeUriSong(song)) {
+      if (!isNativeUriSong(song) && (!song || song.sourceType !== 'volatile-file')) {
         await deleteSongBlob(id);
       }
     }
@@ -1478,7 +1519,7 @@
   loadState();
   ensureDefaultFolder();
   if (WEB_LITE_MODE) {
-    playerNote.textContent = 'Modo URL activo: para evitar reinicios, se usa carga temporal en memoria (sin guardado permanente).';
+    playerNote.textContent = 'Modo URL activo: guardado local con limite seguro. Si falta espacio, algunas canciones quedaran temporales.';
   }
   renderAll();
 })();
