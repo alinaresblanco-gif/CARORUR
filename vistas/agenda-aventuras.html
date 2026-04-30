@@ -338,7 +338,7 @@
   <div class="vista-app">
 
     <header class="vista-header">
-      <a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio"></a>
+      <a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio" id="btnVolverCabecera"></a>
       <h1>NOS VAMOS DE RUTA</h1>
       <div class="header-espaciador" aria-hidden="true"></div>
     </header>
@@ -910,7 +910,23 @@
     var btnTerminar = document.getElementById('btn-terminar');
     var btnFoto     = document.getElementById('btn-foto');
     var btnSos      = document.getElementById('btn-sos');
+    var btnVolverCabecera = document.getElementById('btnVolverCabecera');
     var inputFoto   = document.getElementById('input-foto');
+
+    btnVolverCabecera.addEventListener('click', function (e) {
+      e.preventDefault();
+      try {
+        if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
+          window.top.carorurCloseVista();
+        } else if (window.top !== window && window.top.postMessage) {
+          window.top.postMessage('carorur:close-vista', '*');
+        } else {
+          window.location.href = '../index.html';
+        }
+      } catch (err) {
+        window.location.href = '../index.html';
+      }
+    });
 
     // -- INICIAR: abre el modal para pedir el nombre --
     btnIniciar.addEventListener('click', function () {
