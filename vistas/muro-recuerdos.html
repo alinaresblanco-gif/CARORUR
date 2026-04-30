@@ -126,6 +126,8 @@
 
 		.icon-btn:hover { background: #edd7a8; }
 
+		.icon-btn.add { color: #2f6f2f; border-color: rgba(47,111,47,0.45); }
+
 		.icon-btn.delete { color: #9a3f2e; border-color: rgba(154,63,46,0.45); }
 
 		.open-overlay {
@@ -241,6 +243,25 @@
 			font-size: 0.76rem;
 			color: var(--tinta-rural-suave);
 		}
+
+		.toast-msg {
+			position: fixed;
+			left: 50%;
+			bottom: 1rem;
+			transform: translateX(-50%);
+			z-index: 120;
+			background: #3e2a15;
+			color: #fff7e7;
+			border: 1px solid rgba(255,255,255,0.2);
+			border-radius: 999px;
+			padding: 0.44rem 0.74rem;
+			font-size: 0.74rem;
+			box-shadow: 0 8px 26px rgba(0,0,0,0.25);
+		}
+
+		.toast-msg[hidden] {
+			display: none;
+		}
 	</style>
 </head>
 <body>
@@ -300,10 +321,14 @@
 			<div id="galeriaInfo" class="field-label"></div>
 			<div id="galeriaGrid" class="galeria-grid"></div>
 			<div class="dialog-actions">
+				<button id="btnAddFotosGaleria" type="button" class="btn-lite">Anadir fotos</button>
 				<button id="btnCerrarGaleria" type="button" class="btn-save">Cerrar</button>
 			</div>
 		</div>
 	</div>
+
+	<input id="inputAddFotosTarjeta" type="file" accept="image/*" multiple hidden />
+	<div id="toastMsg" class="toast-msg" hidden></div>
 
 	<script>
 	(function () {
@@ -328,7 +353,13 @@
 		var galeriaTitulo = document.getElementById('galeriaTitulo');
 		var galeriaInfo = document.getElementById('galeriaInfo');
 		var galeriaGrid = document.getElementById('galeriaGrid');
+		var btnAddFotosGaleria = document.getElementById('btnAddFotosGaleria');
 		var btnCerrarGaleria = document.getElementById('btnCerrarGaleria');
+		var inputAddFotosTarjeta = document.getElementById('inputAddFotosTarjeta');
+		var toastMsg = document.getElementById('toastMsg');
+		var addFotosTargetId = null;
+		var galeriaRecuerdoId = null;
+		var toastTimer = null;
 
 		function uid(prefix) {
 			return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
@@ -347,6 +378,18 @@
 			var d = new Date(iso + 'T00:00:00');
 			if (isNaN(d.getTime())) return iso;
 			return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+		}
+
+		function showToast(message) {
+			if (!toastMsg) return;
+			toastMsg.textContent = String(message || '');
+			toastMsg.hidden = false;
+			if (toastTimer) {
+				clearTimeout(toastTimer);
+			}
+			toastTimer = setTimeout(function () {
+				toastMsg.hidden = true;
+			}, 1800);
 		}
 
 		function saveRecuerdos() {
@@ -422,7 +465,7 @@
 						'<div class="recuerdo-footer">' +
 							'<span class="recuerdo-count">' + escHtml(String(r.fotoCount || 0)) + ' fotos</span>' +
 							'<div class="icon-actions">' +
-								'<button type="button" class="icon-btn share" data-action="share" data-id="' + escHtml(r.id) + '" aria-label="Compartir recuerdo">&#128257;</button>' +
+								'<button type="button" class="icon-btn add" data-action="add-photos" data-id="' + escHtml(r.id) + '" aria-label="Anadir fotos">&#128247;</button>' +
 								'<button type="button" class="icon-btn delete" data-action="delete" data-id="' + escHtml(r.id) + '" aria-label="Eliminar recuerdo">&#128465;</button>' +
 							'</div>' +
 						'</div>' +
@@ -466,11 +509,17 @@
 			renderMuro();
 			clearNuevoForm();
 			closeNuevoModal();
+			if (files.length > 0) {
+				showToast('+' + files.length + ' fotos anadidas');
+			} else {
+				showToast('Tarjeta guardada');
+			}
 		}
 
 		function openGaleria(id) {
 			var rec = recuerdos.find(function (r) { return r.id === id; });
 			if (!rec) return;
+			galeriaRecuerdoId = id;
 
 			galeriaTitulo.textContent = rec.nombre;
 			galeriaInfo.textContent = humanDate(rec.fecha) + '  |  ' + (rec.fotoCount || 0) + ' fotos';
@@ -493,6 +542,7 @@
 		}
 
 		function closeGaleria() {
+			galeriaRecuerdoId = null;
 			modalGaleria.hidden = true;
 		}
 
@@ -518,30 +568,39 @@
 			renderMuro();
 		}
 
-		function shareRecuerdo(id) {
+		function addPhotosToRecuerdo(id, filesLike) {
 			var rec = recuerdos.find(function (r) { return r.id === id; });
 			if (!rec) return;
 
-			var text = rec.nombre + '\n' + humanDate(rec.fecha) + '\n' + (rec.descripcion || '');
-			if (navigator.share) {
-				navigator.share({
-					title: rec.nombre,
-					text: text
-				}).catch(function () {
-				});
-				return;
+			var files = Array.prototype.slice.call(filesLike || []);
+			if (!files.length) return;
+
+			var urls = files.map(function (file) {
+				return URL.createObjectURL(file);
+			});
+
+			if (!fotosMemoria[id]) {
+				fotosMemoria[id] = [];
+			}
+			fotosMemoria[id] = fotosMemoria[id].concat(urls);
+
+			if (!rec.thumbUrl || rec.thumbUrl.indexOf('rustica-vista.svg') !== -1) {
+				rec.thumbUrl = urls[0];
 			}
 
-			if (navigator.clipboard && navigator.clipboard.writeText) {
-				navigator.clipboard.writeText(text).then(function () {
-					window.alert('Texto del recuerdo copiado para compartir.');
-				}).catch(function () {
-					window.alert('No se pudo compartir en este navegador.');
-				});
-				return;
-			}
+			rec.fotoCount = Number(rec.fotoCount || 0) + files.length;
+			rec.hasSessionPhotos = true;
+			saveRecuerdos();
+			renderMuro();
+			showToast('+' + files.length + ' fotos anadidas');
+		}
 
-			window.alert('Este navegador no soporta compartir automaticamente.');
+		function requestAddPhotos(id) {
+			var rec = recuerdos.find(function (r) { return r.id === id; });
+			if (!rec) return;
+			addFotosTargetId = id;
+			inputAddFotosTarjeta.value = '';
+			inputAddFotosTarjeta.click();
 		}
 
 		btnNuevoRecuerdo.addEventListener('click', openNuevoModal);
@@ -571,8 +630,22 @@
 		});
 
 		btnCerrarGaleria.addEventListener('click', closeGaleria);
+		btnAddFotosGaleria.addEventListener('click', function () {
+			if (!galeriaRecuerdoId) return;
+			requestAddPhotos(galeriaRecuerdoId);
+		});
 		modalGaleria.addEventListener('click', function (event) {
 			if (event.target === modalGaleria) closeGaleria();
+		});
+
+		inputAddFotosTarjeta.addEventListener('change', function () {
+			if (!addFotosTargetId) return;
+			var selectedId = addFotosTargetId;
+			addPhotosToRecuerdo(selectedId, inputAddFotosTarjeta.files);
+			if (!modalGaleria.hidden && galeriaRecuerdoId === selectedId) {
+				openGaleria(selectedId);
+			}
+			addFotosTargetId = null;
 		});
 
 		muroGrid.addEventListener('click', function (event) {
@@ -588,9 +661,9 @@
 				return;
 			}
 
-			if (action === 'share') {
+			if (action === 'add-photos') {
 				event.stopPropagation();
-				shareRecuerdo(id);
+				requestAddPhotos(id);
 			}
 		});
 
