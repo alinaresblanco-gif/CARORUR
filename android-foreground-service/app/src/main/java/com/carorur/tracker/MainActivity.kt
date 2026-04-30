@@ -5,6 +5,9 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.util.Log
+import android.webkit.JavascriptInterface
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -19,8 +22,11 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.documentfile.provider.DocumentFile
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,9 +34,26 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
     private lateinit var assetLoader: WebViewAssetLoader
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var nativeMusicMode: String? = null
+    private var isNativePickerOpen = false
+    private var nativeFolderCounter = 0
+
+    private data class NativeAudioItem(
+        val uri: Uri,
+        val name: String,
+        val sizeBytes: Long,
+        val mimeType: String,
+        val relativePath: String,
+        val folderName: String
+    )
 
     private val fileChooserLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (nativeMusicMode != null) {
+                handleNativeMusicResult(result.resultCode, result.data)
+                return@registerForActivityResult
+            }
+
             val callback = fileChooserCallback
             fileChooserCallback = null
             if (callback == null) return@registerForActivityResult
@@ -66,6 +89,22 @@ class MainActivity : AppCompatActivity() {
             val single = data.data
             callback.onReceiveValue(if (single != null) arrayOf(single) else null)
         }
+
+    private class NativeMusicBridge(private val host: MainActivity) {
+        @JavascriptInterface
+        fun pickAudioFiles() {
+            host.runOnUiThread {
+                host.launchNativeAudioPicker(mode = "files")
+            }
+        }
+
+        @JavascriptInterface
+        fun pickAudioFolder() {
+            host.runOnUiThread {
+                host.launchNativeAudioPicker(mode = "folder")
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -142,6 +181,7 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             cacheMode = WebSettings.LOAD_NO_CACHE
         }
+        webView.addJavascriptInterface(NativeMusicBridge(this), "CarorurNativeMusic")
 
         btnSetTestUrl.setOnClickListener { showTestUrlDialog() }
         btnClearCacheReload.setOnClickListener { clearCacheAndReload() }
@@ -204,6 +244,250 @@ class MainActivity : AppCompatActivity() {
         }
         loadConfiguredUrl()
         Toast.makeText(this, "Cache limpiada y vista recargada", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun launchNativeAudioPicker(mode: String) {
+        if (isNativePickerOpen) {
+            sendNativeMusicResultError("Ya hay un selector abierto. Cierra el selector actual e intentalo de nuevo.")
+            return
+        }
+
+        val intent = when (mode) {
+            "folder" -> Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+            else -> Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "audio/*"
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            }
+        }
+
+        nativeMusicMode = mode
+        isNativePickerOpen = true
+        try {
+            fileChooserLauncher.launch(intent)
+        } catch (_: Throwable) {
+            isNativePickerOpen = false
+            nativeMusicMode = null
+            sendNativeMusicResultError("No se pudo abrir el selector nativo de audio.")
+        }
+    }
+
+    private fun handleNativeMusicResult(resultCode: Int, data: Intent?) {
+        val mode = nativeMusicMode
+        nativeMusicMode = null
+        isNativePickerOpen = false
+
+        if (mode == null) return
+        if (resultCode != RESULT_OK || data == null) {
+            sendNativeMusicResultCancelled(mode)
+            return
+        }
+
+        if (mode == "folder") {
+            handleNativeFolderResult(data)
+            return
+        }
+
+        handleNativeFilesResult(data)
+    }
+
+    private fun handleNativeFilesResult(data: Intent) {
+        val uris = ArrayList<Uri>()
+        val clip = data.clipData
+        if (clip != null && clip.itemCount > 0) {
+            for (i in 0 until clip.itemCount) {
+                clip.getItemAt(i)?.uri?.let { uris.add(it) }
+            }
+        } else {
+            data.data?.let { uris.add(it) }
+        }
+
+        if (uris.isEmpty()) {
+            sendNativeMusicResultError("No se seleccionaron canciones.")
+            return
+        }
+
+        val takeFlags = data.flags and
+            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        val maxCount = 60
+        val out = JSONArray()
+
+        for (uri in uris.take(maxCount)) {
+            tryTakePersistablePermission(uri, takeFlags)
+            val item = buildAudioItemFromUri(uri, folderName = "ARCHIVOS SUELTOS", relativePath = "") ?: continue
+            out.put(audioItemToJson(item))
+        }
+
+        sendNativeMusicResult("files", out)
+    }
+
+    private fun handleNativeFolderResult(data: Intent) {
+        val treeUri = data.data
+        if (treeUri == null) {
+            sendNativeMusicResultError("No se pudo abrir la carpeta seleccionada.")
+            return
+        }
+
+        val takeFlags = data.flags and
+            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        tryTakePersistablePermission(treeUri, takeFlags)
+
+        val root = DocumentFile.fromTreeUri(this, treeUri)
+        if (root == null || !root.exists() || !root.isDirectory) {
+            sendNativeMusicResultError("La carpeta seleccionada no es valida.")
+            return
+        }
+
+        val maxCount = 80
+        val out = JSONArray()
+        nativeFolderCounter = 0
+        collectAudioFromTree(root, root.name ?: "CARPETA", "", out, maxCount)
+
+        if (out.length() == 0) {
+            sendNativeMusicResultError("No se detectaron audios en la carpeta seleccionada.")
+            return
+        }
+
+        sendNativeMusicResult("folder", out)
+    }
+
+    private fun collectAudioFromTree(
+        folder: DocumentFile,
+        folderName: String,
+        relativePath: String,
+        sink: JSONArray,
+        maxCount: Int
+    ) {
+        if (nativeFolderCounter >= maxCount) return
+        val children = try {
+            folder.listFiles()
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+
+        for (child in children) {
+            if (nativeFolderCounter >= maxCount) return
+            if (child.isDirectory) {
+                val nextPath = if (relativePath.isBlank()) {
+                    child.name ?: ""
+                } else {
+                    "$relativePath/${child.name ?: ""}"
+                }
+                collectAudioFromTree(child, folderName, nextPath, sink, maxCount)
+                continue
+            }
+
+            val mime = child.type.orEmpty().lowercase()
+            if (!mime.startsWith("audio/")) continue
+
+            val name = child.name ?: "Cancion"
+            val rel = if (relativePath.isBlank()) name else "$relativePath/$name"
+            val item = NativeAudioItem(
+                uri = child.uri,
+                name = name,
+                sizeBytes = child.length(),
+                mimeType = child.type ?: "audio/*",
+                relativePath = rel,
+                folderName = folderName
+            )
+            sink.put(audioItemToJson(item))
+            nativeFolderCounter += 1
+        }
+    }
+
+    private fun buildAudioItemFromUri(uri: Uri, folderName: String, relativePath: String): NativeAudioItem? {
+        val resolver = contentResolver
+        val mime = resolver.getType(uri) ?: "audio/*"
+        if (!mime.lowercase().startsWith("audio/")) return null
+
+        var displayName = "Cancion"
+        var size = 0L
+
+        try {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                        if (nameIdx >= 0) {
+                            displayName = cursor.getString(nameIdx) ?: displayName
+                        }
+                        if (sizeIdx >= 0 && !cursor.isNull(sizeIdx)) {
+                            size = cursor.getLong(sizeIdx)
+                        }
+                    }
+                }
+        } catch (_: Throwable) {
+        }
+
+        return NativeAudioItem(
+            uri = uri,
+            name = displayName,
+            sizeBytes = size,
+            mimeType = mime,
+            relativePath = relativePath,
+            folderName = folderName
+        )
+    }
+
+    private fun tryTakePersistablePermission(uri: Uri, flags: Int) {
+        val grantFlags = flags and
+            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        if (grantFlags == 0) return
+
+        try {
+            contentResolver.takePersistableUriPermission(uri, grantFlags)
+        } catch (_: SecurityException) {
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun audioItemToJson(item: NativeAudioItem): JSONObject {
+        return JSONObject().apply {
+            put("uri", item.uri.toString())
+            put("name", item.name)
+            put("size", item.sizeBytes)
+            put("mime", item.mimeType)
+            put("relativePath", item.relativePath)
+            put("folderName", item.folderName)
+        }
+    }
+
+    private fun sendNativeMusicResult(mode: String, files: JSONArray) {
+        val payload = JSONObject().apply {
+            put("ok", true)
+            put("mode", mode)
+            put("files", files)
+        }
+        sendNativeMusicPayload(payload)
+    }
+
+    private fun sendNativeMusicResultCancelled(mode: String) {
+        val payload = JSONObject().apply {
+            put("ok", false)
+            put("mode", mode)
+            put("cancelled", true)
+        }
+        sendNativeMusicPayload(payload)
+    }
+
+    private fun sendNativeMusicResultError(message: String) {
+        val payload = JSONObject().apply {
+            put("ok", false)
+            put("error", message)
+        }
+        sendNativeMusicPayload(payload)
+    }
+
+    private fun sendNativeMusicPayload(payload: JSONObject) {
+        val js = "window.__carorurNativeMusicReceive && window.__carorurNativeMusicReceive(${JSONObject.quote(payload.toString())});"
+        webView.post {
+            try {
+                webView.evaluateJavascript(js, null)
+            } catch (t: Throwable) {
+                Log.w("CARORUR", "No se pudo entregar resultado nativo de musica", t)
+            }
+        }
     }
 
     companion object {
