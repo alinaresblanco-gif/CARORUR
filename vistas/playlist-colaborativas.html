@@ -419,8 +419,8 @@
   var isNativeAndroid = !!(window.CarorurNativeMusic && typeof window.CarorurNativeMusic.pickAudioFiles === 'function');
   var WEB_LITE_MODE = !isNativeAndroid;
   var MAX_IMPORT_FILES = WEB_LITE_MODE ? 20 : 60;
-  var MAX_FILE_SIZE_MB = WEB_LITE_MODE ? 25 : 40;
-  var MAX_IMPORT_TOTAL_MB = WEB_LITE_MODE ? 120 : 300;
+  var MAX_FILE_SIZE_MB = WEB_LITE_MODE ? 60 : 60;
+  var MAX_IMPORT_TOTAL_MB = WEB_LITE_MODE ? 200 : 300;
   var BATCH_YIELD_EVERY = 3;
   var MAX_NATIVE_FILES = 80;
 
