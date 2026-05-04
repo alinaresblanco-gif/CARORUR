@@ -782,6 +782,13 @@
     });
   };
 
+  try {
+    if (window.top && window.top !== window) {
+      window.top.__carorurNativeMusicReceive = window.__carorurNativeMusicReceive;
+    }
+  } catch (e) {
+  }
+
   function saveEmbeds() {
     try {
       localStorage.setItem(LS_EMBED_KEY, JSON.stringify(embedState));

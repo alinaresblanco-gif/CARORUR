@@ -480,7 +480,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendNativeMusicPayload(payload: JSONObject) {
-        val js = "window.__carorurNativeMusicReceive && window.__carorurNativeMusicReceive(${JSONObject.quote(payload.toString())});"
+        val quotedPayload = JSONObject.quote(payload.toString())
+        val js = """
+            (function(raw){
+                var attempts = 0;
+                var maxAttempts = 12;
+
+                function deliver(target) {
+                    if (!target) return false;
+                    var fn = target.__carorurNativeMusicReceive;
+                    if (typeof fn !== 'function') return false;
+                    try {
+                        fn(raw);
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+
+                function tryDeliver() {
+                    attempts += 1;
+
+                    if (deliver(window)) return;
+
+                    try {
+                        var iframe = document.getElementById('iframe-vista');
+                        if (iframe && iframe.contentWindow && deliver(iframe.contentWindow)) return;
+                    } catch (e) {
+                    }
+
+                    try {
+                        var frames = window.frames || [];
+                        for (var i = 0; i < frames.length; i++) {
+                            if (deliver(frames[i])) return;
+                        }
+                    } catch (e) {
+                    }
+
+                    if (attempts < maxAttempts) {
+                        setTimeout(tryDeliver, 180);
+                        return;
+                    }
+
+                    try {
+                        if (window.console && typeof console.warn === 'function') {
+                            console.warn('CARORUR: callback __carorurNativeMusicReceive no encontrado.');
+                        }
+                    } catch (e) {
+                    }
+                }
+
+                tryDeliver();
+            })($quotedPayload);
+        """.trimIndent()
+
         webView.post {
             try {
                 webView.evaluateJavascript(js, null)
