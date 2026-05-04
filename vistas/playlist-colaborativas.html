@@ -118,6 +118,8 @@
 
 .player-actions {
   margin-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
   width: 100%;
 }
 
@@ -593,6 +595,20 @@
   }
 
   function renderDeviceQueue() {
+    var existingItems = deviceQueueList.querySelectorAll('[data-queue-index]');
+
+    // Si la lista no cambio, solo actualizar la clase active sin reconstruir el DOM
+    if (existingItems.length === deviceState.songs.length && deviceState.songs.length > 0) {
+      for (var i = 0; i < existingItems.length; i++) {
+        if (i === deviceState.currentIndex) {
+          existingItems[i].classList.add('active');
+        } else {
+          existingItems[i].classList.remove('active');
+        }
+      }
+      return;
+    }
+
     deviceQueueList.innerHTML = '';
 
     if (!deviceState.songs.length) {
@@ -600,6 +616,7 @@
       return;
     }
 
+    var frag = document.createDocumentFragment();
     deviceState.songs.forEach(function (song, index) {
       var row = document.createElement('button');
       row.type = 'button';
@@ -608,8 +625,9 @@
       row.innerHTML =
         '<div class="queue-title">' + escHtml(String(index + 1) + '. ' + song.title) + '</div>' +
         '<div class="queue-sub">' + escHtml(song.artist) + '</div>';
-      deviceQueueList.appendChild(row);
+      frag.appendChild(row);
     });
+    deviceQueueList.appendChild(frag);
   }
 
   function stopPlayer() {
