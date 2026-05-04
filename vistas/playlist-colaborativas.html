@@ -99,9 +99,11 @@
   font-family: 'Special Elite', cursive;
   font-size: 0.96rem;
   color: var(--tinta-rural);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: center;
+  line-height: 1.28;
 }
 
 .song-info-artist {
@@ -806,11 +808,23 @@
     });
   };
 
-  try {
-    if (window.top && window.top !== window) {
-      window.top.__carorurNativeMusicReceive = window.__carorurNativeMusicReceive;
+  function detachTopNativeReceiver() {
+    try {
+      if (window.top && window.top !== window && window.top.__carorurNativeMusicReceive === window.__carorurNativeMusicReceive) {
+        delete window.top.__carorurNativeMusicReceive;
+      }
+    } catch (e) {
     }
-  } catch (e) {
+  }
+
+  function teardownPlaylistView() {
+    stopPlayer();
+    volatileFileStore = {};
+    deviceState.songs = [];
+    deviceState.currentIndex = -1;
+    inputAudioFiles.value = '';
+    embedFrame.src = 'about:blank';
+    detachTopNativeReceiver();
   }
 
   function saveEmbeds() {
@@ -1243,7 +1257,11 @@
   });
 
   window.addEventListener('pagehide', function () {
-    releasePlaybackUrl();
+    teardownPlaylistView();
+  });
+
+  window.addEventListener('beforeunload', function () {
+    teardownPlaylistView();
   });
 
   loadEmbeds();
