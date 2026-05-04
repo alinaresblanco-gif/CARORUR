@@ -30,6 +30,17 @@ import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
+    private val maxNativeAudioItems = 180
+
+    private data class NativeSelectionLimitResult(
+        val files: JSONArray,
+        val acceptedCount: Int,
+        val totalSelectedCount: Int,
+        val totalAcceptedBytes: Long,
+        val truncated: Boolean,
+        val limitReason: String?
+    )
+
     private lateinit var webView: WebView
     private lateinit var prefs: SharedPreferences
     private lateinit var assetLoader: WebViewAssetLoader
@@ -309,16 +320,32 @@ class MainActivity : AppCompatActivity() {
 
         val takeFlags = data.flags and
             (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-        val maxCount = 60
         val out = JSONArray()
+        var acceptedCount = 0
+        var truncated = false
+        var limitReason: String? = null
 
-        for (uri in uris.take(maxCount)) {
+        for (uri in uris) {
+            if (acceptedCount >= maxNativeAudioItems) {
+                truncated = true
+                limitReason = "Se han cargado solo las primeras $maxNativeAudioItems canciones para mantener estable la app."
+                break
+            }
             tryTakePersistablePermission(uri, takeFlags)
             val item = buildAudioItemFromUri(uri, folderName = "ARCHIVOS SUELTOS", relativePath = "") ?: continue
             out.put(audioItemToJson(item))
+            acceptedCount += 1
         }
 
-        sendNativeMusicResult("files", out)
+        sendNativeMusicResult(
+            mode = "files",
+            files = out,
+            acceptedCount = acceptedCount,
+            totalSelectedCount = uris.size,
+            totalAcceptedBytes = 0L,
+            truncated = truncated,
+            limitReason = limitReason
+        )
     }
 
     private fun handleNativeFolderResult(data: Intent) {
@@ -338,50 +365,67 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val maxCount = 80
-        val out = JSONArray()
         nativeFolderCounter = 0
-        collectAudioFromTree(root, root.name ?: "CARPETA", "", out, maxCount)
+        val limitResult = collectAudioFromTree(root, root.name ?: "CARPETA", "")
 
-        if (out.length() == 0) {
+        if (limitResult.files.length() == 0) {
             sendNativeMusicResultError("No se detectaron audios en la carpeta seleccionada.")
             return
         }
 
-        sendNativeMusicResult("folder", out)
+        sendNativeMusicResult(
+            mode = "folder",
+            files = limitResult.files,
+            acceptedCount = limitResult.acceptedCount,
+            totalSelectedCount = limitResult.totalSelectedCount,
+            totalAcceptedBytes = limitResult.totalAcceptedBytes,
+            truncated = limitResult.truncated,
+            limitReason = limitResult.limitReason
+        )
     }
 
     private fun collectAudioFromTree(
         folder: DocumentFile,
         folderName: String,
-        relativePath: String,
-        sink: JSONArray,
-        maxCount: Int
-    ) {
-        if (nativeFolderCounter >= maxCount) return
+        relativePath: String
+    ): NativeSelectionLimitResult {
+        val sink = JSONArray()
+        var totalFound = 0
+        var truncated = false
+        var limitReason: String? = null
+
+        fun walk(currentFolder: DocumentFile, currentRelativePath: String) {
+            if (nativeFolderCounter >= maxNativeAudioItems || truncated) return
         val children = try {
-            folder.listFiles()
+                currentFolder.listFiles()
         } catch (_: Throwable) {
             emptyArray()
         }
 
         for (child in children) {
-            if (nativeFolderCounter >= maxCount) return
+                if (nativeFolderCounter >= maxNativeAudioItems || truncated) return
             if (child.isDirectory) {
-                val nextPath = if (relativePath.isBlank()) {
+                    val nextPath = if (currentRelativePath.isBlank()) {
                     child.name ?: ""
                 } else {
-                    "$relativePath/${child.name ?: ""}"
+                        "$currentRelativePath/${child.name ?: ""}"
                 }
-                collectAudioFromTree(child, folderName, nextPath, sink, maxCount)
+                    walk(child, nextPath)
                 continue
             }
 
             val mime = child.type.orEmpty().lowercase()
             if (!mime.startsWith("audio/")) continue
+                totalFound += 1
+
+                if (nativeFolderCounter >= maxNativeAudioItems) {
+                    truncated = true
+                    limitReason = "Se han cargado solo las primeras $maxNativeAudioItems canciones de la carpeta para mantener estable la app."
+                    return
+                }
 
             val name = child.name ?: "Cancion"
-            val rel = if (relativePath.isBlank()) name else "$relativePath/$name"
+                val rel = if (currentRelativePath.isBlank()) name else "$currentRelativePath/$name"
             val item = NativeAudioItem(
                 uri = child.uri,
                 name = name,
@@ -393,6 +437,18 @@ class MainActivity : AppCompatActivity() {
             sink.put(audioItemToJson(item))
             nativeFolderCounter += 1
         }
+        }
+
+        walk(folder, relativePath)
+
+        return NativeSelectionLimitResult(
+            files = sink,
+            acceptedCount = nativeFolderCounter,
+            totalSelectedCount = totalFound,
+            totalAcceptedBytes = 0L,
+            truncated = truncated,
+            limitReason = limitReason
+        )
     }
 
     private fun buildAudioItemFromUri(uri: Uri, folderName: String, relativePath: String): NativeAudioItem? {
@@ -453,11 +509,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendNativeMusicResult(mode: String, files: JSONArray) {
+    private fun sendNativeMusicResult(
+        mode: String,
+        files: JSONArray,
+        acceptedCount: Int,
+        totalSelectedCount: Int,
+        totalAcceptedBytes: Long,
+        truncated: Boolean,
+        limitReason: String?
+    ) {
         val payload = JSONObject().apply {
             put("ok", true)
             put("mode", mode)
             put("files", files)
+            put("acceptedCount", acceptedCount)
+            put("totalSelectedCount", totalSelectedCount)
+            put("totalAcceptedBytes", totalAcceptedBytes)
+            put("truncated", truncated)
+            put("limitReason", limitReason ?: JSONObject.NULL)
         }
         sendNativeMusicPayload(payload)
     }

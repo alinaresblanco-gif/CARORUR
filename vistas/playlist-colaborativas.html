@@ -187,6 +187,24 @@
   gap: 0.35rem;
 }
 
+.queue-meta {
+  margin-top: 0.38rem;
+  font-size: 0.72rem;
+  color: var(--tinta-rural-suave);
+  text-align: center;
+}
+
+.queue-more-wrap {
+  margin-top: 0.55rem;
+  display: flex;
+  justify-content: center;
+}
+
+.queue-more-btn {
+  width: 100%;
+  max-width: 320px;
+}
+
 .queue-item {
   border: 1px solid rgba(122,82,48,0.35);
   border-radius: 8px;
@@ -467,6 +485,10 @@
       <div class="queue-list" id="deviceQueueList">
         <div class="empty-state">Todavia no has seleccionado canciones.</div>
       </div>
+      <div class="queue-meta" id="deviceQueueMeta" hidden></div>
+      <div class="queue-more-wrap" id="deviceQueueMoreWrap" hidden>
+        <button class="btn queue-more-btn" id="btnQueueLoadMore" type="button">Cargar mas canciones</button>
+      </div>
     </section>
 
     <section class="panel embed-panel" aria-label="Listas por URL">
@@ -496,11 +518,14 @@
 <script>
 (function () {
   var LS_EMBED_KEY = 'carorur_music_embeds_v1';
+  var MAX_WEB_PICK_COUNT = 180;
+  var DEVICE_QUEUE_RENDER_STEP = 25;
   var isNativeAndroid = !!(window.CarorurNativeMusic && typeof window.CarorurNativeMusic.pickAudioFiles === 'function');
 
   var deviceState = {
     songs: [],
-    currentIndex: -1
+    currentIndex: -1,
+    renderedCount: 0
   };
 
   var embedState = {
@@ -531,6 +556,9 @@
   var embedFrame = document.getElementById('embedFrame');
   var embedEmpty = document.getElementById('embedEmpty');
   var deviceQueueList = document.getElementById('deviceQueueList');
+  var deviceQueueMeta = document.getElementById('deviceQueueMeta');
+  var deviceQueueMoreWrap = document.getElementById('deviceQueueMoreWrap');
+  var btnQueueLoadMore = document.getElementById('btnQueueLoadMore');
 
   function uid(prefix) {
     return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
@@ -596,11 +624,40 @@
     songFolder.textContent = 'Cola local: ' + (deviceState.currentIndex + 1) + ' / ' + deviceState.songs.length;
   }
 
+  function syncQueueSummary() {
+    var total = deviceState.songs.length;
+    if (!total) {
+      deviceQueueMeta.setAttribute('hidden', 'hidden');
+      deviceQueueMeta.textContent = '';
+      deviceQueueMoreWrap.setAttribute('hidden', 'hidden');
+      return;
+    }
+
+    var shown = Math.min(deviceState.renderedCount, total);
+    deviceQueueMeta.textContent = 'Mostrando ' + shown + ' de ' + total + ' canciones.';
+    deviceQueueMeta.removeAttribute('hidden');
+
+    if (shown < total) {
+      deviceQueueMoreWrap.removeAttribute('hidden');
+    } else {
+      deviceQueueMoreWrap.setAttribute('hidden', 'hidden');
+    }
+  }
+
+  function ensureQueueIncludesIndex(index) {
+    if (index < 0 || index < deviceState.renderedCount) return;
+    var requiredChunks = Math.floor(index / DEVICE_QUEUE_RENDER_STEP) + 1;
+    deviceState.renderedCount = Math.min(deviceState.songs.length, requiredChunks * DEVICE_QUEUE_RENDER_STEP);
+  }
+
   function renderDeviceQueue() {
+    ensureQueueIncludesIndex(deviceState.currentIndex);
+
+    var visibleSongs = deviceState.songs.slice(0, deviceState.renderedCount);
     var existingItems = deviceQueueList.querySelectorAll('[data-queue-index]');
 
     // Si la lista no cambio, solo actualizar la clase active sin reconstruir el DOM
-    if (existingItems.length === deviceState.songs.length && deviceState.songs.length > 0) {
+    if (existingItems.length === visibleSongs.length && visibleSongs.length > 0) {
       for (var i = 0; i < existingItems.length; i++) {
         if (i === deviceState.currentIndex) {
           existingItems[i].classList.add('active');
@@ -608,6 +665,7 @@
           existingItems[i].classList.remove('active');
         }
       }
+      syncQueueSummary();
       return;
     }
 
@@ -615,11 +673,12 @@
 
     if (!deviceState.songs.length) {
       deviceQueueList.innerHTML = '<div class="empty-state">Todavia no has seleccionado canciones.</div>';
+      syncQueueSummary();
       return;
     }
 
     var frag = document.createDocumentFragment();
-    deviceState.songs.forEach(function (song, index) {
+    visibleSongs.forEach(function (song, index) {
       var row = document.createElement('button');
       row.type = 'button';
       row.className = 'queue-item' + (index === deviceState.currentIndex ? ' active' : '');
@@ -630,6 +689,7 @@
       frag.appendChild(row);
     });
     deviceQueueList.appendChild(frag);
+    syncQueueSummary();
   }
 
   function stopPlayer() {
@@ -645,6 +705,7 @@
     stopPlayer();
     deviceState.songs = songs;
     deviceState.currentIndex = songs.length ? 0 : -1;
+    deviceState.renderedCount = songs.length ? Math.min(songs.length, DEVICE_QUEUE_RENDER_STEP) : 0;
     renderPlayerInfo(deviceState.currentIndex >= 0 ? deviceState.songs[deviceState.currentIndex] : null);
     renderDeviceQueue();
   }
@@ -724,8 +785,23 @@
       return;
     }
 
+    var limitedFiles = [];
+    var truncated = false;
+    var limitReason = '';
+
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
+      if (limitedFiles.length >= MAX_WEB_PICK_COUNT) {
+        truncated = true;
+        limitReason = 'Se han cargado solo las primeras ' + MAX_WEB_PICK_COUNT + ' canciones para evitar problemas de memoria.';
+        break;
+      }
+
+      limitedFiles.push(file);
+    }
+
     var songs = [];
-    files.forEach(function (file) {
+    limitedFiles.forEach(function (file) {
       var id = uid('SG');
       volatileFileStore[id] = file;
       var meta = parseSongMetaFromName(file.name);
@@ -738,7 +814,9 @@
     });
 
     setDeviceSongs(songs);
-    playerNote.textContent = 'Listo: ' + songs.length + ' canciones listas (sin guardar en memoria persistente).';
+    playerNote.textContent = truncated
+      ? 'Listo: ' + songs.length + ' canciones cargadas. ' + limitReason
+      : 'Listo: ' + songs.length + ' canciones listas (sin guardar en memoria persistente).';
     playSongByIndex(0).catch(function () {
       playerNote.textContent = 'Canciones cargadas. Pulsa Play para empezar.';
     });
@@ -802,7 +880,11 @@
     }
 
     setDeviceSongs(songs);
-    playerNote.textContent = 'Listo: ' + songs.length + ' canciones seleccionadas desde tu movil.';
+    if (payload.truncated) {
+      playerNote.textContent = payload.limitReason || ('Listo: ' + songs.length + ' canciones cargadas desde tu movil.');
+    } else {
+      playerNote.textContent = 'Listo: ' + songs.length + ' canciones seleccionadas desde tu movil.';
+    }
     playSongByIndex(0).catch(function () {
       playerNote.textContent = 'Canciones preparadas. Pulsa Play para empezar.';
     });
@@ -1176,6 +1258,12 @@
   btnCloseEmbed.addEventListener('click', function () {
     closeEmbedViewer();
     playerNote.textContent = 'Visor embed cerrado.';
+  });
+
+  btnQueueLoadMore.addEventListener('click', function () {
+    if (!deviceState.songs.length) return;
+    deviceState.renderedCount = Math.min(deviceState.songs.length, deviceState.renderedCount + DEVICE_QUEUE_RENDER_STEP);
+    renderDeviceQueue();
   });
 
   embedList.addEventListener('click', function (event) {
