@@ -9,7 +9,7 @@
   const imagenContenedor = document.querySelector('.imagen-contenedor');
   const zonas            = document.querySelectorAll('.zona-clic');
   const contenedorVista  = document.getElementById('contenedor-vista');
-  const iframeVista      = document.getElementById('iframe-vista');
+  let   iframeVista      = document.getElementById('iframe-vista');
   const btnVolver        = document.getElementById('btn-volver');
   const btnEdicion       = document.getElementById('btn-edicion');
   const STORAGE_VISTA_KEY = 'carorur_vista_activa';
@@ -22,6 +22,27 @@
      al que regresar antes de salir de la app.
   ============================================================ */
   history.replaceState({ vista: null }, '');
+
+  // Destruye el iframe actual y lo reemplaza por uno nuevo vacío.
+  // Esto fuerza al WebView a liberar completamente el renderer del frame
+  // y todos sus recursos (audio, blobs, DOM) sin esperar al GC.
+  function resetIframe() {
+    var parent = iframeVista.parentNode;
+    var next   = iframeVista.nextSibling;
+    var allow  = iframeVista.getAttribute('allow') || '';
+
+    // Primero poner about:blank para disparar pagehide/unload en la vista cargada
+    try { iframeVista.src = 'about:blank'; } catch (_) {}
+
+    parent.removeChild(iframeVista);
+
+    var nuevo = document.createElement('iframe');
+    nuevo.id          = 'iframe-vista';
+    nuevo.frameBorder = '0';
+    if (allow) nuevo.setAttribute('allow', allow);
+    parent.insertBefore(nuevo, next);
+    iframeVista = nuevo;
+  }
 
   function abrirVista(rutaVista, options) {
     const opts = options || {};
@@ -37,7 +58,7 @@
   }
 
   function cerrarVista() {
-    iframeVista.src = '';
+    resetIframe();
     contenedorVista.classList.add('oculto');
     localStorage.removeItem(STORAGE_VISTA_KEY);
     localStorage.setItem(STORAGE_SKIP_RESTORE_UNTIL, String(Date.now() + 5000));
