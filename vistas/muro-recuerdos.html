@@ -332,7 +332,9 @@
 
 	<script>
 	(function () {
-		var STORAGE_KEY = 'carorur_muro_recuerdos_v1';
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycg1nrbCB_www3bqb-RVM2nl4hHvEozFdY2uz50jX6iiAGW-yFu3MeRENqo0GozWCu/exec';
+		var DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
+		var STORAGE_KEY = 'carorur_muro_recuerdos_v2';
 		var recuerdos = [];
 		var fotosMemoria = {};
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
@@ -360,6 +362,7 @@
 		var addFotosTargetId = null;
 		var galeriaRecuerdoId = null;
 		var toastTimer = null;
+		var isSaving = false;
 
 		function uid(prefix) {
 			return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
@@ -378,6 +381,19 @@
 			var d = new Date(iso + 'T00:00:00');
 			if (isNaN(d.getTime())) return iso;
 			return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+		}
+
+		function driveViewUrl(fileId) {
+			var id = String(fileId || '').trim();
+			if (!id) return '../imagenes/rustica-vista.svg';
+			return 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(id);
+		}
+
+		function setSaving(flag) {
+			isSaving = !!flag;
+			btnGuardarNuevo.disabled = isSaving;
+			btnNuevoRecuerdo.disabled = isSaving;
+			btnAddFotosGaleria.disabled = isSaving;
 		}
 
 		function showToast(message) {
@@ -400,7 +416,8 @@
 						nombre: r.nombre,
 						fecha: r.fecha,
 						descripcion: r.descripcion,
-						fotoCount: r.fotoCount
+						fotoCount: r.fotoCount,
+						coverFileId: r.coverFileId || ''
 					};
 				});
 				localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
@@ -421,13 +438,97 @@
 						fecha: r.fecha || '',
 						descripcion: r.descripcion || '',
 						fotoCount: Number(r.fotoCount || 0),
-						thumbUrl: '',
+						coverFileId: String(r.coverFileId || ''),
+						thumbUrl: driveViewUrl(r.coverFileId || ''),
 						hasSessionPhotos: false
 					};
 				});
 			} catch (e) {
 				recuerdos = [];
 			}
+		}
+
+		async function apiGet(action, params) {
+			var qp = ['action=' + encodeURIComponent(action), '_ts=' + Date.now()];
+			var p = params || {};
+			Object.keys(p).forEach(function (key) {
+				if (p[key] === undefined || p[key] === null || p[key] === '') return;
+				qp.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(p[key])));
+			});
+			var res = await fetch(APPS_SCRIPT_URL + '?' + qp.join('&'), { cache: 'no-store' });
+			var data = await res.json();
+			if (!data.ok) throw new Error(data.error || 'Error de lectura en nube');
+			return data;
+		}
+
+		async function postAppsScript(payload) {
+			var res = await fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				mode: 'cors',
+				cache: 'no-store',
+				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+				body: JSON.stringify(payload)
+			});
+			var data = await res.json();
+			if (!data.ok) throw new Error(data.error || 'Error Apps Script');
+			return data;
+		}
+
+		function fileToBase64(file) {
+			return new Promise(function (resolve, reject) {
+				var reader = new FileReader();
+				reader.onload = function () {
+					var out = String(reader.result || '');
+					var idx = out.indexOf(',');
+					resolve(idx >= 0 ? out.slice(idx + 1) : out);
+				};
+				reader.onerror = function () {
+					reject(new Error('No se pudo leer archivo'));
+				};
+				reader.readAsDataURL(file);
+			});
+		}
+
+		async function uploadImageFile(file) {
+			var data64 = await fileToBase64(file);
+			var resp = await postAppsScript({
+				action: 'uploadImage',
+				data: data64,
+				mimeType: file.type || 'image/jpeg',
+				name: file.name || ('foto_' + Date.now() + '.jpg'),
+				folderId: DRIVE_FOLDER_ID
+			});
+			return {
+				file_id: String(resp.file_id || ''),
+				url: String(resp.url || '')
+			};
+		}
+
+		async function loadRecuerdosFromCloud() {
+			var data = await apiGet('getMuroRecuerdos');
+			var rows = Array.isArray(data.recuerdos) ? data.recuerdos : [];
+
+			fotosMemoria = {};
+			recuerdos = rows.map(function (r) {
+				var fotos = Array.isArray(r.fotos) ? r.fotos : [];
+				var urls = fotos.map(function (f) { return String(f.url || driveViewUrl(f.file_id || '')); });
+				fotosMemoria[r.id_recuerdo] = urls;
+				var coverFileId = String(r.cover_file_id || '');
+				var thumb = coverFileId ? driveViewUrl(coverFileId) : (urls[0] || '../imagenes/rustica-vista.svg');
+				return {
+					id: String(r.id_recuerdo || uid('RC')),
+					nombre: String(r.nombre || 'Recuerdo'),
+					fecha: String(r.fecha || ''),
+					descripcion: String(r.descripcion || ''),
+					fotoCount: Number(r.foto_count || urls.length || 0),
+					coverFileId: coverFileId,
+					thumbUrl: thumb,
+					hasSessionPhotos: urls.length > 0
+				};
+			});
+
+			saveRecuerdos();
+			renderMuro();
 		}
 
 		function openNuevoModal() {
@@ -481,7 +582,8 @@
 			});
 		}
 
-		function guardarNuevoRecuerdo() {
+		async function guardarNuevoRecuerdo() {
+			if (isSaving) return;
 			var nombre = String(inputNombre.value || '').trim();
 			if (!nombre) {
 				inputNombre.focus();
@@ -490,29 +592,58 @@
 
 			var files = Array.prototype.slice.call(inputFotos.files || []);
 			var id = uid('RC');
-			var fotoUrls = files.map(function (file) {
-				return URL.createObjectURL(file);
-			});
 
-			fotosMemoria[id] = fotoUrls;
-			recuerdos.unshift({
-				id: id,
-				nombre: nombre,
-				fecha: inputFecha.value || '',
-				descripcion: String(inputDesc.value || '').trim(),
-				fotoCount: files.length,
-				thumbUrl: fotoUrls[0] || '../imagenes/rustica-vista.svg',
-				hasSessionPhotos: files.length > 0
-			});
+			setSaving(true);
+			try {
+				var uploaded = [];
+				for (var i = 0; i < files.length; i++) {
+					var up = await uploadImageFile(files[i]);
+					if (!up.file_id) continue;
+					uploaded.push({
+						id_foto: uid('RF'),
+						file_id: up.file_id,
+						orden: i + 1,
+						es_portada: i === 0,
+						url: up.url
+					});
+				}
 
-			saveRecuerdos();
-			renderMuro();
-			clearNuevoForm();
-			closeNuevoModal();
-			if (files.length > 0) {
-				showToast('+' + files.length + ' fotos anadidas');
-			} else {
-				showToast('Tarjeta guardada');
+				await postAppsScript({
+					action: 'saveMuroRecuerdo',
+					row: {
+						id_recuerdo: id,
+						nombre: nombre,
+						fecha: inputFecha.value || '',
+						descripcion: String(inputDesc.value || '').trim(),
+						cover_file_id: uploaded[0] ? uploaded[0].file_id : '',
+						foto_count: uploaded.length,
+						deleted: false
+					}
+				});
+
+				if (uploaded.length) {
+					await postAppsScript({
+						action: 'addMuroRecuerdoFotos',
+						id_recuerdo: id,
+						fotos: uploaded.map(function (f) {
+							return {
+								id_foto: f.id_foto,
+								file_id: f.file_id,
+								orden: f.orden,
+								es_portada: f.es_portada
+							};
+						})
+					});
+				}
+
+				clearNuevoForm();
+				closeNuevoModal();
+				await loadRecuerdosFromCloud();
+				showToast(uploaded.length ? ('+' + uploaded.length + ' fotos anadidas') : 'Tarjeta guardada');
+			} catch (err) {
+				showToast('No se pudo guardar: ' + String(err && err.message ? err.message : err));
+			} finally {
+				setSaving(false);
 			}
 		}
 
@@ -527,7 +658,7 @@
 
 			var fotos = fotosMemoria[id] || [];
 			if (!fotos.length) {
-				galeriaGrid.innerHTML = '<div class="empty-muro" style="grid-column: 1 / -1;">Las fotos reales se ven en la sesion actual. Al conectar Drive/Sheets quedaran persistentes.</div>';
+				galeriaGrid.innerHTML = '<div class="empty-muro" style="grid-column: 1 / -1;">Este recuerdo aun no tiene fotos.</div>';
 			} else {
 				fotos.forEach(function (url) {
 					var img = document.createElement('img');
@@ -546,7 +677,8 @@
 			modalGaleria.hidden = true;
 		}
 
-		function deleteRecuerdo(id) {
+		async function deleteRecuerdo(id) {
+			if (isSaving) return;
 			var rec = recuerdos.find(function (r) { return r.id === id; });
 			if (!rec) return;
 
@@ -554,45 +686,64 @@
 				return;
 			}
 
-			var fotos = fotosMemoria[id] || [];
-			fotos.forEach(function (url) {
-				try {
-					URL.revokeObjectURL(url);
-				} catch (e) {
+			setSaving(true);
+			try {
+				await postAppsScript({ action: 'deleteMuroRecuerdo', id_recuerdo: id });
+				if (galeriaRecuerdoId === id) {
+					closeGaleria();
 				}
-			});
-			delete fotosMemoria[id];
-
-			recuerdos = recuerdos.filter(function (r) { return r.id !== id; });
-			saveRecuerdos();
-			renderMuro();
+				await loadRecuerdosFromCloud();
+				showToast('Tarjeta eliminada');
+			} catch (err) {
+				showToast('No se pudo eliminar: ' + String(err && err.message ? err.message : err));
+			} finally {
+				setSaving(false);
+			}
 		}
 
-		function addPhotosToRecuerdo(id, filesLike) {
+		async function addPhotosToRecuerdo(id, filesLike) {
+			if (isSaving) return;
 			var rec = recuerdos.find(function (r) { return r.id === id; });
 			if (!rec) return;
 
 			var files = Array.prototype.slice.call(filesLike || []);
 			if (!files.length) return;
 
-			var urls = files.map(function (file) {
-				return URL.createObjectURL(file);
-			});
+			setSaving(true);
+			try {
+				var baseOrden = Number(rec.fotoCount || 0);
+				var uploaded = [];
+				for (var i = 0; i < files.length; i++) {
+					var up = await uploadImageFile(files[i]);
+					if (!up.file_id) continue;
+					uploaded.push({
+						id_foto: uid('RF'),
+						file_id: up.file_id,
+						orden: baseOrden + i + 1,
+						es_portada: false
+					});
+				}
+				if (!uploaded.length) {
+					showToast('No se pudieron subir fotos');
+					return;
+				}
 
-			if (!fotosMemoria[id]) {
-				fotosMemoria[id] = [];
+				await postAppsScript({
+					action: 'addMuroRecuerdoFotos',
+					id_recuerdo: id,
+					fotos: uploaded
+				});
+
+				await loadRecuerdosFromCloud();
+				showToast('+' + uploaded.length + ' fotos anadidas');
+				if (!modalGaleria.hidden && galeriaRecuerdoId === id) {
+					openGaleria(id);
+				}
+			} catch (err) {
+				showToast('No se pudieron anadir fotos: ' + String(err && err.message ? err.message : err));
+			} finally {
+				setSaving(false);
 			}
-			fotosMemoria[id] = fotosMemoria[id].concat(urls);
-
-			if (!rec.thumbUrl || rec.thumbUrl.indexOf('rustica-vista.svg') !== -1) {
-				rec.thumbUrl = urls[0];
-			}
-
-			rec.fotoCount = Number(rec.fotoCount || 0) + files.length;
-			rec.hasSessionPhotos = true;
-			saveRecuerdos();
-			renderMuro();
-			showToast('+' + files.length + ' fotos anadidas');
 		}
 
 		function requestAddPhotos(id) {
@@ -607,23 +758,36 @@
 
 		btnVolverCabecera.addEventListener('click', function (e) {
 			e.preventDefault();
+			var targetHref = '../index.html';
 			try {
 				if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
 					window.top.carorurCloseVista();
-				} else if (window.top !== window && window.top.postMessage) {
+					return;
+				}
+				if (window.top !== window && window.top.postMessage) {
 					window.top.postMessage('carorur:close-vista', '*');
-				} else {
-					window.location.href = '../index.html';
+					setTimeout(function () {
+						try {
+							window.top.location.href = targetHref;
+						} catch (err2) {
+							window.location.href = targetHref;
+						}
+					}, 250);
+					return;
 				}
 			} catch (err) {
-				window.location.href = '../index.html';
 			}
+			window.location.href = targetHref;
 		});
 
 		btnCancelarNuevo.addEventListener('click', function () {
 			closeNuevoModal();
 		});
-		btnGuardarNuevo.addEventListener('click', guardarNuevoRecuerdo);
+		btnGuardarNuevo.addEventListener('click', function () {
+			guardarNuevoRecuerdo().catch(function () {
+				showToast('No se pudo guardar tarjeta');
+			});
+		});
 
 		modalNuevo.addEventListener('click', function (event) {
 			if (event.target === modalNuevo) closeNuevoModal();
@@ -641,10 +805,9 @@
 		inputAddFotosTarjeta.addEventListener('change', function () {
 			if (!addFotosTargetId) return;
 			var selectedId = addFotosTargetId;
-			addPhotosToRecuerdo(selectedId, inputAddFotosTarjeta.files);
-			if (!modalGaleria.hidden && galeriaRecuerdoId === selectedId) {
-				openGaleria(selectedId);
-			}
+			addPhotosToRecuerdo(selectedId, inputAddFotosTarjeta.files).catch(function () {
+				showToast('No se pudieron anadir fotos');
+			});
 			addFotosTargetId = null;
 		});
 
@@ -657,7 +820,9 @@
 
 			if (action === 'delete') {
 				event.stopPropagation();
-				deleteRecuerdo(id);
+				deleteRecuerdo(id).catch(function () {
+					showToast('No se pudo eliminar');
+				});
 				return;
 			}
 
@@ -669,6 +834,9 @@
 
 		loadRecuerdos();
 		renderMuro();
+		loadRecuerdosFromCloud().catch(function () {
+			showToast('Sin conexion de nube. Se muestra cache local.');
+		});
 	})();
 	</script>
 </body>

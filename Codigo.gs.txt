@@ -65,6 +65,30 @@ const CANCIONES_HEADERS = [
   'fecha_added'
 ];
 
+const MURO_RECUERDOS_SHEET_NAME = 'muro_recuerdos';
+const MURO_RECUERDOS_HEADERS = [
+  'id_recuerdo',
+  'nombre',
+  'fecha',
+  'descripcion',
+  'cover_file_id',
+  'foto_count',
+  'created_at',
+  'updated_at',
+  'deleted'
+];
+
+const MURO_RECUERDOS_FOTOS_SHEET_NAME = 'muro_recuerdos_fotos';
+const MURO_RECUERDOS_FOTOS_HEADERS = [
+  'id_foto',
+  'id_recuerdo',
+  'file_id',
+  'orden',
+  'es_portada',
+  'created_at',
+  'deleted'
+];
+
 
 function doGet(e) {
   try {
@@ -101,6 +125,10 @@ function doGet(e) {
     if (action === 'getCanciones') {
       const idPlaylist = (e && e.parameter && e.parameter.id_playlist) ? e.parameter.id_playlist : '';
       return jsonOut({ ok: true, canciones: getCancionesRows(idPlaylist) });
+    }
+
+    if (action === 'getMuroRecuerdos') {
+      return jsonOut({ ok: true, recuerdos: getMuroRecuerdosRows() });
     }
 
     return jsonOut({ ok: false, error: 'Accion GET no soportada' });
@@ -249,6 +277,37 @@ function doPost(e) {
         }
         saveCancionesRows(idPlaylist, rows);
         return jsonOut({ ok: true, action: 'saveCanciones', id_playlist: idPlaylist, saved: rows.length });
+      }
+
+      if (action === 'saveMuroRecuerdo') {
+        const row = payload.row || payload.recuerdo || payload;
+        const saved = saveMuroRecuerdoRow(row);
+        return jsonOut({ ok: true, action: 'saveMuroRecuerdo', recuerdo: saved });
+      }
+
+      if (action === 'addMuroRecuerdoFotos') {
+        const idRecuerdo = safeStr(payload.id_recuerdo);
+        const fotos = Array.isArray(payload.fotos) ? payload.fotos : [];
+        if (!idRecuerdo) {
+          return jsonOut({ ok: false, error: 'Falta id_recuerdo' });
+        }
+        const added = addMuroRecuerdoFotos(idRecuerdo, fotos);
+        return jsonOut({ ok: true, action: 'addMuroRecuerdoFotos', id_recuerdo: idRecuerdo, added: added });
+      }
+
+      if (action === 'deleteMuroRecuerdo') {
+        const idRecuerdo = safeStr(payload.id_recuerdo || payload.id || payload.idRecuerdo);
+        if (!idRecuerdo) {
+          return jsonOut({ ok: false, error: 'Falta id_recuerdo' });
+        }
+        const result = deleteMuroRecuerdo(idRecuerdo);
+        return jsonOut({
+          ok: true,
+          action: 'deleteMuroRecuerdo',
+          id_recuerdo: idRecuerdo,
+          removed_recuerdos: result.removedRecuerdos,
+          removed_fotos: result.removedFotos
+        });
       }
 
       return jsonOut({ ok: false, error: 'Accion POST no soportada' });
@@ -677,6 +736,229 @@ function getPlaylistsRows() {
   return out;
 }
 
+function getMuroRecuerdosRows() {
+  var recuerdosSheet = getMuroRecuerdosSheetReady();
+  var fotosSheet = getMuroRecuerdosFotosSheetReady();
+
+  var recuerdosValues = recuerdosSheet.getDataRange().getValues();
+  var fotosValues = fotosSheet.getDataRange().getValues();
+
+  var fotosByRecuerdo = {};
+  for (var i = 1; i < fotosValues.length; i++) {
+    var fr = fotosValues[i];
+    var idFoto = safeStr(fr[0]);
+    var idRecuerdo = safeStr(fr[1]);
+    var fileId = safeStr(fr[2]);
+    var orden = Number(fr[3] || 0);
+    var esPortada = toBool(fr[4]);
+    var createdAt = safeStr(fr[5]);
+    var deleted = toBool(fr[6]);
+    if (!idFoto || !idRecuerdo || !fileId || deleted) continue;
+
+    if (!fotosByRecuerdo[idRecuerdo]) fotosByRecuerdo[idRecuerdo] = [];
+    fotosByRecuerdo[idRecuerdo].push({
+      id_foto: idFoto,
+      id_recuerdo: idRecuerdo,
+      file_id: fileId,
+      orden: orden,
+      es_portada: esPortada,
+      created_at: createdAt,
+      url: 'https://drive.google.com/uc?export=view&id=' + fileId
+    });
+  }
+
+  Object.keys(fotosByRecuerdo).forEach(function (id) {
+    fotosByRecuerdo[id].sort(function (a, b) {
+      if (a.orden !== b.orden) return a.orden - b.orden;
+      return String(a.id_foto).localeCompare(String(b.id_foto), 'es');
+    });
+  });
+
+  var out = [];
+  for (var j = 1; j < recuerdosValues.length; j++) {
+    var rr = recuerdosValues[j];
+    var rid = safeStr(rr[0]);
+    if (!rid) continue;
+    var deletedRec = toBool(rr[8]);
+    if (deletedRec) continue;
+
+    var fotos = fotosByRecuerdo[rid] || [];
+    var coverFileId = safeStr(rr[4]);
+    if (!coverFileId) {
+      var portada = fotos.find(function (f) { return !!f.es_portada; }) || fotos[0] || null;
+      coverFileId = portada ? portada.file_id : '';
+    }
+
+    out.push({
+      id_recuerdo: rid,
+      nombre: safeStr(rr[1]),
+      fecha: safeStr(rr[2]),
+      descripcion: safeStr(rr[3]),
+      cover_file_id: coverFileId,
+      foto_count: Number(rr[5] || fotos.length || 0),
+      created_at: safeStr(rr[6]),
+      updated_at: safeStr(rr[7]),
+      fotos: fotos
+    });
+  }
+
+  out.sort(function (a, b) {
+    if (a.fecha > b.fecha) return -1;
+    if (a.fecha < b.fecha) return 1;
+    return String(b.id_recuerdo).localeCompare(String(a.id_recuerdo), 'es');
+  });
+
+  return out;
+}
+
+function saveMuroRecuerdoRow(row) {
+  var sheet = getMuroRecuerdosSheetReady();
+  var idRecuerdo = safeStr(row && row.id_recuerdo);
+  if (!idRecuerdo) {
+    throw new Error('Falta id_recuerdo');
+  }
+
+  var nowIso = new Date().toISOString();
+  var values = sheet.getDataRange().getValues();
+  var existingIdx = -1;
+  var createdAt = nowIso;
+
+  for (var i = 1; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idRecuerdo) {
+      existingIdx = i;
+      createdAt = safeStr(values[i][6]) || nowIso;
+      break;
+    }
+  }
+
+  var dataRow = [
+    idRecuerdo,
+    safeStr(row.nombre),
+    safeStr(row.fecha),
+    safeStr(row.descripcion),
+    safeStr(row.cover_file_id),
+    Number(row.foto_count || 0),
+    createdAt,
+    nowIso,
+    toBool(row.deleted) ? true : false
+  ];
+
+  if (existingIdx >= 0) {
+    sheet.getRange(existingIdx + 1, 1, 1, MURO_RECUERDOS_HEADERS.length).setValues([dataRow]);
+  } else {
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, MURO_RECUERDOS_HEADERS.length).setValues([dataRow]);
+  }
+
+  return {
+    id_recuerdo: idRecuerdo,
+    nombre: dataRow[1],
+    fecha: dataRow[2],
+    descripcion: dataRow[3],
+    cover_file_id: dataRow[4],
+    foto_count: dataRow[5],
+    created_at: dataRow[6],
+    updated_at: dataRow[7],
+    deleted: dataRow[8]
+  };
+}
+
+function addMuroRecuerdoFotos(idRecuerdo, fotos) {
+  var fotosSheet = getMuroRecuerdosFotosSheetReady();
+  if (!Array.isArray(fotos) || !fotos.length) return 0;
+
+  var nowIso = new Date().toISOString();
+  var toAppend = [];
+  for (var i = 0; i < fotos.length; i++) {
+    var f = fotos[i] || {};
+    var idFoto = safeStr(f.id_foto) || ('RF_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+    var fileId = safeStr(f.file_id);
+    if (!fileId) continue;
+    toAppend.push([
+      idFoto,
+      idRecuerdo,
+      fileId,
+      Number(f.orden || (i + 1)),
+      toBool(f.es_portada) ? true : false,
+      safeStr(f.created_at) || nowIso,
+      false
+    ]);
+  }
+
+  if (!toAppend.length) return 0;
+
+  fotosSheet.getRange(fotosSheet.getLastRow() + 1, 1, toAppend.length, MURO_RECUERDOS_FOTOS_HEADERS.length).setValues(toAppend);
+  refreshMuroRecuerdoAggregate(idRecuerdo);
+  return toAppend.length;
+}
+
+function refreshMuroRecuerdoAggregate(idRecuerdo) {
+  var recuerdosSheet = getMuroRecuerdosSheetReady();
+  var fotosSheet = getMuroRecuerdosFotosSheetReady();
+
+  var recuerdosValues = recuerdosSheet.getDataRange().getValues();
+  var recRowIdx = -1;
+  for (var i = 1; i < recuerdosValues.length; i++) {
+    if (safeStr(recuerdosValues[i][0]) === idRecuerdo) {
+      recRowIdx = i + 1;
+      break;
+    }
+  }
+  if (recRowIdx < 0) return;
+
+  var fotosValues = fotosSheet.getDataRange().getValues();
+  var fotos = [];
+  for (var j = 1; j < fotosValues.length; j++) {
+    var row = fotosValues[j];
+    if (safeStr(row[1]) !== idRecuerdo) continue;
+    if (toBool(row[6])) continue;
+    var fileId = safeStr(row[2]);
+    if (!fileId) continue;
+    fotos.push({
+      file_id: fileId,
+      orden: Number(row[3] || 0),
+      es_portada: toBool(row[4])
+    });
+  }
+
+  fotos.sort(function (a, b) {
+    if (a.orden !== b.orden) return a.orden - b.orden;
+    return String(a.file_id).localeCompare(String(b.file_id), 'es');
+  });
+
+  var portada = fotos.find(function (f) { return !!f.es_portada; }) || fotos[0] || null;
+  var coverFileId = portada ? portada.file_id : '';
+  recuerdosSheet.getRange(recRowIdx, 5).setValue(coverFileId);
+  recuerdosSheet.getRange(recRowIdx, 6).setValue(fotos.length);
+  recuerdosSheet.getRange(recRowIdx, 8).setValue(new Date().toISOString());
+}
+
+function deleteMuroRecuerdo(idRecuerdo) {
+  var recuerdosSheet = getMuroRecuerdosSheetReady();
+  var fotosSheet = getMuroRecuerdosFotosSheetReady();
+  var nowIso = new Date().toISOString();
+
+  var recuerdosValues = recuerdosSheet.getDataRange().getValues();
+  var removedRecuerdos = 0;
+  for (var i = 1; i < recuerdosValues.length; i++) {
+    if (safeStr(recuerdosValues[i][0]) === idRecuerdo) {
+      recuerdosSheet.getRange(i + 1, 9).setValue(true);
+      recuerdosSheet.getRange(i + 1, 8).setValue(nowIso);
+      removedRecuerdos += 1;
+    }
+  }
+
+  var fotosValues = fotosSheet.getDataRange().getValues();
+  var removedFotos = 0;
+  for (var j = 1; j < fotosValues.length; j++) {
+    if (safeStr(fotosValues[j][1]) === idRecuerdo && !toBool(fotosValues[j][6])) {
+      fotosSheet.getRange(j + 1, 7).setValue(true);
+      removedFotos += 1;
+    }
+  }
+
+  return { removedRecuerdos: removedRecuerdos, removedFotos: removedFotos };
+}
+
 function savePlaylistsRows(rows) {
   var sheet = getPlaylistsSheetReady();
   sheet.clearContents();
@@ -815,6 +1097,40 @@ function getPlaylistsSheetReady() {
   var currentHeaders = headerRange.getValues()[0].map(safeStr);
   var needsHeader = PLAYLISTS_HEADERS.some(function(h, i) { return currentHeaders[i] !== h; });
   if (needsHeader) { headerRange.setValues([PLAYLISTS_HEADERS]); }
+  return sheet;
+}
+
+function getMuroRecuerdosSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(MURO_RECUERDOS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(MURO_RECUERDOS_SHEET_NAME);
+  }
+  var headerRange = sheet.getRange(1, 1, 1, MURO_RECUERDOS_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var needsHeader = MURO_RECUERDOS_HEADERS.some(function (h, i) { return currentHeaders[i] !== h; });
+  if (needsHeader) {
+    headerRange.setValues([MURO_RECUERDOS_HEADERS]);
+  }
+  return sheet;
+}
+
+function getMuroRecuerdosFotosSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(MURO_RECUERDOS_FOTOS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(MURO_RECUERDOS_FOTOS_SHEET_NAME);
+  }
+  var headerRange = sheet.getRange(1, 1, 1, MURO_RECUERDOS_FOTOS_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var normalizedCurrent = currentHeaders.slice(0);
+  if (normalizedCurrent[1] === 'id_foto' && normalizedCurrent[2] === 'id_recuerdo') {
+    normalizedCurrent[1] = 'id_recuerdo';
+  }
+  var needsHeader = MURO_RECUERDOS_FOTOS_HEADERS.some(function (h, i) { return normalizedCurrent[i] !== h; });
+  if (needsHeader) {
+    headerRange.setValues([MURO_RECUERDOS_FOTOS_HEADERS]);
+  }
   return sheet;
 }
 
