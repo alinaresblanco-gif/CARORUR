@@ -31,11 +31,10 @@
 }
 
 .player-card {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
   align-items: center;
-  gap: 0.6rem;
-  width: 100%;
+  gap: 0.75rem;
 }
 
 .vinyl-wrap {
@@ -63,9 +62,7 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.42), inset 0 0 18px rgba(0,0,0,0.32);
 }
 
-.vinyl-record.spinning {
-  animation-play-state: running;
-}
+.vinyl-record.spinning { animation-play-state: running; }
 
 .vinyl-center {
   width: 58px;
@@ -78,9 +75,7 @@
   justify-content: center;
 }
 
-.vinyl-center-icon {
-  font-size: 1.55rem;
-}
+.vinyl-center-icon { font-size: 1.55rem; }
 
 @keyframes vinylSpin {
   from { transform: rotate(0deg); }
@@ -88,7 +83,6 @@
 }
 
 .player-info {
-  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -97,48 +91,25 @@
 
 .song-info-title {
   margin: 0;
-  width: 100%;
+  max-width: 100%;
   font-family: 'Special Elite', cursive;
   font-size: 0.96rem;
   color: var(--tinta-rural);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  text-align: center;
-  line-height: 1.28;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .song-info-artist {
   margin: 0.15rem 0 0;
   font-size: 0.82rem;
   color: var(--tinta-rural-suave);
-  width: 100%;
-  text-align: center;
-  white-space: normal;
-  overflow-wrap: anywhere;
 }
 
 .song-info-folder {
   margin: 0.18rem 0 0;
   font-size: 0.72rem;
   color: var(--tinta-rural-suave);
-  width: 100%;
-  text-align: center;
-}
-
-.player-actions {
-  margin-top: 0.4rem;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-.player-actions .btn {
-  width: 100%;
-  white-space: normal;
-  word-break: break-word;
-  text-align: center;
-  line-height: 1.35;
 }
 
 .player-audio-wrap {
@@ -147,9 +118,7 @@
   max-width: 520px;
 }
 
-.player-audio-wrap audio {
-  width: 100%;
-}
+.player-audio-wrap audio { width: 100%; }
 
 .player-controls {
   margin-top: 0.45rem;
@@ -184,69 +153,40 @@
   text-align: center;
 }
 
-.queue-panel {
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.panel {
+  background: var(--papel-claro);
+  border: 2px solid var(--papel-oscuro);
+  border-radius: 14px;
+  box-shadow: var(--sombra-papel);
+  min-width: 0;
+}
+
+.library-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 0.65rem;
 }
 
-.queue-list {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.queue-meta {
-  margin-top: 0.38rem;
-  font-size: 0.72rem;
-  color: var(--tinta-rural-suave);
-  text-align: center;
-}
-
-.queue-more-wrap {
-  margin-top: 0.55rem;
-  display: flex;
-  justify-content: center;
-}
-
-.queue-more-btn {
-  width: 100%;
-  max-width: 320px;
-}
-
-.queue-item {
-  border: 1px solid rgba(122,82,48,0.35);
-  border-radius: 8px;
-  background: #fff5de;
-  color: var(--tinta-rural);
-  padding: 0.42rem 0.5rem;
-  width: 100%;
-  min-width: 0;
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.queue-item.active {
-  background: #5c3d1e;
-  color: #fff;
-}
-
-.queue-title {
+.panel-title {
+  margin: 0;
+  font-family: 'Special Elite', cursive;
   font-size: 0.84rem;
-  font-weight: 700;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  line-height: 1.25;
+  letter-spacing: 0.08em;
+  color: var(--tinta-rural);
 }
 
-.queue-sub {
-  margin-top: 0.08rem;
-  font-size: 0.72rem;
-  opacity: 0.86;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.folder-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.34rem;
 }
 
 .btn {
@@ -260,140 +200,116 @@
   cursor: pointer;
 }
 
-.btn:hover {
-  background: #ecd29f;
+.btn:hover { background: #ecd29f; }
+
+.btn.danger {
+  border-color: #9a3f2e;
+  color: #9a3f2e;
+  background: #f7d7c9;
 }
 
-.panel {
-  background: var(--papel-claro);
-  border: 2px solid var(--papel-oscuro);
-  border-radius: 14px;
-  box-shadow: var(--sombra-papel);
-  min-width: 0;
+.btn.danger:hover { background: #f2c4af; }
+
+.folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 1.1rem 0.65rem;
+.folder-item {
+  border: 1.5px solid rgba(122,82,48,0.45);
+  border-radius: 8px;
+  padding: 0.4rem 0.52rem;
+  background: #fff5de;
+  cursor: pointer;
+  font-size: 0.84rem;
+}
+
+.folder-item.active {
+  background: #5c3d1e;
+  border-color: #5c3d1e;
+  color: #fff;
+}
+
+.folder-meta {
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.library-hint {
+  font-size: 0.72rem;
   color: var(--tinta-rural-suave);
 }
 
-.embed-panel {
-  padding: 0.65rem;
+.song-list-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  min-height: 0;
 }
 
-.panel-title {
-  margin: 0;
+.song-list-header {
+  padding: 0.52rem 0.7rem;
+  border-bottom: 1px solid rgba(122,82,48,0.4);
   font-family: 'Special Elite', cursive;
-  font-size: 0.84rem;
-  letter-spacing: 0.08em;
+  font-size: 0.78rem;
   color: var(--tinta-rural);
 }
 
-.embed-form {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.38rem;
-}
-
-.embed-input {
-  width: 100%;
-  border: 1.5px solid rgba(122,82,48,0.45);
-  border-radius: 8px;
-  padding: 0.44rem 0.5rem;
-  font-size: 0.82rem;
-  background: #fff9eb;
-  color: var(--tinta-rural);
-}
-
-.embed-actions {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.embed-list {
+.song-list {
+  padding: 0.42rem;
   display: flex;
   flex-direction: column;
-  gap: 0.34rem;
+  gap: 0.35rem;
 }
 
-.embed-item {
-  border: 1px solid rgba(122,82,48,0.35);
-  border-radius: 8px;
-  background: #fff5de;
-  padding: 0.42rem 0.5rem;
+.song-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.36rem;
-  align-items: center;
+  gap: 0.5rem;
+  align-items: start;
+  border-radius: 8px;
+  border: 1px solid rgba(122,82,48,0.3);
+  padding: 0.46rem 0.52rem;
+  background: #fff5de;
 }
 
-.embed-item.active {
+.song-item.active {
   background: #5c3d1e;
   color: #fff;
 }
 
-.embed-main {
+.song-main {
   min-width: 0;
 }
 
-.embed-title {
-  font-size: 0.84rem;
+.song-line-title {
+  font-size: 0.86rem;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.2;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-clamp: 2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.embed-sub {
+.song-line-sub {
   font-size: 0.72rem;
-  opacity: 0.86;
-  margin-top: 0.1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.34rem;
+  opacity: 0.85;
+  margin-top: 0.14rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.provider-icon {
-  width: 1.45rem;
-  height: 1.45rem;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #fff;
-  flex: 0 0 auto;
-}
-
-.provider-youtube { background: #d62929; }
-.provider-spotify { background: #1db954; color: #0b2f1a; }
-.provider-soundcloud { background: #ff7a18; }
-.provider-mixcloud { background: #3c5ccf; }
-.provider-deezer { background: #ef2d84; }
-.provider-apple { background: #333; }
-.provider-bandcamp { background: #0a6ea8; }
-.provider-embed { background: #7a5230; }
-.provider-generic { background: #7a5230; }
-
-.embed-item.active .provider-icon {
-  background: rgba(255,255,255,0.2);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.45);
-}
-
-.embed-item-actions {
+.song-item-actions {
   display: flex;
-  gap: 0.28rem;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-items: center;
 }
 
 .mini-btn {
@@ -407,39 +323,23 @@
   min-width: 56px;
 }
 
-.embed-viewer {
-  border: 1px solid rgba(122,82,48,0.35);
-  border-radius: 10px;
-  background: #f8eed7;
-  padding: 0.4rem;
-  min-height: 220px;
+.song-item.active .mini-btn {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border-color: rgba(255,255,255,0.45);
 }
 
-.embed-empty {
-  min-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.empty-state {
   text-align: center;
+  padding: 1.1rem 0.65rem;
   color: var(--tinta-rural-suave);
-  font-size: 0.78rem;
-}
-
-.embed-frame {
-  width: 100%;
-  height: 230px;
-  border: none;
-  border-radius: 8px;
-  background: #000;
 }
 
 @media (min-width: 960px) {
-  .embed-frame {
-    height: 280px;
+  .content-grid {
+    grid-template-columns: 340px 1fr;
   }
 }
-
-
 </style>
 </head>
 <body>
@@ -464,13 +364,9 @@
         </div>
 
         <div class="player-info">
-          <p class="song-info-title" id="songTitle">Selecciona musica del dispositivo</p>
+          <p class="song-info-title" id="songTitle">Selecciona una cancion local</p>
           <p class="song-info-artist" id="songArtist">&#8212;</p>
-          <p class="song-info-folder" id="songFolder">Origen: dispositivo</p>
-
-          <div class="player-actions">
-            <button class="btn" id="btnPickDeviceMusic">Buscar musica en mi movil</button>
-          </div>
+          <p class="song-info-folder" id="songFolder">Sin carpeta activa</p>
 
           <div class="player-audio-wrap">
             <audio id="playerAudio" controls preload="metadata"></audio>
@@ -482,69 +378,69 @@
             <button class="ctrl-btn" id="btnNext" aria-label="Siguiente">&#9197;</button>
           </div>
 
-          <div class="player-note" id="playerNote">No se guarda nada: solo se reproduce lo que elijas desde tu movil.</div>
+          <div class="player-note" id="playerNote">Crea una carpeta y mete canciones para arrancar.</div>
         </div>
       </div>
     </section>
 
-    <section class="panel queue-panel" aria-label="Cola local">
-      <h2 class="panel-title">COLA LOCAL ACTUAL</h2>
-      <div class="queue-list" id="deviceQueueList">
-        <div class="empty-state">Todavia no has seleccionado canciones.</div>
-      </div>
-      <div class="queue-meta" id="deviceQueueMeta" hidden></div>
-      <div class="queue-more-wrap" id="deviceQueueMoreWrap" hidden>
-        <button class="btn queue-more-btn" id="btnQueueLoadMore" type="button">Cargar mas canciones</button>
-      </div>
-    </section>
+    <section class="content-grid">
+      <aside class="panel library-panel">
+        <h2 class="panel-title">MIS CARPETAS LOCALES</h2>
 
-    <section class="panel embed-panel" aria-label="Listas por URL">
-      <h2 class="panel-title">LISTAS POR URL (EMBED)</h2>
-
-      <div class="embed-form">
-        <input class="embed-input" id="embedUrlInput" type="url" placeholder="Pega URL de YouTube/Spotify/SoundCloud/etc" />
-        <input class="embed-input" id="embedTitleInput" type="text" maxlength="90" placeholder="Titulo opcional" />
-        <div class="embed-actions">
-          <button class="btn" id="btnAddEmbed">+ Guardar URL</button>
-          <button class="btn" id="btnCloseEmbed">Cerrar visor</button>
+        <div class="folder-actions">
+          <button class="btn" id="btnAddFolder">+ Crear carpeta</button>
+          <button class="btn" id="btnAddFiles">+ Meter canciones sueltas</button>
+          <button class="btn" id="btnImportFolder">+ Importar carpeta del movil</button>
+          <button class="btn danger" id="btnDeleteFolder">Eliminar carpeta actual</button>
         </div>
-      </div>
 
-      <div class="embed-list" id="embedList"></div>
+        <div class="folder-list" id="folderList"></div>
 
-      <div class="embed-viewer">
-        <div class="embed-empty" id="embedEmpty">Guarda una URL compatible y pulsa "Abrir".</div>
-        <iframe class="embed-frame" id="embedFrame" title="Reproductor embed" allow="autoplay; encrypted-media; clipboard-write; picture-in-picture; web-share" allowfullscreen hidden></iframe>
-      </div>
+        <div class="library-hint">Todo esto es local en tu movil. No se sincroniza con nadie.</div>
+      </aside>
+
+      <section class="panel song-list-panel">
+        <div class="song-list-header" id="songListHeader">CANCIONES DE LA CARPETA</div>
+        <div class="song-list" id="songList"></div>
+      </section>
     </section>
   </main>
 </div>
 
 <input type="file" id="inputAudioFiles" accept="audio/*" multiple hidden />
+<input type="file" id="inputAudioFolder" accept="audio/*" webkitdirectory directory multiple hidden />
 
 <script>
 (function () {
-  var LS_EMBED_KEY = 'carorur_music_embeds_v1';
-  var MAX_WEB_PICK_COUNT = 180;
-  var DEVICE_QUEUE_RENDER_STEP = 25;
-  var isNativeAndroid = !!(window.CarorurNativeMusic && typeof window.CarorurNativeMusic.pickAudioFiles === 'function');
+  var LS_KEY = 'carorur_local_music_v2';
+  var DB_NAME = 'carorur_local_music_db';
+  var DB_VERSION = 1;
+  var DB_STORE = 'songs';
+  var MAX_IMPORT_FILES = 60;
+  var MAX_FILE_SIZE_MB = 40;
+  var MAX_IMPORT_TOTAL_MB = 300;
+  var BATCH_YIELD_EVERY = 3;
 
-  var deviceState = {
-    songs: [],
-    currentIndex: -1,
-    renderedCount: 0
+  var state = {
+    folders: [],
+    songs: {},
+    selectedFolderId: null,
+    currentSongId: null
   };
 
-  var embedState = {
-    items: [],
-    currentId: null
-  };
-
-  var volatileFileStore = {};
   var playbackUrl = null;
+  var playbackUrlSongId = null;
+  var isImporting = false;
+  var nativePendingFolderId = null;
 
   var btnVolverCabecera = document.getElementById('btnVolverCabecera');
-  var btnPickDeviceMusic = document.getElementById('btnPickDeviceMusic');
+  var btnAddFolder = document.getElementById('btnAddFolder');
+  var btnAddFiles = document.getElementById('btnAddFiles');
+  var btnImportFolder = document.getElementById('btnImportFolder');
+  var btnDeleteFolder = document.getElementById('btnDeleteFolder');
+  var folderList = document.getElementById('folderList');
+  var songList = document.getElementById('songList');
+  var songListHeader = document.getElementById('songListHeader');
   var songTitle = document.getElementById('songTitle');
   var songArtist = document.getElementById('songArtist');
   var songFolder = document.getElementById('songFolder');
@@ -555,17 +451,39 @@
   var btnPrev = document.getElementById('btnPrev');
   var btnNext = document.getElementById('btnNext');
   var inputAudioFiles = document.getElementById('inputAudioFiles');
-  var embedUrlInput = document.getElementById('embedUrlInput');
-  var embedTitleInput = document.getElementById('embedTitleInput');
-  var btnAddEmbed = document.getElementById('btnAddEmbed');
-  var btnCloseEmbed = document.getElementById('btnCloseEmbed');
-  var embedList = document.getElementById('embedList');
-  var embedFrame = document.getElementById('embedFrame');
-  var embedEmpty = document.getElementById('embedEmpty');
-  var deviceQueueList = document.getElementById('deviceQueueList');
-  var deviceQueueMeta = document.getElementById('deviceQueueMeta');
-  var deviceQueueMoreWrap = document.getElementById('deviceQueueMoreWrap');
-  var btnQueueLoadMore = document.getElementById('btnQueueLoadMore');
+  var inputAudioFolder = document.getElementById('inputAudioFolder');
+
+  function isLikelyQuotaOrMemoryError(err) {
+    var name = String((err && err.name) || '').toLowerCase();
+    var msg = String((err && err.message) || err || '').toLowerCase();
+    return (
+      name.indexOf('quota') !== -1 ||
+      name.indexOf('memory') !== -1 ||
+      msg.indexOf('quota') !== -1 ||
+      msg.indexOf('memory') !== -1 ||
+      msg.indexOf('space') !== -1 ||
+      msg.indexOf('almacenamiento') !== -1
+    );
+  }
+
+  function setImporting(flag, message) {
+    isImporting = !!flag;
+    btnAddFolder.disabled = isImporting;
+    btnAddFiles.disabled = isImporting;
+    btnImportFolder.disabled = isImporting;
+    btnDeleteFolder.disabled = isImporting;
+    if (message) playerNote.textContent = message;
+  }
+
+  function releasePlaybackUrl() {
+    if (!playbackUrl) return;
+    try {
+      URL.revokeObjectURL(playbackUrl);
+    } catch (e) {
+    }
+    playbackUrl = null;
+    playbackUrlSongId = null;
+  }
 
   function uid(prefix) {
     return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
@@ -579,33 +497,98 @@
       .replace(/"/g, '&quot;');
   }
 
-  function escAttr(value) {
-    return escHtml(value).replace(/'/g, '&#39;');
+  function openDb() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) {
+        reject(new Error('IndexedDB no disponible'));
+        return;
+      }
+      var request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = function (event) {
+        var db = event.target.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) {
+          db.createObjectStore(DB_STORE, { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = function () { resolve(request.result); };
+      request.onerror = function () { reject(request.error || new Error('No se pudo abrir DB')); };
+    });
   }
 
-  function parseUrl(input) {
+  async function putSongBlob(id, file) {
+    var db = await openDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).put({ id: id, file: file });
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error || new Error('Error guardando audio')); };
+    });
+  }
+
+  async function getSongBlob(id) {
+    var db = await openDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(DB_STORE, 'readonly');
+      var req = tx.objectStore(DB_STORE).get(id);
+      req.onsuccess = function () { resolve(req.result ? req.result.file : null); };
+      req.onerror = function () { reject(req.error || new Error('Error leyendo audio')); };
+    });
+  }
+
+  async function deleteSongBlob(id) {
+    var db = await openDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).delete(id);
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error || new Error('Error borrando audio')); };
+    });
+  }
+
+  function saveState() {
     try {
-      return new URL(String(input || '').trim());
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
     } catch (e) {
-      return null;
+      playerNote.textContent = 'No se pudo guardar el estado local. Libera espacio en el movil e intenta de nuevo.';
     }
   }
 
-  function releasePlaybackUrl() {
-    if (!playbackUrl) return;
+  function loadState() {
     try {
-      URL.revokeObjectURL(playbackUrl);
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      state.folders = Array.isArray(parsed.folders) ? parsed.folders : [];
+      state.songs = parsed.songs && typeof parsed.songs === 'object' ? parsed.songs : {};
+      state.selectedFolderId = parsed.selectedFolderId || null;
+      state.currentSongId = parsed.currentSongId || null;
     } catch (e) {
+      state = { folders: [], songs: {}, selectedFolderId: null, currentSongId: null };
     }
-    playbackUrl = null;
+  }
+
+  function selectedFolder() {
+    return state.folders.find(function (f) { return f.id === state.selectedFolderId; }) || null;
+  }
+
+  function ensureDefaultFolder() {
+    if (state.folders.length) {
+      if (!selectedFolder()) state.selectedFolderId = state.folders[0].id;
+      return;
+    }
+    var folder = { id: uid('FD'), name: 'FAVORITAS', songIds: [] };
+    state.folders.push(folder);
+    state.selectedFolderId = folder.id;
+    saveState();
   }
 
   function cleanName(name) {
     return String(name || '').trim().replace(/\s+/g, ' ');
   }
 
-  function parseSongMetaFromName(name) {
-    var baseName = String(name || 'Cancion').replace(/\.[^.]+$/, '');
+  function parseSongMeta(file) {
+    var baseName = String(file.name || 'Cancion').replace(/\.[^.]+$/, '');
     var title = baseName;
     var artist = '';
     if (baseName.indexOf(' - ') !== -1) {
@@ -614,89 +597,118 @@
       title = parts.join(' - ');
     }
     return {
-      title: cleanName(title) || 'Cancion local',
-      artist: cleanName(artist) || 'Artista local'
+      title: title || 'Cancion local',
+      artist: artist || 'Artista local'
     };
+  }
+
+  function folderDisplayName(folderId) {
+    var folder = state.folders.find(function (f) { return f.id === folderId; });
+    return folder ? folder.name : 'Sin carpeta';
+  }
+
+  function renderFolders() {
+    folderList.innerHTML = '';
+    state.folders.forEach(function (folder) {
+      var div = document.createElement('div');
+      div.className = 'folder-item' + (folder.id === state.selectedFolderId ? ' active' : '');
+      div.innerHTML =
+        '<div>' + escHtml(folder.name) + '</div>' +
+        '<div class="folder-meta">' + folder.songIds.length + ' canciones</div>';
+      div.addEventListener('click', function () {
+        state.selectedFolderId = folder.id;
+        state.currentSongId = null;
+        stopPlayer();
+        saveState();
+        renderAll();
+      });
+      folderList.appendChild(div);
+    });
+  }
+
+  function renderSongs() {
+    var folder = selectedFolder();
+    if (!folder) {
+      songList.innerHTML = '<div class="empty-state">No hay carpeta activa.</div>';
+      songListHeader.textContent = 'CANCIONES DE LA CARPETA';
+      return;
+    }
+
+    songListHeader.textContent = 'CANCIONES DE: ' + folder.name;
+    if (!folder.songIds.length) {
+      songList.innerHTML = '<div class="empty-state">Esta carpeta esta vacia.</div>';
+      return;
+    }
+
+    songList.innerHTML = '';
+    folder.songIds.forEach(function (songId) {
+      var song = state.songs[songId];
+      if (!song) return;
+
+      var row = document.createElement('div');
+      row.className = 'song-item' + (song.id === state.currentSongId ? ' active' : '');
+
+      var left = document.createElement('div');
+      left.className = 'song-main';
+      left.innerHTML =
+        '<div class="song-line-title">' + escHtml(song.title) + '</div>' +
+        '<div class="song-line-sub">' + escHtml(song.artist) + '</div>';
+      left.style.cursor = 'pointer';
+      left.addEventListener('click', function () {
+        playSong(song.id).catch(function () {
+          playerNote.textContent = 'No se pudo reproducir esta cancion.';
+        });
+      });
+
+      var actions = document.createElement('div');
+      actions.className = 'song-item-actions';
+
+      var btnPlay = document.createElement('button');
+      btnPlay.className = 'mini-btn';
+      btnPlay.textContent = 'Play';
+      btnPlay.addEventListener('click', function () {
+        playSong(song.id).catch(function () {
+          playerNote.textContent = 'No se pudo reproducir esta cancion.';
+        });
+      });
+
+      var btnDelete = document.createElement('button');
+      btnDelete.className = 'mini-btn';
+      btnDelete.textContent = 'Quitar';
+      btnDelete.addEventListener('click', function () {
+        removeSong(song.id).catch(function () {
+          playerNote.textContent = 'No se pudo eliminar la cancion.';
+        });
+      });
+
+      actions.appendChild(btnPlay);
+      actions.appendChild(btnDelete);
+      row.appendChild(left);
+      row.appendChild(actions);
+      songList.appendChild(row);
+    });
   }
 
   function renderPlayerInfo(song) {
     if (!song) {
-      songTitle.textContent = 'Selecciona musica del dispositivo';
+      songTitle.textContent = 'Selecciona una cancion local';
       songArtist.textContent = '\u2014';
-      songFolder.textContent = 'Origen: dispositivo';
+      songFolder.textContent = selectedFolder() ? 'Carpeta: ' + selectedFolder().name : 'Sin carpeta activa';
       return;
     }
     songTitle.textContent = song.title;
     songArtist.textContent = song.artist;
-    songFolder.textContent = 'Cola local: ' + (deviceState.currentIndex + 1) + ' / ' + deviceState.songs.length;
+    songFolder.textContent = 'Carpeta: ' + folderDisplayName(song.folderId);
   }
 
-  function syncQueueSummary() {
-    var total = deviceState.songs.length;
-    if (!total) {
-      deviceQueueMeta.setAttribute('hidden', 'hidden');
-      deviceQueueMeta.textContent = '';
-      deviceQueueMoreWrap.setAttribute('hidden', 'hidden');
-      return;
-    }
-
-    var shown = Math.min(deviceState.renderedCount, total);
-    deviceQueueMeta.textContent = 'Mostrando ' + shown + ' de ' + total + ' canciones.';
-    deviceQueueMeta.removeAttribute('hidden');
-
-    if (shown < total) {
-      deviceQueueMoreWrap.removeAttribute('hidden');
+  function renderAll() {
+    renderFolders();
+    renderSongs();
+    if (!state.currentSongId) {
+      renderPlayerInfo(null);
     } else {
-      deviceQueueMoreWrap.setAttribute('hidden', 'hidden');
+      renderPlayerInfo(state.songs[state.currentSongId] || null);
     }
-  }
-
-  function ensureQueueIncludesIndex(index) {
-    if (index < 0 || index < deviceState.renderedCount) return;
-    var requiredChunks = Math.floor(index / DEVICE_QUEUE_RENDER_STEP) + 1;
-    deviceState.renderedCount = Math.min(deviceState.songs.length, requiredChunks * DEVICE_QUEUE_RENDER_STEP);
-  }
-
-  function renderDeviceQueue() {
-    ensureQueueIncludesIndex(deviceState.currentIndex);
-
-    var visibleSongs = deviceState.songs.slice(0, deviceState.renderedCount);
-    var existingItems = deviceQueueList.querySelectorAll('[data-queue-index]');
-
-    // Si la lista no cambio, solo actualizar la clase active sin reconstruir el DOM
-    if (existingItems.length === visibleSongs.length && visibleSongs.length > 0) {
-      for (var i = 0; i < existingItems.length; i++) {
-        if (i === deviceState.currentIndex) {
-          existingItems[i].classList.add('active');
-        } else {
-          existingItems[i].classList.remove('active');
-        }
-      }
-      syncQueueSummary();
-      return;
-    }
-
-    deviceQueueList.innerHTML = '';
-
-    if (!deviceState.songs.length) {
-      deviceQueueList.innerHTML = '<div class="empty-state">Todavia no has seleccionado canciones.</div>';
-      syncQueueSummary();
-      return;
-    }
-
-    var frag = document.createDocumentFragment();
-    visibleSongs.forEach(function (song, index) {
-      var row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'queue-item' + (index === deviceState.currentIndex ? ' active' : '');
-      row.setAttribute('data-queue-index', String(index));
-      row.innerHTML =
-        '<div class="queue-title">' + escHtml(String(index + 1) + '. ' + song.title) + '</div>' +
-        '<div class="queue-sub">' + escHtml(song.artist) + '</div>';
-      frag.appendChild(row);
-    });
-    deviceQueueList.appendChild(frag);
-    syncQueueSummary();
   }
 
   function stopPlayer() {
@@ -708,515 +720,407 @@
     btnPlayPause.innerHTML = '&#9654;';
   }
 
-  function setDeviceSongs(songs) {
-    stopPlayer();
-    deviceState.songs = songs;
-    deviceState.currentIndex = songs.length ? 0 : -1;
-    deviceState.renderedCount = songs.length ? Math.min(songs.length, DEVICE_QUEUE_RENDER_STEP) : 0;
-    renderPlayerInfo(deviceState.currentIndex >= 0 ? deviceState.songs[deviceState.currentIndex] : null);
-    renderDeviceQueue();
+  async function resolveSongUrl(songId) {
+    if (playbackUrlSongId === songId && playbackUrl) {
+      return playbackUrl;
+    }
+    var song = state.songs[songId];
+    if (song && song.nativeUri) {
+      return song.nativeUri;
+    }
+    var blob = await getSongBlob(songId);
+    if (!blob) return null;
+    return URL.createObjectURL(blob);
   }
 
-  function closeEmbedViewer() {
-    embedState.currentId = null;
-    embedFrame.setAttribute('hidden', 'hidden');
-    embedFrame.src = '';
-    embedEmpty.removeAttribute('hidden');
-    saveEmbeds();
-    renderEmbedList();
-  }
-
-  function playSongByIndex(index, options) {
+  async function playSong(songId, options) {
     options = options || {};
     var isAutoAdvance = !!options.isAutoAdvance;
+    var song = state.songs[songId];
+    if (!song) return;
 
-    if (index < 0 || index >= deviceState.songs.length) return Promise.resolve();
-    var song = deviceState.songs[index];
-    if (!song) return Promise.resolve();
-
-    if (embedState.currentId) {
-      closeEmbedViewer();
-    }
-
-    var src = null;
-    if (song.sourceType === 'native-uri') {
-      src = song.contentUri || null;
-      releasePlaybackUrl();
-    } else {
-      var f = volatileFileStore[song.id];
-      if (!f) {
-        playerNote.textContent = 'No se encontro el archivo seleccionado.';
-        return Promise.resolve();
-      }
-      releasePlaybackUrl();
-      src = URL.createObjectURL(f);
-      playbackUrl = src;
-    }
-
+    var src = await resolveSongUrl(songId);
     if (!src) {
-      playerNote.textContent = 'No se pudo cargar esta cancion.';
-      return Promise.resolve();
+      playerNote.textContent = 'No se encontro el archivo de audio de esta cancion.';
+      return;
     }
 
-    deviceState.currentIndex = index;
-    renderPlayerInfo(song);
-    renderDeviceQueue();
-    playerAudio.src = src;
+    if (playbackUrlSongId !== songId) {
+      releasePlaybackUrl();
+    }
 
-    return playerAudio.play().then(function () {
-      playerNote.textContent = 'Reproduciendo desde el dispositivo.';
-    }).catch(function (err) {
-      if (!isAutoAdvance) {
-        playerNote.textContent = 'Pulsa Play para iniciar la reproduccion.';
+    if (playerAudio.src !== src) {
+      playerAudio.src = src;
+    }
+    playbackUrl = src;
+    playbackUrlSongId = songId;
+
+    state.currentSongId = songId;
+    saveState();
+    renderAll();
+
+    try {
+      await playerAudio.play();
+      playerNote.textContent = '';
+    } catch (e) {
+      if (isAutoAdvance) {
+        try {
+          await new Promise(function (resolve) { setTimeout(resolve, 120); });
+          await playerAudio.play();
+          playerNote.textContent = '';
+          return;
+        } catch (e2) {
+        }
       }
-      return Promise.reject(err);
+      playerNote.textContent = 'Pulsa Play en el control de audio para continuar la carpeta.';
+      throw e;
+    }
+  }
+
+  function currentFolderSongs() {
+    var folder = selectedFolder();
+    if (!folder) return [];
+    return folder.songIds.filter(function (id) { return !!state.songs[id]; });
+  }
+
+  async function playRelative(offset) {
+    var ids = currentFolderSongs();
+    if (!ids.length) return;
+
+    var currentIndex = ids.indexOf(state.currentSongId);
+    if (currentIndex === -1) currentIndex = 0;
+    var nextIndex = (currentIndex + offset + ids.length) % ids.length;
+    await playSong(ids[nextIndex], { isAutoAdvance: true });
+  }
+
+  async function removeSong(songId) {
+    var song = state.songs[songId];
+    if (!song) return;
+    var ok = window.confirm('Quitar "' + song.title + '" de tu libreria local?');
+    if (!ok) return;
+
+    state.folders.forEach(function (folder) {
+      folder.songIds = folder.songIds.filter(function (id) { return id !== songId; });
     });
+
+    if (state.currentSongId === songId) {
+      state.currentSongId = null;
+      stopPlayer();
+    }
+
+    delete state.songs[songId];
+    saveState();
+
+    await deleteSongBlob(songId);
+    playerNote.textContent = 'Cancion eliminada.';
+    renderAll();
   }
 
-  function playRelative(offset) {
-    if (!deviceState.songs.length) return Promise.resolve();
-    var current = deviceState.currentIndex;
-    if (current < 0) current = 0;
-    var next = (current + offset + deviceState.songs.length) % deviceState.songs.length;
-    return playSongByIndex(next, { isAutoAdvance: true });
-  }
+  async function addFilesToFolder(files, folderId) {
+    if (isImporting) {
+      playerNote.textContent = 'Ya hay una importacion en curso. Espera a que termine.';
+      return;
+    }
 
-  function loadSongsFromFiles(fileList) {
-    volatileFileStore = {};
-    var files = Array.prototype.slice.call(fileList || []).filter(function (file) {
+    var folder = state.folders.find(function (f) { return f.id === folderId; });
+    if (!folder) return;
+
+    var rawFiles = Array.prototype.slice.call(files || []).filter(function (file) {
       return /^audio\//i.test(file.type || 'audio/unknown');
     });
 
-    if (!files.length) {
+    if (!rawFiles.length) {
       playerNote.textContent = 'No se detectaron audios validos.';
       return;
     }
 
-    var limitedFiles = [];
-    var truncated = false;
-    var limitReason = '';
-
-    for (var i = 0; i < files.length; i++) {
-      var file = files[i];
-      if (limitedFiles.length >= MAX_WEB_PICK_COUNT) {
-        truncated = true;
-        limitReason = 'Se han cargado solo las primeras ' + MAX_WEB_PICK_COUNT + ' canciones para evitar problemas de memoria.';
-        break;
+    var maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
+    var skippedBySize = 0;
+    var audioFiles = rawFiles.filter(function (file) {
+      if ((file.size || 0) > maxBytes) {
+        skippedBySize += 1;
+        return false;
       }
-
-      limitedFiles.push(file);
-    }
-
-    var songs = [];
-    limitedFiles.forEach(function (file) {
-      var id = uid('SG');
-      volatileFileStore[id] = file;
-      var meta = parseSongMetaFromName(file.name);
-      songs.push({
-        id: id,
-        title: meta.title,
-        artist: meta.artist,
-        sourceType: 'volatile-file'
-      });
-    });
-
-    setDeviceSongs(songs);
-    playerNote.textContent = truncated
-      ? 'Listo: ' + songs.length + ' canciones cargadas. ' + limitReason
-      : 'Listo: ' + songs.length + ' canciones listas (sin guardar en memoria persistente).';
-    playSongByIndex(0).catch(function () {
-      playerNote.textContent = 'Canciones cargadas. Pulsa Play para empezar.';
-    });
-  }
-
-  function pickNativeFiles() {
-    if (!isNativeAndroid) return false;
-    try {
-      window.CarorurNativeMusic.pickAudioFiles();
-      playerNote.textContent = 'Abriendo selector de musica del movil...';
       return true;
-    } catch (e) {
-      playerNote.textContent = 'No se pudo abrir el selector nativo.';
-      return false;
-    }
-  }
+    });
 
-  window.__carorurNativeMusicReceive = function (rawPayload) {
-    volatileFileStore = {};
-    var payload;
-    try {
-      payload = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
-    } catch (e) {
-      playerNote.textContent = 'Respuesta nativa invalida.';
+    if (!audioFiles.length) {
+      playerNote.textContent = 'Los archivos seleccionados superan el limite de ' + MAX_FILE_SIZE_MB + 'MB por cancion.';
       return;
     }
 
-    if (!payload || !payload.ok) {
-      if (payload && payload.cancelled) {
-        playerNote.textContent = 'Seleccion cancelada.';
-      } else {
-        playerNote.textContent = (payload && payload.error) ? payload.error : 'Error leyendo canciones del movil.';
+    var maxTotalBytes = MAX_IMPORT_TOTAL_MB * 1024 * 1024;
+    var runningBytes = 0;
+    var skippedByTotal = 0;
+    audioFiles = audioFiles.filter(function (file) {
+      var next = runningBytes + (file.size || 0);
+      if (next > maxTotalBytes) {
+        skippedByTotal += 1;
+        return false;
+      }
+      runningBytes = next;
+      return true;
+    });
+
+    if (!audioFiles.length) {
+      playerNote.textContent = 'Seleccion excesiva. Importa menos canciones por lote (maximo aprox. ' + MAX_IMPORT_TOTAL_MB + 'MB por importacion).';
+      return;
+    }
+
+    var trimmed = false;
+    if (audioFiles.length > MAX_IMPORT_FILES) {
+      audioFiles = audioFiles.slice(0, MAX_IMPORT_FILES);
+      trimmed = true;
+    }
+
+    setImporting(true, 'Guardando ' + audioFiles.length + ' canciones en local...');
+
+    var saved = 0;
+    var failed = 0;
+    var quotaOrMemoryHit = false;
+
+    try {
+      for (var i = 0; i < audioFiles.length; i++) {
+        var file = audioFiles[i];
+        var id = uid('SG');
+        var meta = parseSongMeta(file);
+
+        try {
+          await putSongBlob(id, file);
+        } catch (err) {
+          failed += 1;
+          if (isLikelyQuotaOrMemoryError(err)) {
+            quotaOrMemoryHit = true;
+            break;
+          }
+          continue;
+        }
+
+        state.songs[id] = {
+          id: id,
+          folderId: folderId,
+          title: meta.title,
+          artist: meta.artist,
+          fileName: file.name,
+          addedAt: Date.now()
+        };
+        folder.songIds.push(id);
+        saved += 1;
+
+        if ((i + 1) % BATCH_YIELD_EVERY === 0) {
+          await new Promise(function (resolve) { setTimeout(resolve, 0); });
+        }
+      }
+    } finally {
+      setImporting(false);
+    }
+
+    saveState();
+    var note = 'Listo: ' + saved + ' canciones guardadas en "' + folder.name + '".';
+    if (trimmed) {
+      note += ' (Se limitaron a ' + MAX_IMPORT_FILES + ' para evitar reinicios por memoria).';
+    }
+    if (skippedBySize > 0) {
+      note += ' Omitidas por tamano: ' + skippedBySize + '.';
+    }
+    if (skippedByTotal > 0) {
+      note += ' Omitidas por lote grande: ' + skippedByTotal + '.';
+    }
+    if (failed > 0) {
+      note += ' Fallidas: ' + failed + '.';
+    }
+    if (quotaOrMemoryHit) {
+      note += ' Se corto la importacion por falta de memoria/espacio; importa en lotes mas pequenos o borra canciones viejas.';
+    }
+    playerNote.textContent = note;
+    renderAll();
+  }
+
+  function addNativeSongsToFolder(nativeFiles, folderId) {
+    var folder = state.folders.find(function (f) { return f.id === folderId; });
+    if (!folder) {
+      playerNote.textContent = 'Carpeta no encontrada. Selecciona una carpeta primero.';
+      return;
+    }
+    var added = 0;
+    for (var i = 0; i < nativeFiles.length; i++) {
+      var item = nativeFiles[i];
+      if (!item.uri) continue;
+      var id = uid('NG');
+      var meta = parseSongMeta({ name: item.name || 'Cancion' });
+      state.songs[id] = {
+        id: id,
+        folderId: folderId,
+        title: meta.title,
+        artist: meta.artist,
+        fileName: item.name || 'Cancion',
+        nativeUri: item.uri,
+        addedAt: Date.now()
+      };
+      folder.songIds.push(id);
+      added += 1;
+    }
+    saveState();
+    playerNote.textContent = 'Listo: ' + added + ' canciones añadidas a "' + folder.name + '".';
+    renderAll();
+  }
+
+  function addNativeSongsAsNewFolder(nativeFiles, limitReason) {
+    if (!nativeFiles.length) {
+      playerNote.textContent = 'No se encontraron canciones en la carpeta seleccionada.';
+      return;
+    }
+    var groups = {};
+    nativeFiles.forEach(function (item) {
+      var gname = (item.folderName || 'CARPETA').toUpperCase();
+      if (!groups[gname]) groups[gname] = [];
+      groups[gname].push(item);
+    });
+    var names = Object.keys(groups);
+    names.forEach(function (name) {
+      var folder = createFolder(name);
+      var items = groups[name];
+      items.forEach(function (item) {
+        if (!item.uri) return;
+        var id = uid('NG');
+        var meta = parseSongMeta({ name: item.name || 'Cancion' });
+        state.songs[id] = {
+          id: id,
+          folderId: folder.id,
+          title: meta.title,
+          artist: meta.artist,
+          fileName: item.name || 'Cancion',
+          nativeUri: item.uri,
+          addedAt: Date.now()
+        };
+        folder.songIds.push(id);
+      });
+    });
+    saveState();
+    var note = 'Carpeta(s) importada(s) correctamente.';
+    if (limitReason) note += ' ' + limitReason;
+    playerNote.textContent = note;
+    renderAll();
+  }
+
+  window.__carorurNativeMusicReceive = function (rawJson) {
+    var payload;
+    try { payload = JSON.parse(rawJson); } catch (e) { return; }
+
+    if (!payload.ok) {
+      if (!payload.cancelled) {
+        playerNote.textContent = payload.error || 'Error en la importacion nativa.';
       }
       return;
     }
 
-    var files = Array.isArray(payload.files) ? payload.files : [];
-    if (!files.length) {
-      playerNote.textContent = 'No llegaron canciones desde el selector nativo.';
-      return;
-    }
+    var files = payload.files || [];
+    var mode = payload.mode || 'files';
+    var limitReason = payload.truncated ? (payload.limitReason || '') : '';
 
-    var songs = [];
-    files.forEach(function (it) {
-      var uri = String((it && it.uri) || '');
-      if (!uri) return;
-      var name = String((it && it.name) || 'Cancion local');
-      var meta = parseSongMetaFromName(name);
-      songs.push({
-        id: uid('SG'),
-        title: meta.title,
-        artist: meta.artist,
-        sourceType: 'native-uri',
-        contentUri: uri
-      });
-    });
-
-    if (!songs.length) {
-      playerNote.textContent = 'La seleccion no incluye audios reproducibles.';
-      return;
-    }
-
-    setDeviceSongs(songs);
-    if (payload.truncated) {
-      playerNote.textContent = payload.limitReason || ('Listo: ' + songs.length + ' canciones cargadas desde tu movil.');
+    if (mode === 'folder') {
+      addNativeSongsAsNewFolder(files, limitReason);
     } else {
-      playerNote.textContent = 'Listo: ' + songs.length + ' canciones seleccionadas desde tu movil.';
+      var targetFolderId = nativePendingFolderId || state.selectedFolderId;
+      nativePendingFolderId = null;
+      addNativeSongsToFolder(files, targetFolderId);
+      if (limitReason) playerNote.textContent += ' ' + limitReason;
     }
-    playSongByIndex(0).catch(function () {
-      playerNote.textContent = 'Canciones preparadas. Pulsa Play para empezar.';
-    });
   };
 
-  function detachTopNativeReceiver() {
-    try {
-      if (window.top && window.top !== window && window.top.__carorurNativeMusicReceive === window.__carorurNativeMusicReceive) {
-        delete window.top.__carorurNativeMusicReceive;
-      }
-    } catch (e) {
+  function uniqueFolderName(base) {
+    var clean = cleanName(base || 'NUEVA CARPETA').toUpperCase();
+    if (!clean) clean = 'NUEVA CARPETA';
+    var name = clean;
+    var n = 2;
+    while (state.folders.some(function (f) { return f.name === name; })) {
+      name = clean + ' (' + n + ')';
+      n += 1;
     }
+    return name;
   }
 
-  function teardownPlaylistView() {
-    stopPlayer();
-    volatileFileStore = {};
-    deviceState.songs = [];
-    deviceState.currentIndex = -1;
-    inputAudioFiles.value = '';
-    embedFrame.src = 'about:blank';
-    detachTopNativeReceiver();
+  function createFolder(name) {
+    var folder = {
+      id: uid('FD'),
+      name: uniqueFolderName(name),
+      songIds: []
+    };
+    state.folders.push(folder);
+    state.selectedFolderId = folder.id;
+    saveState();
+    renderAll();
+    return folder;
   }
 
-  function saveEmbeds() {
-    try {
-      localStorage.setItem(LS_EMBED_KEY, JSON.stringify(embedState));
-    } catch (e) {
-      playerNote.textContent = 'No se pudo guardar la lista de URLs embed.';
-    }
-  }
-
-  function loadEmbeds() {
-    try {
-      var raw = localStorage.getItem(LS_EMBED_KEY);
-      if (!raw) return;
-      var parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') return;
-      embedState.items = Array.isArray(parsed.items) ? parsed.items : [];
-      embedState.currentId = parsed.currentId || null;
-    } catch (e) {
-      embedState = { items: [], currentId: null };
-    }
-  }
-
-  function providerLabel(provider) {
-    var p = String(provider || '').toLowerCase();
-    if (p === 'youtube') return 'YouTube';
-    if (p === 'spotify') return 'Spotify';
-    if (p === 'soundcloud') return 'SoundCloud';
-    if (p === 'mixcloud') return 'Mixcloud';
-    if (p === 'deezer') return 'Deezer';
-    if (p === 'apple') return 'Apple Music';
-    if (p === 'bandcamp') return 'Bandcamp';
-    if (p === 'embed') return 'Embed directo';
-    return 'Proveedor';
-  }
-
-  function providerIconClass(provider) {
-    var p = String(provider || '').toLowerCase();
-    if (p === 'youtube') return 'provider-youtube';
-    if (p === 'spotify') return 'provider-spotify';
-    if (p === 'soundcloud') return 'provider-soundcloud';
-    if (p === 'mixcloud') return 'provider-mixcloud';
-    if (p === 'deezer') return 'provider-deezer';
-    if (p === 'apple') return 'provider-apple';
-    if (p === 'bandcamp') return 'provider-bandcamp';
-    if (p === 'embed') return 'provider-embed';
-    return 'provider-generic';
-  }
-
-  function providerIconText(provider) {
-    var p = String(provider || '').toLowerCase();
-    if (p === 'youtube') return 'YT';
-    if (p === 'spotify') return 'SP';
-    if (p === 'soundcloud') return 'SC';
-    if (p === 'mixcloud') return 'MX';
-    if (p === 'deezer') return 'DZ';
-    if (p === 'apple') return 'AM';
-    if (p === 'bandcamp') return 'BC';
-    if (p === 'embed') return 'EM';
-    return 'MU';
-  }
-
-  function normalizeEmbedUrl(raw) {
-    var url = parseUrl(raw);
-    if (!url) {
-      return { ok: false, error: 'URL no valida.' };
-    }
-
-    var host = url.hostname.toLowerCase().replace(/^www\./, '');
-    var pathname = url.pathname || '/';
-
-    if (host === 'youtu.be') {
-      var shortId = pathname.replace(/^\//, '').split('/')[0];
-      if (!shortId) return { ok: false, error: 'No se encontro ID de YouTube.' };
-      return {
-        ok: true,
-        provider: 'youtube',
-        embedUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(shortId),
-        titleGuess: 'YouTube'
-      };
-    }
-
-    if (host.indexOf('youtube.com') !== -1 || host.indexOf('music.youtube.com') !== -1) {
-      var listId = url.searchParams.get('list');
-      var videoId = url.searchParams.get('v');
-      if (pathname.indexOf('/embed/') === 0) {
-        return { ok: true, provider: 'youtube', embedUrl: url.toString(), titleGuess: 'YouTube embed' };
-      }
-      if (listId && !videoId) {
-        return {
-          ok: true,
-          provider: 'youtube',
-          embedUrl: 'https://www.youtube.com/embed/videoseries?list=' + encodeURIComponent(listId),
-          titleGuess: 'YouTube playlist'
-        };
-      }
-      if (videoId && listId) {
-        return {
-          ok: true,
-          provider: 'youtube',
-          embedUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?list=' + encodeURIComponent(listId),
-          titleGuess: 'YouTube'
-        };
-      }
-      if (videoId) {
-        return {
-          ok: true,
-          provider: 'youtube',
-          embedUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(videoId),
-          titleGuess: 'YouTube'
-        };
-      }
-      return { ok: false, error: 'URL de YouTube sin video o playlist.' };
-    }
-
-    if (host.indexOf('spotify.com') !== -1) {
-      if (pathname.indexOf('/embed/') === 0) {
-        return { ok: true, provider: 'spotify', embedUrl: url.toString(), titleGuess: 'Spotify embed' };
-      }
-      var sp = pathname.split('/').filter(Boolean);
-      if (sp.length >= 2) {
-        var type = sp[0];
-        var id = sp[1];
-        if (type === 'playlist' || type === 'track' || type === 'album' || type === 'episode' || type === 'show') {
-          return {
-            ok: true,
-            provider: 'spotify',
-            embedUrl: 'https://open.spotify.com/embed/' + type + '/' + encodeURIComponent(id),
-            titleGuess: 'Spotify ' + type
-          };
-        }
-      }
-      return { ok: false, error: 'URL de Spotify no compatible para embed.' };
-    }
-
-    if (host.indexOf('soundcloud.com') !== -1) {
-      return {
-        ok: true,
-        provider: 'soundcloud',
-        embedUrl: 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(url.toString()),
-        titleGuess: 'SoundCloud'
-      };
-    }
-
-    if (host.indexOf('mixcloud.com') !== -1) {
-      var feedPath = pathname;
-      if (!feedPath.endsWith('/')) feedPath += '/';
-      return {
-        ok: true,
-        provider: 'mixcloud',
-        embedUrl: 'https://www.mixcloud.com/widget/iframe/?hide_cover=1&mini=1&feed=' + encodeURIComponent(feedPath),
-        titleGuess: 'Mixcloud'
-      };
-    }
-
-    if (host.indexOf('deezer.com') !== -1) {
-      var dz = pathname.split('/').filter(Boolean);
-      var targetType = null;
-      var targetId = null;
-      for (var i = 0; i < dz.length; i++) {
-        if (dz[i] === 'playlist' || dz[i] === 'album' || dz[i] === 'track') {
-          targetType = dz[i];
-          targetId = dz[i + 1] || null;
-          break;
-        }
-      }
-      if (targetType && targetId) {
-        return {
-          ok: true,
-          provider: 'deezer',
-          embedUrl: 'https://widget.deezer.com/widget/auto/' + targetType + '/' + encodeURIComponent(targetId),
-          titleGuess: 'Deezer ' + targetType
-        };
-      }
-      return { ok: false, error: 'URL de Deezer no compatible para embed.' };
-    }
-
-    if (host.indexOf('music.apple.com') !== -1 || host.indexOf('embed.music.apple.com') !== -1) {
-      if (host.indexOf('embed.music.apple.com') !== -1) {
-        return { ok: true, provider: 'apple', embedUrl: url.toString(), titleGuess: 'Apple Music' };
-      }
-      return {
-        ok: true,
-        provider: 'apple',
-        embedUrl: 'https://embed.music.apple.com' + pathname + (url.search || ''),
-        titleGuess: 'Apple Music'
-      };
-    }
-
-    if (host.indexOf('bandcamp.com') !== -1) {
-      if (pathname.toLowerCase().indexOf('/embeddedplayer/') !== -1) {
-        return { ok: true, provider: 'bandcamp', embedUrl: url.toString(), titleGuess: 'Bandcamp' };
-      }
-      return { ok: false, error: 'En Bandcamp pega directamente la URL EmbeddedPlayer.' };
-    }
-
-    if (pathname.toLowerCase().indexOf('/embed') !== -1 || host.indexOf('w.soundcloud.com') !== -1) {
-      return { ok: true, provider: 'embed', embedUrl: url.toString(), titleGuess: 'Embed' };
-    }
-
-    return { ok: false, error: 'Servidor no soportado. Usa YouTube, Spotify, SoundCloud, Mixcloud, Deezer, Apple o embed directo.' };
-  }
-
-  function renderEmbedList() {
-    embedList.innerHTML = '';
-    if (!embedState.items.length) {
-      embedList.innerHTML = '<div class="empty-state">Aun no hay URLs embed guardadas.</div>';
+  async function deleteCurrentFolder() {
+    var folder = selectedFolder();
+    if (!folder) return;
+    if (state.folders.length === 1) {
+      playerNote.textContent = 'Necesitas al menos una carpeta.';
       return;
     }
 
-    embedState.items.forEach(function (item) {
-      var provider = providerLabel(item.provider);
-      var iconClass = providerIconClass(item.provider);
-      var iconText = providerIconText(item.provider);
-      var row = document.createElement('div');
-      row.className = 'embed-item' + (item.id === embedState.currentId ? ' active' : '');
-      row.innerHTML =
-        '<div class="embed-main">' +
-          '<div class="embed-title">' + escHtml(item.title) + '</div>' +
-          '<div class="embed-sub">' +
-            '<span class="provider-icon ' + escAttr(iconClass) + '" aria-hidden="true">' + escHtml(iconText) + '</span>' +
-            '<span>' + escHtml(provider) + '</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="embed-item-actions">' +
-          '<button class="mini-btn" type="button" data-role="open" data-id="' + escAttr(item.id) + '">Abrir</button>' +
-          '<button class="mini-btn" type="button" data-role="remove" data-id="' + escAttr(item.id) + '">Quitar</button>' +
-        '</div>';
-      embedList.appendChild(row);
-    });
-  }
-
-  function openEmbedById(id) {
-    var item = embedState.items.find(function (it) { return it.id === id; });
-    if (!item) return;
-
-    playerAudio.pause();
-    vinylRecord.classList.remove('spinning');
-    btnPlayPause.innerHTML = '&#9654;';
-
-    embedState.currentId = id;
-    embedFrame.src = item.embedUrl;
-    embedFrame.removeAttribute('hidden');
-    embedEmpty.setAttribute('hidden', 'hidden');
-    saveEmbeds();
-    renderEmbedList();
-    playerNote.textContent = 'Abriendo embed de ' + providerLabel(item.provider) + '.';
-  }
-
-  function removeEmbedById(id) {
-    var item = embedState.items.find(function (it) { return it.id === id; });
-    if (!item) return;
-    var ok = window.confirm('Quitar URL guardada "' + item.title + '"?');
+    var ok = window.confirm('Eliminar carpeta "' + folder.name + '" y sus canciones locales?');
     if (!ok) return;
 
-    embedState.items = embedState.items.filter(function (it) { return it.id !== id; });
-    if (embedState.currentId === id) {
-      closeEmbedViewer();
-    } else {
-      saveEmbeds();
-      renderEmbedList();
+    var ids = folder.songIds.slice();
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      delete state.songs[id];
+      await deleteSongBlob(id);
     }
+
+    state.folders = state.folders.filter(function (f) { return f.id !== folder.id; });
+    state.selectedFolderId = state.folders[0] ? state.folders[0].id : null;
+
+    if (ids.indexOf(state.currentSongId) !== -1) {
+      state.currentSongId = null;
+      stopPlayer();
+    }
+
+    saveState();
+    playerNote.textContent = 'Carpeta eliminada.';
+    renderAll();
   }
 
-  function addEmbedFromInput() {
-    var rawUrl = String(embedUrlInput.value || '').trim();
-    if (!rawUrl) {
-      playerNote.textContent = 'Pega una URL para guardarla.';
+  async function importFolderFromPicker(files) {
+    var all = Array.prototype.slice.call(files || []);
+    if (!all.length) return;
+
+    var groups = {};
+    all.forEach(function (file) {
+      if (!/^audio\//i.test(file.type || 'audio/unknown')) return;
+      var rel = file.webkitRelativePath || file.name || 'CARPETA';
+      var root = rel.split('/')[0] || 'CARPETA';
+      if (!groups[root]) groups[root] = [];
+      groups[root].push(file);
+    });
+
+    var names = Object.keys(groups);
+    if (!names.length) {
+      playerNote.textContent = 'No se detectaron canciones en esa carpeta.';
       return;
     }
 
-    var parsed = normalizeEmbedUrl(rawUrl);
-    if (!parsed.ok) {
-      playerNote.textContent = parsed.error;
-      return;
+    var processed = 0;
+    for (var i = 0; i < names.length; i++) {
+      if (processed >= MAX_IMPORT_FILES) break;
+      var folder = createFolder(names[i]);
+      var group = groups[names[i]] || [];
+      if (processed + group.length > MAX_IMPORT_FILES) {
+        group = group.slice(0, Math.max(0, MAX_IMPORT_FILES - processed));
+      }
+      processed += group.length;
+      await addFilesToFolder(group, folder.id);
     }
 
-    var customTitle = String(embedTitleInput.value || '').trim();
-    var title = customTitle || parsed.titleGuess || providerLabel(parsed.provider);
-    var exists = embedState.items.find(function (it) { return it.embedUrl === parsed.embedUrl; });
-    if (exists) {
-      playerNote.textContent = 'Esa URL ya esta guardada.';
-      openEmbedById(exists.id);
-      return;
+    if (processed >= MAX_IMPORT_FILES) {
+      playerNote.textContent = 'Importacion parcial completada para proteger memoria del movil. Maximo actual: ' + MAX_IMPORT_FILES + ' canciones por importacion.';
+    } else {
+      playerNote.textContent = 'Carpetas importadas correctamente.';
     }
-
-    var item = {
-      id: uid('EMB'),
-      title: title,
-      provider: parsed.provider,
-      embedUrl: parsed.embedUrl,
-      createdAt: Date.now()
-    };
-
-    embedState.items.unshift(item);
-    if (embedState.items.length > 60) {
-      embedState.items = embedState.items.slice(0, 60);
-    }
-    saveEmbeds();
-    renderEmbedList();
-    openEmbedById(item.id);
-    embedUrlInput.value = '';
-    embedTitleInput.value = '';
+    renderAll();
   }
 
   btnVolverCabecera.addEventListener('click', function (e) {
@@ -1234,78 +1138,74 @@
     }
   });
 
-  btnPickDeviceMusic.addEventListener('click', function () {
-    if (pickNativeFiles()) return;
-    inputAudioFiles.value = '';
-    inputAudioFiles.click();
+  btnAddFolder.addEventListener('click', function () {
+    var name = window.prompt('Nombre de la carpeta musical local:', 'Mis favoritas');
+    if (name === null) return;
+    name = cleanName(name);
+    if (!name) return;
+    var folder = createFolder(name);
+    playerNote.textContent = 'Carpeta creada: ' + folder.name;
+  });
+
+  btnAddFiles.addEventListener('click', function () {
+    if (isImporting) {
+      playerNote.textContent = 'Espera a que termine la importacion actual.';
+      return;
+    }
+    if (!selectedFolder()) {
+      playerNote.textContent = 'Primero crea una carpeta.';
+      return;
+    }
+    if (window.CarorurNativeMusic && typeof window.CarorurNativeMusic.pickAudioFiles === 'function') {
+      nativePendingFolderId = state.selectedFolderId;
+      window.CarorurNativeMusic.pickAudioFiles();
+    } else {
+      inputAudioFiles.value = '';
+      inputAudioFiles.click();
+    }
+  });
+
+  btnImportFolder.addEventListener('click', function () {
+    if (isImporting) {
+      playerNote.textContent = 'Espera a que termine la importacion actual.';
+      return;
+    }
+    if (window.CarorurNativeMusic && typeof window.CarorurNativeMusic.pickAudioFolder === 'function') {
+      window.CarorurNativeMusic.pickAudioFolder();
+    } else {
+      inputAudioFolder.value = '';
+      inputAudioFolder.click();
+    }
+  });
+
+  btnDeleteFolder.addEventListener('click', function () {
+    deleteCurrentFolder().catch(function () {
+      playerNote.textContent = 'No se pudo eliminar la carpeta.';
+    });
   });
 
   inputAudioFiles.addEventListener('change', function () {
-    loadSongsFromFiles(inputAudioFiles.files);
+    var folder = selectedFolder();
+    if (!folder) return;
+    addFilesToFolder(inputAudioFiles.files, folder.id).catch(function () {
+      playerNote.textContent = 'Error guardando canciones locales.';
+    });
   });
 
-  btnAddEmbed.addEventListener('click', function () {
-    addEmbedFromInput();
-  });
-
-  embedUrlInput.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      addEmbedFromInput();
-    }
-  });
-
-  embedTitleInput.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      addEmbedFromInput();
-    }
-  });
-
-  btnCloseEmbed.addEventListener('click', function () {
-    closeEmbedViewer();
-    playerNote.textContent = 'Visor embed cerrado.';
-  });
-
-  btnQueueLoadMore.addEventListener('click', function () {
-    if (!deviceState.songs.length) return;
-    deviceState.renderedCount = Math.min(deviceState.songs.length, deviceState.renderedCount + DEVICE_QUEUE_RENDER_STEP);
-    renderDeviceQueue();
-  });
-
-  embedList.addEventListener('click', function (event) {
-    var btn = event.target && event.target.closest ? event.target.closest('button[data-role]') : null;
-    if (!btn) return;
-    var id = btn.getAttribute('data-id');
-    var role = btn.getAttribute('data-role');
-    if (!id || !role) return;
-    if (role === 'open') {
-      openEmbedById(id);
-      return;
-    }
-    if (role === 'remove') {
-      removeEmbedById(id);
-    }
-  });
-
-  deviceQueueList.addEventListener('click', function (event) {
-    var item = event.target && event.target.closest ? event.target.closest('[data-queue-index]') : null;
-    if (!item) return;
-    var index = Number(item.getAttribute('data-queue-index'));
-    if (!Number.isFinite(index)) return;
-    playSongByIndex(index).catch(function () {
-      playerNote.textContent = 'No se pudo reproducir la cancion seleccionada.';
+  inputAudioFolder.addEventListener('change', function () {
+    importFolderFromPicker(inputAudioFolder.files).catch(function () {
+      playerNote.textContent = 'Error importando carpeta local.';
     });
   });
 
   btnPlayPause.addEventListener('click', function () {
-    if (!deviceState.songs.length) {
-      playerNote.textContent = 'Primero elige musica de tu movil.';
-      return;
-    }
-
-    if (deviceState.currentIndex < 0) {
-      playSongByIndex(0).catch(function () {
+    if (!state.currentSongId) {
+      var ids = currentFolderSongs();
+      if (!ids.length) {
+        playerNote.textContent = 'No hay canciones en la carpeta actual.';
+        return;
+      }
+      playSong(ids[0]).catch(function () {
         playerNote.textContent = 'No se pudo iniciar la cancion.';
       });
       return;
@@ -1335,12 +1235,14 @@
   playerAudio.addEventListener('play', function () {
     vinylRecord.classList.add('spinning');
     btnPlayPause.innerHTML = '&#9208;';
+    renderSongs();
   });
 
   playerAudio.addEventListener('pause', function () {
     if (!playerAudio.ended) {
       vinylRecord.classList.remove('spinning');
       btnPlayPause.innerHTML = '&#9654;';
+      renderSongs();
     }
   });
 
@@ -1352,20 +1254,12 @@
   });
 
   window.addEventListener('pagehide', function () {
-    teardownPlaylistView();
+    releasePlaybackUrl();
   });
 
-  window.addEventListener('beforeunload', function () {
-    teardownPlaylistView();
-  });
-
-  loadEmbeds();
-  renderEmbedList();
-  if (embedState.currentId) {
-    openEmbedById(embedState.currentId);
-  }
-  renderPlayerInfo(null);
-  renderDeviceQueue();
+  loadState();
+  ensureDefaultFolder();
+  renderAll();
 })();
 </script>
 </body>
