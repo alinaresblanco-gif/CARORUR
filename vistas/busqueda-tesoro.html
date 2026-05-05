@@ -3,11 +3,362 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Yincana Rural</title>
+	<title>BÚSQUEDA DEL TESORO</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="vistas.css" />
+	<style>
+		:root {
+			--tesoro-papel: #fff8eb;
+			--tesoro-borde: rgba(106, 74, 43, 0.28);
+			--tesoro-tinta: #3f2a17;
+			--tesoro-oro: #bf8a2d;
+			--tesoro-sombra: 0 18px 42px rgba(65, 40, 18, 0.18);
+		}
+
+		body {
+			background:
+				radial-gradient(circle at top, rgba(255, 245, 212, 0.92), rgba(240, 221, 180, 0.88) 42%, rgba(219, 192, 149, 0.94) 100%),
+				linear-gradient(180deg, #f6ead1 0%, #e6cca0 100%);
+			color: var(--tesoro-tinta);
+		}
+
+		.vista-app {
+			max-width: 1080px;
+			margin: 0 auto;
+		}
+
+		.vista-contenido {
+			display: grid;
+			gap: 1rem;
+			padding-bottom: 2rem;
+		}
+
+		.tesoro-toolbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 1rem;
+			flex-wrap: wrap;
+			padding: 1.1rem 1.15rem;
+			background: linear-gradient(135deg, rgba(255,248,235,0.96), rgba(246,233,203,0.96));
+			border: 1px solid var(--tesoro-borde);
+			border-radius: 20px;
+			box-shadow: var(--tesoro-sombra);
+		}
+
+		.tesoro-copy {
+			max-width: 42rem;
+		}
+
+		.tesoro-kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.45rem;
+			padding: 0.24rem 0.62rem;
+			border-radius: 999px;
+			background: rgba(191,138,45,0.14);
+			font-size: 0.72rem;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: #7b541b;
+		}
+
+		.tesoro-copy p {
+			margin: 0.45rem 0 0;
+			font-size: 0.95rem;
+			line-height: 1.5;
+		}
+
+		.btn-nueva-yincana,
+		.btn-guardar-tesoro,
+		.btn-secundario,
+		.btn-principal {
+			border: 0;
+			border-radius: 999px;
+			padding: 0.8rem 1.2rem;
+			font-family: 'Special Elite', serif;
+			font-size: 0.86rem;
+			cursor: pointer;
+			transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+		}
+
+		.btn-nueva-yincana,
+		.btn-guardar-tesoro,
+		.btn-principal {
+			background: linear-gradient(135deg, #7a5230, #a0703a);
+			color: #fff7ec;
+			box-shadow: 0 12px 24px rgba(89, 56, 26, 0.22);
+		}
+
+		.btn-secundario {
+			background: #f4e7cb;
+			color: #5b3a1e;
+			border: 1px solid rgba(109, 74, 47, 0.22);
+		}
+
+		.btn-nueva-yincana:hover,
+		.btn-guardar-tesoro:hover,
+		.btn-secundario:hover,
+		.btn-principal:hover {
+			transform: translateY(-1px);
+		}
+
+		.btn-nueva-yincana:disabled,
+		.btn-guardar-tesoro:disabled,
+		.btn-secundario:disabled,
+		.btn-principal:disabled {
+			opacity: 0.55;
+			cursor: not-allowed;
+			transform: none;
+		}
+
+		.empty-tesoro {
+			padding: 2.4rem 1.4rem;
+			border-radius: 22px;
+			border: 2px dashed rgba(122, 82, 48, 0.35);
+			background: rgba(255, 248, 235, 0.84);
+			text-align: center;
+		}
+
+		.empty-tesoro strong {
+			display: block;
+			font-size: 1.05rem;
+			margin-bottom: 0.35rem;
+		}
+
+		.tesoro-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+			gap: 1rem;
+		}
+
+		.tesoro-card {
+			display: grid;
+			gap: 0.9rem;
+			padding: 0.95rem;
+			background: linear-gradient(180deg, rgba(255,249,238,0.97), rgba(245,230,198,0.96));
+			border: 1px solid var(--tesoro-borde);
+			border-radius: 24px;
+			box-shadow: var(--tesoro-sombra);
+		}
+
+		.tesoro-preview {
+			position: relative;
+			aspect-ratio: 4 / 3;
+			border-radius: 18px;
+			overflow: hidden;
+			background: linear-gradient(135deg, #e6d0a5, #f9f2e6);
+		}
+
+		.tesoro-preview img,
+		.tesoro-preview video,
+		.detalle-media img,
+		.detalle-media video {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.media-badge {
+			position: absolute;
+			right: 0.7rem;
+			bottom: 0.7rem;
+			padding: 0.32rem 0.62rem;
+			border-radius: 999px;
+			background: rgba(46, 29, 15, 0.78);
+			color: #fff4de;
+			font-size: 0.72rem;
+			letter-spacing: 0.06em;
+		}
+
+		.tesoro-card h2 {
+			margin: 0;
+			font-size: 1.08rem;
+			line-height: 1.2;
+		}
+
+		.tesoro-card p {
+			margin: 0;
+			font-size: 0.9rem;
+			line-height: 1.45;
+			color: rgba(63, 42, 23, 0.88);
+		}
+
+		.tesoro-meta {
+			font-size: 0.72rem;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			color: #8a6334;
+		}
+
+		.tesoro-actions {
+			display: flex;
+			justify-content: flex-end;
+		}
+
+		.open-overlay {
+			position: fixed;
+			inset: 0;
+			z-index: 120;
+			background: rgba(40, 23, 11, 0.6);
+			backdrop-filter: blur(5px);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 1rem;
+		}
+
+		.open-overlay[hidden] {
+			display: none;
+		}
+
+		.dialog {
+			width: min(680px, 100%);
+			max-height: min(92vh, 920px);
+			overflow: auto;
+			padding: 1.15rem;
+			border-radius: 26px;
+			background: linear-gradient(180deg, #fff8ee, #f4e1bc);
+			border: 1px solid rgba(111, 74, 44, 0.26);
+			box-shadow: 0 28px 56px rgba(32, 18, 8, 0.24);
+		}
+
+		.dialog h2 {
+			margin: 0 0 1rem;
+			font-size: 1.18rem;
+		}
+
+		.form-grid {
+			display: grid;
+			gap: 0.9rem;
+		}
+
+		.form-grid label,
+		.field-block {
+			display: grid;
+			gap: 0.38rem;
+		}
+
+		.field-label,
+		.field-hint,
+		.detalle-texto p {
+			font-size: 0.9rem;
+			line-height: 1.45;
+		}
+
+		.field-label {
+			font-weight: 700;
+		}
+
+		.field-hint {
+			color: rgba(63, 42, 23, 0.7);
+			font-size: 0.78rem;
+		}
+
+		.field-input,
+		.field-textarea {
+			width: 100%;
+			box-sizing: border-box;
+			border: 1px solid rgba(109, 74, 47, 0.24);
+			border-radius: 16px;
+			background: rgba(255,252,246,0.98);
+			padding: 0.82rem 0.95rem;
+			font: inherit;
+			color: var(--tesoro-tinta);
+		}
+
+		.field-textarea {
+			min-height: 130px;
+			resize: vertical;
+		}
+
+		.media-summary {
+			padding: 0.72rem 0.85rem;
+			border-radius: 16px;
+			background: rgba(191,138,45,0.11);
+			color: #6f4c1f;
+			font-size: 0.82rem;
+		}
+
+		.media-summary.is-empty {
+			background: rgba(109,74,47,0.08);
+			color: rgba(63,42,23,0.72);
+		}
+
+		.dialog-actions {
+			display: flex;
+			justify-content: flex-end;
+			gap: 0.65rem;
+			margin-top: 1rem;
+			flex-wrap: wrap;
+		}
+
+		.detalle-shell {
+			display: grid;
+			gap: 1rem;
+		}
+
+		.detalle-media {
+			border-radius: 22px;
+			overflow: hidden;
+			background: linear-gradient(135deg, #ead7b4, #fff4e1);
+			min-height: 240px;
+		}
+
+		.detalle-media video {
+			background: #1b120a;
+		}
+
+		.detalle-texto {
+			display: grid;
+			gap: 0.55rem;
+		}
+
+		.detalle-texto h3 {
+			margin: 0;
+			font-size: 1.28rem;
+		}
+
+		.toast-msg {
+			position: fixed;
+			left: 50%;
+			bottom: 1rem;
+			transform: translateX(-50%);
+			z-index: 140;
+			background: #3e2a15;
+			color: #fff7e7;
+			border-radius: 999px;
+			padding: 0.52rem 0.86rem;
+			font-size: 0.8rem;
+			box-shadow: 0 10px 28px rgba(0,0,0,0.24);
+		}
+
+		.toast-msg[hidden] {
+			display: none;
+		}
+
+		@media (max-width: 640px) {
+			.tesoro-toolbar {
+				padding: 1rem;
+			}
+
+			.dialog {
+				padding: 1rem;
+				border-radius: 22px;
+			}
+
+			.dialog-actions {
+				justify-content: stretch;
+			}
+
+			.dialog-actions button {
+				flex: 1 1 100%;
+			}
+		}
+	</style>
 </head>
 <body>
 	<div class="vista-app">
@@ -15,23 +366,385 @@
 			<a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio" id="btnVolverCabecera">
 				<img src="../iconos/volver.png" alt="Volver" />
 			</a>
-			<h1>Yincana Rural</h1>
+			<h1>BÚSQUEDA DEL TESORO</h1>
 			<div class="header-espaciador" aria-hidden="true"></div>
 		</header>
 
 		<main class="vista-contenido">
-			<section class="tarjeta-construccion" aria-label="Vista en construccion">
-				<h2>Vista en construccion</h2>
-				<p>Pronto añadiremos contenido rural para esta seccion.</p>
-				<img class="img-rustica" src="../imagenes/rustica-vista.svg" alt="Ilustracion rustica de campo" />
+			<section class="tesoro-toolbar">
+				<div class="tesoro-copy">
+					<div class="tesoro-kicker">Yincanas en tarjetas</div>
+					<p>Crea una yincana con nombre, descripcion y una sola pista visual: imagen o video. Al abrir la tarjeta se ve el contenido completo y, si es video, se reproduce desde el detalle.</p>
+				</div>
+				<button id="btnNuevaYincana" class="btn-nueva-yincana" type="button">+ NUEVA YINCANA</button>
 			</section>
+
+			<section id="emptyTesoro" class="empty-tesoro">
+				<strong>Aun no hay yincanas</strong>
+				Empieza creando una primera tarjeta con una imagen o un video corto de hasta 45 segundos.
+			</section>
+
+			<section id="tesoroGrid" class="tesoro-grid" aria-label="Tarjetas de yincanas"></section>
 		</main>
 	</div>
 
+	<div id="modalNuevaYincana" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Crear nueva yincana">
+			<h2>NUEVA YINCANA</h2>
+			<div class="form-grid">
+				<label>
+					<span class="field-label">Nombre</span>
+					<input id="inputNombreYincana" class="field-input" type="text" maxlength="80" placeholder="Ej: La pista del granero" />
+				</label>
+				<label>
+					<span class="field-label">Descripcion</span>
+					<textarea id="inputDescripcionYincana" class="field-textarea" maxlength="420" placeholder="Cuenta de que va la prueba, la pista o el reto."></textarea>
+				</label>
+				<div class="field-block">
+					<span class="field-label">Imagen o video</span>
+					<input id="inputMediaYincana" class="field-input" type="file" accept="image/*,video/*" />
+					<span class="field-hint">Si eliges video, no puede exceder de 45 segundos.</span>
+					<div id="mediaSummary" class="media-summary is-empty">Aun no has seleccionado imagen ni video.</div>
+				</div>
+			</div>
+			<div class="dialog-actions">
+				<button id="btnCancelarYincana" type="button" class="btn-secundario">Cancelar</button>
+				<button id="btnGuardarYincana" type="button" class="btn-guardar-tesoro">Guardar tarjeta</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="modalDetalleYincana" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Detalle de la yincana">
+			<div class="detalle-shell">
+				<div id="detalleMedia" class="detalle-media"></div>
+				<div class="detalle-texto">
+					<div id="detalleMeta" class="tesoro-meta"></div>
+					<h3 id="detalleTitulo"></h3>
+					<p id="detalleDescripcion"></p>
+				</div>
+			</div>
+			<div class="dialog-actions">
+				<button id="btnCerrarDetalle" type="button" class="btn-principal">Cerrar</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="toastMsg" class="toast-msg" hidden></div>
+
 	<script>
 	(function () {
+		var DB_NAME = 'carorur_busqueda_tesoro_db';
+		var DB_VERSION = 1;
+		var STORE_NAME = 'yincanas';
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
+		var btnNuevaYincana = document.getElementById('btnNuevaYincana');
+		var emptyTesoro = document.getElementById('emptyTesoro');
+		var tesoroGrid = document.getElementById('tesoroGrid');
+		var modalNuevaYincana = document.getElementById('modalNuevaYincana');
+		var inputNombreYincana = document.getElementById('inputNombreYincana');
+		var inputDescripcionYincana = document.getElementById('inputDescripcionYincana');
+		var inputMediaYincana = document.getElementById('inputMediaYincana');
+		var mediaSummary = document.getElementById('mediaSummary');
+		var btnCancelarYincana = document.getElementById('btnCancelarYincana');
+		var btnGuardarYincana = document.getElementById('btnGuardarYincana');
+		var modalDetalleYincana = document.getElementById('modalDetalleYincana');
+		var detalleMedia = document.getElementById('detalleMedia');
+		var detalleMeta = document.getElementById('detalleMeta');
+		var detalleTitulo = document.getElementById('detalleTitulo');
+		var detalleDescripcion = document.getElementById('detalleDescripcion');
+		var btnCerrarDetalle = document.getElementById('btnCerrarDetalle');
+		var toastMsg = document.getElementById('toastMsg');
+
+		var yincanas = [];
+		var currentMediaFile = null;
+		var currentMediaDuration = 0;
+		var isSaving = false;
+		var previewUrlMap = {};
+		var detailUrl = '';
+
 		if (!btnVolverCabecera) return;
+
+		function uid(prefix) {
+			return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+		}
+
+		function escHtml(value) {
+			return String(value || '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;');
+		}
+
+		function humanDate(value) {
+			var date = new Date(value || Date.now());
+			if (isNaN(date.getTime())) return 'Sin fecha';
+			return date.toLocaleDateString('es-ES', {
+				day: '2-digit',
+				month: '2-digit',
+				year: 'numeric'
+			}) + ' · ' + date.toLocaleTimeString('es-ES', {
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		}
+
+		function showToast(message) {
+			toastMsg.textContent = String(message || '');
+			toastMsg.hidden = false;
+			window.clearTimeout(showToast.timer);
+			showToast.timer = window.setTimeout(function () {
+				toastMsg.hidden = true;
+			}, 2000);
+		}
+
+		function setSaving(flag) {
+			isSaving = !!flag;
+			btnGuardarYincana.disabled = isSaving;
+			btnNuevaYincana.disabled = isSaving;
+			btnCancelarYincana.disabled = isSaving;
+		}
+
+		function openDb() {
+			return new Promise(function (resolve, reject) {
+				var request = window.indexedDB.open(DB_NAME, DB_VERSION);
+				request.onerror = function () {
+					reject(request.error || new Error('No se pudo abrir la base local'));
+				};
+				request.onupgradeneeded = function (event) {
+					var db = event.target.result;
+					if (!db.objectStoreNames.contains(STORE_NAME)) {
+						var store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+						store.createIndex('createdAt', 'createdAt', { unique: false });
+					}
+				};
+				request.onsuccess = function () {
+					resolve(request.result);
+				};
+			});
+		}
+
+		async function loadYincanas() {
+			var db = await openDb();
+			var rows = await new Promise(function (resolve, reject) {
+				var tx = db.transaction(STORE_NAME, 'readonly');
+				var store = tx.objectStore(STORE_NAME);
+				var request = store.getAll();
+				request.onerror = function () {
+					reject(request.error || new Error('No se pudo leer la base local'));
+				};
+				request.onsuccess = function () {
+					resolve(Array.isArray(request.result) ? request.result : []);
+				};
+			});
+			db.close();
+			rows.sort(function (a, b) {
+				return Number(b.createdAt || 0) - Number(a.createdAt || 0);
+			});
+			yincanas = rows;
+		}
+
+		async function saveYincana(record) {
+			var db = await openDb();
+			await new Promise(function (resolve, reject) {
+				var tx = db.transaction(STORE_NAME, 'readwrite');
+				var store = tx.objectStore(STORE_NAME);
+				store.put(record);
+				tx.oncomplete = function () {
+					resolve();
+				};
+				tx.onerror = function () {
+					reject(tx.error || new Error('No se pudo guardar la yincana'));
+				};
+			});
+			db.close();
+		}
+
+		function revokePreviewUrls() {
+			Object.keys(previewUrlMap).forEach(function (key) {
+				try {
+					URL.revokeObjectURL(previewUrlMap[key]);
+				} catch (e) {
+				}
+			});
+			previewUrlMap = {};
+		}
+
+		function buildPreviewUrl(item) {
+			if (!item || !item.mediaBlob) return '../imagenes/rustica-vista.svg';
+			if (!previewUrlMap[item.id]) {
+				previewUrlMap[item.id] = URL.createObjectURL(item.mediaBlob);
+			}
+			return previewUrlMap[item.id];
+		}
+
+		function renderCards() {
+			revokePreviewUrls();
+			tesoroGrid.innerHTML = '';
+			emptyTesoro.hidden = yincanas.length > 0;
+
+			yincanas.forEach(function (item) {
+				var card = document.createElement('article');
+				card.className = 'tesoro-card';
+				var previewUrl = buildPreviewUrl(item);
+				var previewHtml = item.mediaType === 'video'
+					? '<video muted playsinline preload="metadata" src="' + escHtml(previewUrl) + '"></video><span class="media-badge">VIDEO</span>'
+					: '<img src="' + escHtml(previewUrl) + '" alt="Vista previa de la yincana" />' + (item.mediaType === 'image' ? '<span class="media-badge">IMAGEN</span>' : '');
+				var descripcionCorta = String(item.descripcion || '').trim();
+				if (descripcionCorta.length > 110) {
+					descripcionCorta = descripcionCorta.slice(0, 107) + '...';
+				}
+				card.innerHTML = [
+					'<div class="tesoro-preview">' + previewHtml + '</div>',
+					'<div class="tesoro-meta">' + humanDate(item.createdAt) + '</div>',
+					'<h2>' + escHtml(item.nombre || 'Yincana') + '</h2>',
+					'<p>' + escHtml(descripcionCorta || 'Sin descripcion') + '</p>',
+					'<div class="tesoro-actions"><button class="btn-principal" type="button">Abrir tarjeta</button></div>'
+				].join('');
+				card.querySelector('button').addEventListener('click', function () {
+					openDetail(item.id);
+				});
+				tesoroGrid.appendChild(card);
+			});
+		}
+
+		function resetForm() {
+			inputNombreYincana.value = '';
+			inputDescripcionYincana.value = '';
+			inputMediaYincana.value = '';
+			currentMediaFile = null;
+			currentMediaDuration = 0;
+			mediaSummary.textContent = 'Aun no has seleccionado imagen ni video.';
+			mediaSummary.className = 'media-summary is-empty';
+		}
+
+		function openCreateModal() {
+			resetForm();
+			modalNuevaYincana.hidden = false;
+		}
+
+		function closeCreateModal() {
+			if (isSaving) return;
+			modalNuevaYincana.hidden = true;
+		}
+
+		function closeDetailModal() {
+			if (detailUrl) {
+				try {
+					URL.revokeObjectURL(detailUrl);
+				} catch (e) {
+				}
+				detailUrl = '';
+			}
+			detalleMedia.innerHTML = '';
+			modalDetalleYincana.hidden = true;
+		}
+
+		function getVideoDuration(file) {
+			return new Promise(function (resolve, reject) {
+				var url = URL.createObjectURL(file);
+				var video = document.createElement('video');
+				video.preload = 'metadata';
+				video.onloadedmetadata = function () {
+					var duration = Number(video.duration || 0);
+					URL.revokeObjectURL(url);
+					resolve(duration);
+				};
+				video.onerror = function () {
+					URL.revokeObjectURL(url);
+					reject(new Error('No se pudo leer el video seleccionado'));
+				};
+				video.src = url;
+			});
+		}
+
+		async function handleMediaSelection(file) {
+			currentMediaFile = null;
+			currentMediaDuration = 0;
+			if (!file) {
+				mediaSummary.textContent = 'Aun no has seleccionado imagen ni video.';
+				mediaSummary.className = 'media-summary is-empty';
+				return;
+			}
+
+			var type = String(file.type || '');
+			if (type.indexOf('video/') === 0) {
+				var duration = await getVideoDuration(file);
+				if (duration > 45) {
+					inputMediaYincana.value = '';
+					mediaSummary.textContent = 'Ese video dura ' + Math.ceil(duration) + ' segundos. No puede exceder de 45.';
+					mediaSummary.className = 'media-summary';
+					showToast('El video no puede exceder de 45 segundos');
+					return;
+				}
+				currentMediaFile = file;
+				currentMediaDuration = duration;
+				mediaSummary.textContent = 'Video seleccionado: ' + file.name + ' · ' + Math.ceil(duration) + ' s';
+				mediaSummary.className = 'media-summary';
+				return;
+			}
+
+			currentMediaFile = file;
+			mediaSummary.textContent = 'Imagen seleccionada: ' + file.name;
+			mediaSummary.className = 'media-summary';
+		}
+
+		async function createYincana() {
+			if (isSaving) return;
+			var nombre = String(inputNombreYincana.value || '').trim();
+			var descripcion = String(inputDescripcionYincana.value || '').trim();
+			if (!nombre) {
+				showToast('Escribe un nombre para la yincana');
+				inputNombreYincana.focus();
+				return;
+			}
+
+			setSaving(true);
+			try {
+				await saveYincana({
+					id: uid('YI'),
+					nombre: nombre,
+					descripcion: descripcion,
+					createdAt: Date.now(),
+					mediaType: currentMediaFile ? (String(currentMediaFile.type || '').indexOf('video/') === 0 ? 'video' : 'image') : '',
+					mediaName: currentMediaFile ? currentMediaFile.name : '',
+					mediaDuration: currentMediaDuration,
+					mediaBlob: currentMediaFile || null
+				});
+				await loadYincanas();
+				renderCards();
+				closeCreateModal();
+				showToast('Yincana creada');
+			} catch (err) {
+				showToast('No se pudo guardar la yincana');
+			} finally {
+				setSaving(false);
+			}
+		}
+
+		function openDetail(id) {
+			var item = yincanas.find(function (entry) { return entry.id === id; });
+			if (!item) return;
+
+			closeDetailModal();
+			detalleTitulo.textContent = item.nombre || 'Yincana';
+			detalleDescripcion.textContent = item.descripcion || 'Sin descripcion';
+			detalleMeta.textContent = humanDate(item.createdAt) + (item.mediaType === 'video' && item.mediaDuration ? ' · Video de ' + Math.ceil(item.mediaDuration) + ' s' : item.mediaType === 'image' ? ' · Imagen' : '');
+
+			if (item.mediaBlob) {
+				detailUrl = URL.createObjectURL(item.mediaBlob);
+				if (item.mediaType === 'video') {
+					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(detailUrl) + '"></video>';
+				} else {
+					detalleMedia.innerHTML = '<img src="' + escHtml(detailUrl) + '" alt="Imagen de la yincana" />';
+				}
+			} else {
+				detalleMedia.innerHTML = '<img src="../imagenes/rustica-vista.svg" alt="Sin contenido multimedia" />';
+			}
+
+			modalDetalleYincana.hidden = false;
+		}
 
 		btnVolverCabecera.addEventListener('click', function (e) {
 			e.preventDefault();
@@ -47,6 +760,37 @@
 				window.location.href = '../index.html';
 			}
 		});
+
+		btnNuevaYincana.addEventListener('click', openCreateModal);
+		btnCancelarYincana.addEventListener('click', closeCreateModal);
+		btnGuardarYincana.addEventListener('click', function () {
+			createYincana().catch(function () {
+				showToast('No se pudo guardar la yincana');
+			});
+		});
+		btnCerrarDetalle.addEventListener('click', closeDetailModal);
+		inputMediaYincana.addEventListener('change', function () {
+			handleMediaSelection(inputMediaYincana.files && inputMediaYincana.files[0]).catch(function () {
+				inputMediaYincana.value = '';
+				currentMediaFile = null;
+				currentMediaDuration = 0;
+				mediaSummary.textContent = 'No se pudo leer el archivo seleccionado.';
+				mediaSummary.className = 'media-summary';
+				showToast('No se pudo leer el archivo');
+			});
+		});
+		modalNuevaYincana.addEventListener('click', function (event) {
+			if (event.target === modalNuevaYincana) closeCreateModal();
+		});
+		modalDetalleYincana.addEventListener('click', function (event) {
+			if (event.target === modalDetalleYincana) closeDetailModal();
+		});
+
+		loadYincanas()
+			.then(renderCards)
+			.catch(function () {
+				showToast('No se pudieron cargar las yincanas');
+			});
 	})();
 	</script>
 </body>
