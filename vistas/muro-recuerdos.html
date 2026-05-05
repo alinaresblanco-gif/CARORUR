@@ -354,6 +354,17 @@
 		</div>
 	</div>
 
+	<!-- Modal confirmación genérico -->
+	<div id="modalConfirm" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Confirmar acción">
+			<p id="confirmMsg" style="margin:0 0 1.2rem;font-size:1rem;text-align:center;"></p>
+			<div class="dialog-actions">
+				<button id="btnConfirmOk" type="button" class="btn-lite btn-danger">Sí, eliminar</button>
+				<button id="btnConfirmCancel" type="button" class="btn-save">Cancelar</button>
+			</div>
+		</div>
+	</div>
+
 	<input id="inputAddFotosTarjeta" type="file" accept="image/*" multiple hidden />
 	<div id="toastMsg" class="toast-msg" hidden></div>
 
@@ -391,12 +402,37 @@
 		var btnCerrarFoto = document.getElementById('btnCerrarFoto');
 		var inputAddFotosTarjeta = document.getElementById('inputAddFotosTarjeta');
 		var toastMsg = document.getElementById('toastMsg');
+		var modalConfirm = document.getElementById('modalConfirm');
+		var confirmMsg = document.getElementById('confirmMsg');
+		var btnConfirmOk = document.getElementById('btnConfirmOk');
+		var btnConfirmCancel = document.getElementById('btnConfirmCancel');
 		var addFotosTargetId = null;
 		var galeriaRecuerdoId = null;
 		var toastTimer = null;
 		var isSaving = false;
 		var fotoViewerRecuerdoId = null;
 		var fotoViewerFoto = null;
+
+		function carorurConfirm(msg) {
+			return new Promise(function (resolve) {
+				confirmMsg.textContent = msg;
+				modalConfirm.hidden = false;
+				function onOk() {
+					modalConfirm.hidden = true;
+					btnConfirmOk.removeEventListener('click', onOk);
+					btnConfirmCancel.removeEventListener('click', onCancel);
+					resolve(true);
+				}
+				function onCancel() {
+					modalConfirm.hidden = true;
+					btnConfirmOk.removeEventListener('click', onOk);
+					btnConfirmCancel.removeEventListener('click', onCancel);
+					resolve(false);
+				}
+				btnConfirmOk.addEventListener('click', onOk);
+				btnConfirmCancel.addEventListener('click', onCancel);
+			});
+		}
 
 		function uid(prefix) {
 			return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
@@ -805,7 +841,7 @@
 		async function deleteFotoSeleccionada() {
 			if (isSaving) return;
 			if (!fotoViewerFoto || !fotoViewerFoto.id_foto) return;
-			if (!window.confirm('Eliminar esta foto del recuerdo?')) return;
+			if (!await carorurConfirm('¿Eliminar esta foto del recuerdo?')) return;
 			var targetRecuerdoId = fotoViewerRecuerdoId;
 
 			setSaving(true);
@@ -833,7 +869,7 @@
 			var rec = recuerdos.find(function (r) { return r.id === id; });
 			if (!rec) return;
 
-			if (!window.confirm('Eliminar "' + rec.nombre + '" del muro?')) {
+			if (!await carorurConfirm('¿Eliminar "' + rec.nombre + '" del muro?')) {
 				return;
 			}
 
