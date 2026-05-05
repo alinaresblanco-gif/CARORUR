@@ -420,17 +420,28 @@
 
 		btnVolverCabecera.addEventListener('click', function (e) {
 			e.preventDefault();
+			var targetHref = '../index.html';
 			try {
 				if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
 					window.top.carorurCloseVista();
-				} else if (window.top !== window && window.top.postMessage) {
+					return;
+				}
+
+				if (window.top !== window && window.top.postMessage) {
 					window.top.postMessage('carorur:close-vista', '*');
-				} else {
-					window.location.href = '../index.html';
+					setTimeout(function () {
+						try {
+							window.top.location.href = targetHref;
+						} catch (err2) {
+							window.location.href = targetHref;
+						}
+					}, 250);
+					return;
 				}
 			} catch (err) {
-				window.location.href = '../index.html';
 			}
+
+			window.location.href = targetHref;
 		});
 
 		document.body.classList.add('modo-lectura');
