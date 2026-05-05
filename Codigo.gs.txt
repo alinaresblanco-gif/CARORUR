@@ -310,6 +310,22 @@ function doPost(e) {
         });
       }
 
+      if (action === 'deleteMuroFoto') {
+        const idFoto = safeStr(payload.id_foto || payload.id || payload.idFoto);
+        const idRecuerdo = safeStr(payload.id_recuerdo || payload.idRecuerdo);
+        if (!idFoto) {
+          return jsonOut({ ok: false, error: 'Falta id_foto' });
+        }
+        const result = deleteMuroFoto(idFoto, idRecuerdo);
+        return jsonOut({
+          ok: true,
+          action: 'deleteMuroFoto',
+          id_foto: idFoto,
+          id_recuerdo: result.idRecuerdo,
+          removed_fotos: result.removedFotos
+        });
+      }
+
       return jsonOut({ ok: false, error: 'Accion POST no soportada' });
     } finally {
       lock.releaseLock();
@@ -957,6 +973,32 @@ function deleteMuroRecuerdo(idRecuerdo) {
   }
 
   return { removedRecuerdos: removedRecuerdos, removedFotos: removedFotos };
+}
+
+function deleteMuroFoto(idFoto, idRecuerdoHint) {
+  var fotosSheet = getMuroRecuerdosFotosSheetReady();
+  var values = fotosSheet.getDataRange().getValues();
+  var removedFotos = 0;
+  var idRecuerdo = safeStr(idRecuerdoHint);
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (safeStr(row[0]) !== idFoto) continue;
+    if (!idRecuerdo) {
+      idRecuerdo = safeStr(row[1]);
+    }
+    if (!toBool(row[6])) {
+      fotosSheet.getRange(i + 1, 7).setValue(true);
+      removedFotos += 1;
+    }
+    break;
+  }
+
+  if (idRecuerdo) {
+    refreshMuroRecuerdoAggregate(idRecuerdo);
+  }
+
+  return { idRecuerdo: idRecuerdo, removedFotos: removedFotos };
 }
 
 function savePlaylistsRows(rows) {

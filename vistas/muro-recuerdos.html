@@ -232,6 +232,22 @@
 			object-fit: cover;
 			border-radius: 8px;
 			border: 1px solid rgba(122,82,48,0.35);
+			cursor: pointer;
+		}
+
+		.foto-viewer-img {
+			width: 100%;
+			max-height: 70vh;
+			object-fit: contain;
+			background: #211509;
+			border-radius: 10px;
+			border: 1px solid rgba(122,82,48,0.45);
+		}
+
+		.btn-danger {
+			background: #9a3f2e;
+			border-color: #9a3f2e;
+			color: #fff7ef;
 		}
 
 		.empty-muro {
@@ -327,6 +343,17 @@
 		</div>
 	</div>
 
+	<div id="modalFoto" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Foto ampliada">
+			<h2 id="fotoViewerTitle">FOTO</h2>
+			<img id="fotoViewerImg" class="foto-viewer-img" src="../imagenes/rustica-vista.svg" alt="Foto ampliada" />
+			<div class="dialog-actions">
+				<button id="btnDeleteFoto" type="button" class="btn-lite btn-danger">Eliminar foto</button>
+				<button id="btnCerrarFoto" type="button" class="btn-save">Cerrar</button>
+			</div>
+		</div>
+	</div>
+
 	<input id="inputAddFotosTarjeta" type="file" accept="image/*" multiple hidden />
 	<div id="toastMsg" class="toast-msg" hidden></div>
 
@@ -357,12 +384,19 @@
 		var galeriaGrid = document.getElementById('galeriaGrid');
 		var btnAddFotosGaleria = document.getElementById('btnAddFotosGaleria');
 		var btnCerrarGaleria = document.getElementById('btnCerrarGaleria');
+		var modalFoto = document.getElementById('modalFoto');
+		var fotoViewerTitle = document.getElementById('fotoViewerTitle');
+		var fotoViewerImg = document.getElementById('fotoViewerImg');
+		var btnDeleteFoto = document.getElementById('btnDeleteFoto');
+		var btnCerrarFoto = document.getElementById('btnCerrarFoto');
 		var inputAddFotosTarjeta = document.getElementById('inputAddFotosTarjeta');
 		var toastMsg = document.getElementById('toastMsg');
 		var addFotosTargetId = null;
 		var galeriaRecuerdoId = null;
 		var toastTimer = null;
 		var isSaving = false;
+		var fotoViewerRecuerdoId = null;
+		var fotoViewerFoto = null;
 
 		function uid(prefix) {
 			return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
@@ -376,11 +410,26 @@
 				.replace(/"/g, '&quot;');
 		}
 
-		function humanDate(iso) {
-			if (!iso) return 'Sin fecha';
-			var d = new Date(iso + 'T00:00:00');
-			if (isNaN(d.getTime())) return iso;
-			return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+		function humanDate(value) {
+			var txt = String(value || '').trim();
+			if (!txt) return 'Sin fecha';
+
+			var mIso = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+			if (mIso) {
+				return mIso[3] + '/' + mIso[2] + '/' + mIso[1];
+			}
+
+			var mAnyIso = txt.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+			if (mAnyIso) {
+				return mAnyIso[3] + '/' + mAnyIso[2] + '/' + mAnyIso[1];
+			}
+
+			var d = new Date(txt);
+			if (!isNaN(d.getTime())) {
+				return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+			}
+
+			return txt;
 		}
 
 		function driveViewUrl(fileId) {
@@ -435,6 +484,7 @@
 			btnGuardarNuevo.disabled = isSaving;
 			btnNuevoRecuerdo.disabled = isSaving;
 			btnAddFotosGaleria.disabled = isSaving;
+			btnDeleteFoto.disabled = isSaving;
 		}
 
 		function showToast(message) {
@@ -552,19 +602,27 @@
 			fotosMemoria = {};
 			recuerdos = rows.map(function (r) {
 				var fotos = Array.isArray(r.fotos) ? r.fotos : [];
-				var urls = fotos.map(function (f) { return String(f.url || driveViewUrl(f.file_id || '')); });
-				fotosMemoria[r.id_recuerdo] = urls;
+				var fotoItems = fotos.map(function (f) {
+					return {
+						id_foto: String(f.id_foto || uid('RF')),
+						file_id: String(f.file_id || ''),
+						url: String(f.url || driveViewUrl(f.file_id || '')),
+						orden: Number(f.orden || 0),
+						es_portada: !!f.es_portada
+					};
+				});
+				fotosMemoria[r.id_recuerdo] = fotoItems;
 				var coverFileId = String(r.cover_file_id || '');
-				var thumb = coverFileId ? driveViewUrl(coverFileId) : (urls[0] || '../imagenes/rustica-vista.svg');
+				var thumb = coverFileId ? driveViewUrl(coverFileId) : ((fotoItems[0] && fotoItems[0].url) || '../imagenes/rustica-vista.svg');
 				return {
 					id: String(r.id_recuerdo || uid('RC')),
 					nombre: String(r.nombre || 'Recuerdo'),
 					fecha: String(r.fecha || ''),
 					descripcion: String(r.descripcion || ''),
-					fotoCount: Number(r.foto_count || urls.length || 0),
+					fotoCount: Number(r.foto_count || fotoItems.length || 0),
 					coverFileId: coverFileId,
 					thumbUrl: thumb,
-					hasSessionPhotos: urls.length > 0
+					hasSessionPhotos: fotoItems.length > 0
 				};
 			});
 
@@ -710,6 +768,11 @@
 					img.className = 'galeria-img';
 					img.src = '../imagenes/rustica-vista.svg';
 					img.alt = 'Foto del recuerdo';
+					img.setAttribute('data-recuerdo-id', id);
+					img.setAttribute('data-foto-id', (foto && foto.id_foto) ? foto.id_foto : '');
+					img.addEventListener('click', function () {
+						openFotoViewer(id, foto);
+					});
 					setImageWithFallback(img, src);
 					galeriaGrid.appendChild(img);
 				});
@@ -721,6 +784,48 @@
 		function closeGaleria() {
 			galeriaRecuerdoId = null;
 			modalGaleria.hidden = true;
+		}
+
+		function openFotoViewer(recuerdoId, foto) {
+			if (!foto || !recuerdoId) return;
+			fotoViewerRecuerdoId = recuerdoId;
+			fotoViewerFoto = foto;
+			fotoViewerTitle.textContent = 'FOTO';
+			fotoViewerImg.src = '../imagenes/rustica-vista.svg';
+			setImageWithFallback(fotoViewerImg, foto.url || foto.file_id || '');
+			modalFoto.hidden = false;
+		}
+
+		function closeFotoViewer() {
+			fotoViewerRecuerdoId = null;
+			fotoViewerFoto = null;
+			modalFoto.hidden = true;
+		}
+
+		async function deleteFotoSeleccionada() {
+			if (isSaving) return;
+			if (!fotoViewerFoto || !fotoViewerFoto.id_foto) return;
+			if (!window.confirm('Eliminar esta foto del recuerdo?')) return;
+			var targetRecuerdoId = fotoViewerRecuerdoId;
+
+			setSaving(true);
+			try {
+				await postAppsScript({
+					action: 'deleteMuroFoto',
+					id_foto: fotoViewerFoto.id_foto,
+					id_recuerdo: targetRecuerdoId
+				});
+				closeFotoViewer();
+				await loadRecuerdosFromCloud();
+				if (targetRecuerdoId) {
+					openGaleria(targetRecuerdoId);
+				}
+				showToast('Foto eliminada');
+			} catch (err) {
+				showToast('No se pudo eliminar foto: ' + String(err && err.message ? err.message : err));
+			} finally {
+				setSaving(false);
+			}
 		}
 
 		async function deleteRecuerdo(id) {
@@ -840,12 +945,21 @@
 		});
 
 		btnCerrarGaleria.addEventListener('click', closeGaleria);
+		btnCerrarFoto.addEventListener('click', closeFotoViewer);
+		btnDeleteFoto.addEventListener('click', function () {
+			deleteFotoSeleccionada().catch(function () {
+				showToast('No se pudo eliminar foto');
+			});
+		});
 		btnAddFotosGaleria.addEventListener('click', function () {
 			if (!galeriaRecuerdoId) return;
 			requestAddPhotos(galeriaRecuerdoId);
 		});
 		modalGaleria.addEventListener('click', function (event) {
 			if (event.target === modalGaleria) closeGaleria();
+		});
+		modalFoto.addEventListener('click', function (event) {
+			if (event.target === modalFoto) closeFotoViewer();
 		});
 
 		inputAddFotosTarjeta.addEventListener('change', function () {
