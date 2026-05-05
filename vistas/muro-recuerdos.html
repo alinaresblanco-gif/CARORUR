@@ -389,6 +389,47 @@
 			return 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(id);
 		}
 
+		function extractDriveFileId(value) {
+			var txt = String(value || '').trim();
+			if (!txt) return '';
+			if (/^[a-zA-Z0-9_-]{20,}$/.test(txt)) return txt;
+			var m = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			m = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			return '';
+		}
+
+		function buildDriveImageCandidates(fileOrUrl) {
+			var raw = String(fileOrUrl || '').trim();
+			var id = extractDriveFileId(raw);
+			if (!id) {
+				return raw ? [raw] : ['../imagenes/rustica-vista.svg'];
+			}
+			return [
+				'https://lh3.googleusercontent.com/d/' + encodeURIComponent(id) + '=w1200',
+				'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w1200',
+				'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(id),
+				'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id)
+			];
+		}
+
+		function setImageWithFallback(img, fileOrUrl) {
+			if (!img) return;
+			var candidates = buildDriveImageCandidates(fileOrUrl);
+			var idx = 0;
+			img.onerror = function () {
+				idx += 1;
+				if (idx >= candidates.length) {
+					img.onerror = null;
+					img.src = '../imagenes/rustica-vista.svg';
+					return;
+				}
+				img.src = candidates[idx];
+			};
+			img.src = candidates[0];
+		}
+
 		function setSaving(flag) {
 			isSaving = !!flag;
 			btnGuardarNuevo.disabled = isSaving;
@@ -558,7 +599,7 @@
 				var card = document.createElement('article');
 				card.className = 'recuerdo-card';
 				card.innerHTML =
-					'<img class="recuerdo-thumb" src="' + escHtml(r.thumbUrl || '../imagenes/rustica-vista.svg') + '" alt="Miniatura del recuerdo" />' +
+					'<img class="recuerdo-thumb" src="../imagenes/rustica-vista.svg" alt="Miniatura del recuerdo" />' +
 					'<div class="recuerdo-body">' +
 						'<h3 class="recuerdo-title">' + escHtml(r.nombre) + '</h3>' +
 						'<div class="recuerdo-date">' + escHtml(humanDate(r.fecha)) + '</div>' +
@@ -577,6 +618,9 @@
 					if (target && target.closest && target.closest('.icon-btn')) return;
 					openGaleria(r.id);
 				});
+
+				var thumbImg = card.querySelector('.recuerdo-thumb');
+				setImageWithFallback(thumbImg, r.coverFileId || r.thumbUrl || '');
 
 				muroGrid.appendChild(card);
 			});
@@ -660,11 +704,13 @@
 			if (!fotos.length) {
 				galeriaGrid.innerHTML = '<div class="empty-muro" style="grid-column: 1 / -1;">Este recuerdo aun no tiene fotos.</div>';
 			} else {
-				fotos.forEach(function (url) {
+				fotos.forEach(function (foto) {
+					var src = (foto && typeof foto === 'object') ? String(foto.url || foto.file_id || '') : String(foto || '');
 					var img = document.createElement('img');
 					img.className = 'galeria-img';
-					img.src = url;
+					img.src = '../imagenes/rustica-vista.svg';
 					img.alt = 'Foto del recuerdo';
+					setImageWithFallback(img, src);
 					galeriaGrid.appendChild(img);
 				});
 			}
