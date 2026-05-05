@@ -49,7 +49,7 @@ const AVENTURA_HEADERS = [
 ];
 
 const PLAYLISTS_SHEET_NAME = 'playlists';
-const PLAYLISTS_HEADERS = ['id_playlist', 'nombre', 'creador', 'fecha_creacion'];
+const PLAYLISTS_HEADERS = ['id_playlist', 'nombre', 'urls'];
 
 const CANCIONES_SHEET_NAME = 'canciones';
 const CANCIONES_HEADERS = [
@@ -91,6 +91,10 @@ function doGet(e) {
     }
 
     if (action === 'getPlaylists') {
+      return jsonOut({ ok: true, playlists: getPlaylistsRows() });
+    }
+
+    if (action === 'getPlaylistEmbeds') {
       return jsonOut({ ok: true, playlists: getPlaylistsRows() });
     }
 
@@ -220,6 +224,21 @@ function doPost(e) {
         const rows = Array.isArray(payload.playlists) ? payload.playlists : [];
         savePlaylistsRows(rows);
         return jsonOut({ ok: true, action: 'savePlaylists', saved: rows.length });
+      }
+
+      if (action === 'savePlaylistEmbed') {
+        const row = payload.row || payload.playlist || payload;
+        const saved = savePlaylistEmbedRow(row);
+        return jsonOut({ ok: true, action: 'savePlaylistEmbed', id_playlist: saved.id_playlist });
+      }
+
+      if (action === 'deletePlaylistEmbed') {
+        const idPlaylist = safeStr(payload.id_playlist || payload.id || payload.idPlaylist);
+        if (!idPlaylist) {
+          return jsonOut({ ok: false, error: 'Falta id_playlist' });
+        }
+        const removed = deletePlaylistEmbedRow(idPlaylist);
+        return jsonOut({ ok: true, action: 'deletePlaylistEmbed', id_playlist: idPlaylist, removed_rows: removed });
       }
 
       if (action === 'saveCanciones') {
@@ -651,8 +670,7 @@ function getPlaylistsRows() {
       out.push({
         id_playlist: safeStr(r[0]),
         nombre: safeStr(r[1]),
-        creador: safeStr(r[2]),
-        fecha_creacion: safeStr(r[3])
+        urls: safeStr(r[2])
       });
     }
   }
@@ -665,9 +683,67 @@ function savePlaylistsRows(rows) {
   sheet.getRange(1, 1, 1, PLAYLISTS_HEADERS.length).setValues([PLAYLISTS_HEADERS]);
   if (!rows.length) return;
   var toAppend = rows.map(function(r) {
-    return [safeStr(r.id_playlist), safeStr(r.nombre), safeStr(r.creador), safeStr(r.fecha_creacion)];
+    return [safeStr(r.id_playlist), safeStr(r.nombre), safeStr(r.urls)];
   });
   sheet.getRange(2, 1, toAppend.length, PLAYLISTS_HEADERS.length).setValues(toAppend);
+}
+
+function savePlaylistEmbedRow(row) {
+  var idPlaylist = safeStr(row && row.id_playlist) || ('EM_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+  var nombre = safeStr(row && row.nombre) || 'URL compartida';
+  var urls = safeStr(row && row.urls);
+
+  if (!urls) {
+    throw new Error('Falta urls');
+  }
+
+  var sheet = getPlaylistsSheetReady();
+  var lastRow = sheet.getLastRow();
+
+  if (lastRow > 1) {
+    var range = sheet.getRange(2, 1, lastRow - 1, PLAYLISTS_HEADERS.length);
+    var allValues = range.getValues();
+
+    for (var i = 0; i < allValues.length; i++) {
+      if (safeStr(allValues[i][0]) === idPlaylist) {
+        sheet.getRange(i + 2, 1, 1, PLAYLISTS_HEADERS.length)
+          .setValues([[idPlaylist, nombre, urls]]);
+        return { id_playlist: idPlaylist, nombre: nombre, urls: urls };
+      }
+    }
+  }
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, PLAYLISTS_HEADERS.length)
+    .setValues([[idPlaylist, nombre, urls]]);
+
+  return { id_playlist: idPlaylist, nombre: nombre, urls: urls };
+}
+
+function deletePlaylistEmbedRow(idPlaylist) {
+  var sheet = getPlaylistsSheetReady();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  var range = sheet.getRange(2, 1, lastRow - 1, PLAYLISTS_HEADERS.length);
+  var values = range.getValues();
+  var keep = [];
+  var removed = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idPlaylist) {
+      removed += 1;
+    } else {
+      keep.push(values[i]);
+    }
+  }
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, PLAYLISTS_HEADERS.length).setValues([PLAYLISTS_HEADERS]);
+  if (keep.length) {
+    sheet.getRange(2, 1, keep.length, PLAYLISTS_HEADERS.length).setValues(keep);
+  }
+
+  return removed;
 }
 
 function getCancionesRows(idPlaylist) {
@@ -754,3 +830,4 @@ function getCancionesSheetReady() {
   if (needsHeader) { headerRange.setValues([CANCIONES_HEADERS]); }
   return sheet;
 }
+

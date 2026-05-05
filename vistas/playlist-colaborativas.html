@@ -572,8 +572,10 @@
 
 <script>
 (function () {
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycg1nrbCB_www3bqb-RVM2nl4hHvEozFdY2uz50jX6iiAGW-yFu3MeRENqo0GozWCu/exec';
   var LS_KEY = 'carorur_local_music_v2';
   var LS_EMBED_KEY = 'carorur_music_embeds_v1';
+  var LS_EMBED_BACKUP_KEY = 'carorur_music_embeds_backup_v1';
   var DB_NAME = 'carorur_local_music_db';
   var DB_VERSION = 1;
   var DB_STORE = 'songs';
@@ -598,6 +600,7 @@
   var playbackUrlSongId = null;
   var isImporting = false;
   var nativePendingFolderId = null;
+  var isSyncingEmbeds = false;
 
   var btnVolverCabecera = document.getElementById('btnVolverCabecera');
   var btnAddFolder = document.getElementById('btnAddFolder');
@@ -1189,6 +1192,7 @@
   function saveEmbeds() {
     try {
       localStorage.setItem(LS_EMBED_KEY, JSON.stringify(embedState));
+      localStorage.setItem(LS_EMBED_BACKUP_KEY, JSON.stringify(embedState));
     } catch (e) {
       playerNote.textContent = 'No se pudo guardar la lista de URLs embed.';
     }
@@ -1197,6 +1201,9 @@
   function loadEmbeds() {
     try {
       var raw = localStorage.getItem(LS_EMBED_KEY);
+      if (!raw) {
+        raw = localStorage.getItem(LS_EMBED_BACKUP_KEY);
+      }
       if (!raw) return;
       var parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return;
@@ -1204,6 +1211,147 @@
       embedState.currentId = parsed.currentId || null;
     } catch (e) {
       embedState = { items: [], currentId: null };
+    }
+  }
+
+  function setEmbedControlsDisabled(flag) {
+    var disabled = !!flag;
+    btnAddEmbed.disabled = disabled;
+    btnCloseEmbed.disabled = disabled;
+    embedUrlInput.disabled = disabled;
+    embedTitleInput.disabled = disabled;
+  }
+
+  function sanitizeEmbedItem(item) {
+    if (!item || typeof item !== 'object') return null;
+    var id = String(item.id || '').trim();
+    var title = String(item.title || '').trim();
+    var provider = String(item.provider || '').trim().toLowerCase();
+    var embedUrl = String(item.embedUrl || '').trim();
+    var originalUrl = String(item.originalUrl || '').trim();
+    if (!id || !embedUrl) return null;
+    return {
+      id: id,
+      title: title || 'URL compartida',
+      provider: provider || 'embed',
+      embedUrl: embedUrl,
+      originalUrl: originalUrl || embedUrl
+    };
+  }
+
+  function mergeEmbedLists(cloudItems, localItems) {
+    var map = {};
+    (cloudItems || []).forEach(function (item) {
+      var clean = sanitizeEmbedItem(item);
+      if (!clean) return;
+      map[clean.id] = clean;
+    });
+    (localItems || []).forEach(function (item) {
+      var clean = sanitizeEmbedItem(item);
+      if (!clean) return;
+      if (!map[clean.id]) {
+        map[clean.id] = clean;
+      }
+    });
+    return Object.keys(map).map(function (id) { return map[id]; });
+  }
+
+  async function postAppsScript(payload) {
+    var res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error Apps Script');
+    return data;
+  }
+
+  async function loadEmbedsFromCloud() {
+    var url = APPS_SCRIPT_URL + '?action=getPlaylistEmbeds&_ts=' + Date.now();
+    var res = await fetch(url, { cache: 'no-store' });
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'No se pudieron cargar URLs compartidas');
+    var rows = Array.isArray(data.playlists) ? data.playlists : [];
+    return rows.map(function (row) {
+      var parsed = normalizeEmbedUrl(row.urls || '');
+      if (!parsed.ok) {
+        return {
+          id: String(row.id_playlist || ''),
+          title: String(row.nombre || 'URL compartida'),
+          provider: 'embed',
+          embedUrl: String(row.urls || ''),
+          originalUrl: String(row.urls || '')
+        };
+      }
+      return {
+        id: String(row.id_playlist || ''),
+        title: String(row.nombre || parsed.titleGuess || providerLabel(parsed.provider)),
+        provider: parsed.provider,
+        embedUrl: parsed.embedUrl,
+        originalUrl: String(row.urls || '')
+      };
+    }).filter(function (item) {
+      return !!(item.id && item.embedUrl);
+    });
+  }
+
+  async function saveEmbedToCloud(item) {
+    var clean = sanitizeEmbedItem(item);
+    if (!clean) return;
+    await postAppsScript({
+      action: 'savePlaylistEmbed',
+      row: {
+        id_playlist: clean.id,
+        nombre: clean.title,
+        urls: clean.originalUrl || clean.embedUrl
+      }
+    });
+  }
+
+  async function deleteEmbedFromCloud(id) {
+    var embedId = String(id || '').trim();
+    if (!embedId) return;
+    await postAppsScript({ action: 'deletePlaylistEmbed', id_playlist: embedId });
+  }
+
+  async function syncEmbedsOnOpen() {
+    if (isSyncingEmbeds) return;
+    isSyncingEmbeds = true;
+    setEmbedControlsDisabled(true);
+    try {
+      var cloudItems = await loadEmbedsFromCloud();
+      var cloudMap = {};
+      cloudItems.forEach(function (item) { cloudMap[item.id] = true; });
+      var merged = mergeEmbedLists(cloudItems, embedState.items);
+      embedState.items = merged;
+
+      for (var i = 0; i < embedState.items.length; i++) {
+        var localItem = embedState.items[i];
+        if (!cloudMap[localItem.id]) {
+          try {
+            await saveEmbedToCloud(localItem);
+          } catch (e) {
+          }
+        }
+      }
+
+      if (embedState.currentId && !embedState.items.some(function (it) { return it.id === embedState.currentId; })) {
+        embedState.currentId = null;
+      }
+      saveEmbeds();
+      renderEmbedList();
+      if (embedState.currentId) {
+        openEmbedById(embedState.currentId);
+      }
+      playerNote.textContent = 'URLs compartidas sincronizadas.';
+    } catch (err) {
+      playerNote.textContent = 'Sin nube: usando URLs locales. ' + String(err && err.message ? err.message : err);
+    } finally {
+      isSyncingEmbeds = false;
+      setEmbedControlsDisabled(false);
     }
   }
 
@@ -1342,11 +1490,19 @@
     playerNote.textContent = 'Abriendo embed de ' + providerLabel(item.provider) + '.';
   }
 
-  function removeEmbedById(id) {
+  async function removeEmbedById(id) {
     var item = embedState.items.find(function (it) { return it.id === id; });
     if (!item) return;
     var ok = window.confirm('Quitar URL guardada "' + item.title + '"?');
     if (!ok) return;
+
+    try {
+      await deleteEmbedFromCloud(id);
+    } catch (err) {
+      playerNote.textContent = 'No se pudo borrar en la nube. Se mantiene local.';
+      return;
+    }
+
     embedState.items = embedState.items.filter(function (it) { return it.id !== id; });
     if (embedState.currentId === id) {
       closeEmbedViewer();
@@ -1399,6 +1555,16 @@
     renderEmbedList();
     playerNote.textContent = 'URL guardada: ' + title;
     openEmbedById(id);
+
+    saveEmbedToCloud({
+      id: id,
+      title: title,
+      provider: parsed.provider,
+      embedUrl: parsed.embedUrl,
+      originalUrl: rawUrl
+    }).catch(function (err) {
+      playerNote.textContent = 'Guardada local. No se pudo subir a nube: ' + String(err && err.message ? err.message : err);
+    });
   }
 
   // ── FIN EMBED ────────────────────────────────────────────────
@@ -1622,7 +1788,11 @@
     var role = btn.getAttribute('data-role');
     if (!id || !role) return;
     if (role === 'open') { openEmbedById(id); return; }
-    if (role === 'remove') { removeEmbedById(id); }
+    if (role === 'remove') {
+      removeEmbedById(id).catch(function () {
+        playerNote.textContent = 'No se pudo quitar la URL.';
+      });
+    }
   });
 
   btnPlayPause.addEventListener('click', function () {
@@ -1692,6 +1862,7 @@
   if (embedState.currentId) {
     openEmbedById(embedState.currentId);
   }
+  syncEmbedsOnOpen();
 })();
 </script>
 </body>
