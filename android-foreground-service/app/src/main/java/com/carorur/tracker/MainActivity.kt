@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
@@ -22,6 +23,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
@@ -115,6 +117,17 @@ class MainActivity : AppCompatActivity() {
                 host.launchNativeAudioPicker(mode = "folder")
             }
         }
+
+        @JavascriptInterface
+        fun onPlaybackStateChanged(isPlaying: Boolean, title: String?, artist: String?) {
+            host.runOnUiThread {
+                host.updatePlaybackKeepAlive(
+                    isPlaying = isPlaying,
+                    title = title.orEmpty(),
+                    artist = artist.orEmpty()
+                )
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -192,6 +205,9 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             cacheMode = WebSettings.LOAD_NO_CACHE
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+        }
         webView.addJavascriptInterface(NativeMusicBridge(this), "CarorurNativeMusic")
 
         btnSetTestUrl.setOnClickListener { showTestUrlDialog() }
@@ -203,8 +219,36 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
+        stopPlaybackKeepAlive()
         webView.destroy()
         super.onDestroy()
+    }
+
+    private fun updatePlaybackKeepAlive(isPlaying: Boolean, title: String, artist: String) {
+        if (isPlaying) {
+            val intent = Intent(this, PlaybackKeepAliveService::class.java).apply {
+                action = PlaybackKeepAliveService.ACTION_START
+                putExtra(PlaybackKeepAliveService.EXTRA_TITLE, title)
+                putExtra(PlaybackKeepAliveService.EXTRA_ARTIST, artist)
+            }
+            ContextCompat.startForegroundService(this, intent)
+            return
+        }
+        stopPlaybackKeepAlive()
+    }
+
+    private fun stopPlaybackKeepAlive() {
+        val intent = Intent(this, PlaybackKeepAliveService::class.java).apply {
+            action = PlaybackKeepAliveService.ACTION_STOP
+        }
+        try {
+            startService(intent)
+        } catch (_: Throwable) {
+            try {
+                stopService(Intent(this, PlaybackKeepAliveService::class.java))
+            } catch (_: Throwable) {
+            }
+        }
     }
 
     private fun loadConfiguredUrl() {

@@ -601,6 +601,7 @@
   var isImporting = false;
   var nativePendingFolderId = null;
   var isSyncingEmbeds = false;
+  var lastNativePlaybackState = null;
 
   var btnVolverCabecera = document.getElementById('btnVolverCabecera');
   var btnAddFolder = document.getElementById('btnAddFolder');
@@ -659,6 +660,24 @@
     }
     playbackUrl = null;
     playbackUrlSongId = null;
+  }
+
+  function notifyNativePlaybackState(isPlaying) {
+    var playing = !!isPlaying;
+    if (lastNativePlaybackState === playing) return;
+    lastNativePlaybackState = playing;
+
+    try {
+      var bridge = window.CarorurNativeMusic;
+      if (!bridge || typeof bridge.onPlaybackStateChanged !== 'function') return;
+      var song = state.currentSongId ? state.songs[state.currentSongId] : null;
+      bridge.onPlaybackStateChanged(
+        playing,
+        song && song.title ? String(song.title) : '',
+        song && song.artist ? String(song.artist) : ''
+      );
+    } catch (e) {
+    }
   }
 
   function uid(prefix) {
@@ -892,6 +911,7 @@
     playerAudio.removeAttribute('src');
     playerAudio.load();
     releasePlaybackUrl();
+    notifyNativePlaybackState(false);
     vinylRecord.classList.remove('spinning');
     btnPlayPause.innerHTML = '&#9654;';
   }
@@ -1832,10 +1852,12 @@
   playerAudio.addEventListener('play', function () {
     vinylRecord.classList.add('spinning');
     btnPlayPause.innerHTML = '&#9208;';
+    notifyNativePlaybackState(true);
     renderSongs();
   });
 
   playerAudio.addEventListener('pause', function () {
+    notifyNativePlaybackState(false);
     if (!playerAudio.ended) {
       vinylRecord.classList.remove('spinning');
       btnPlayPause.innerHTML = '&#9654;';
@@ -1844,6 +1866,7 @@
   });
 
   playerAudio.addEventListener('ended', function () {
+    notifyNativePlaybackState(false);
     playRelative(1).catch(function () {
       vinylRecord.classList.remove('spinning');
       btnPlayPause.innerHTML = '&#9654;';
@@ -1851,6 +1874,7 @@
   });
 
   window.addEventListener('pagehide', function () {
+    notifyNativePlaybackState(false);
     releasePlaybackUrl();
   });
 
