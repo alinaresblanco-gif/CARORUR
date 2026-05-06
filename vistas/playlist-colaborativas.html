@@ -509,7 +509,7 @@
           <p class="song-info-folder" id="songFolder">Sin carpeta activa</p>
 
           <div class="player-audio-wrap">
-            <audio id="playerAudio" controls preload="metadata"></audio>
+            <audio id="playerAudio" controls preload="metadata" playsinline></audio>
           </div>
 
           <div class="player-controls">
@@ -602,6 +602,7 @@
   var nativePendingFolderId = null;
   var isSyncingEmbeds = false;
   var lastNativePlaybackState = null;
+  var wasPlayingBeforeMinimize = false;
 
   var btnVolverCabecera = document.getElementById('btnVolverCabecera');
   var btnAddFolder = document.getElementById('btnAddFolder');
@@ -960,12 +961,16 @@
       playerNote.textContent = '';
     } catch (e) {
       if (isAutoAdvance) {
-        try {
-          await new Promise(function (resolve) { setTimeout(resolve, 120); });
-          await playerAudio.play();
-          playerNote.textContent = '';
-          return;
-        } catch (e2) {
+        // Retry con retraso progresivo
+        for (var attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await new Promise(function (resolve) { setTimeout(resolve, 120 * attempt); });
+            await playerAudio.play();
+            playerNote.textContent = '';
+            return;
+          } catch (e2) {
+            if (attempt === 3) break;
+          }
         }
       }
       playerNote.textContent = 'Pulsa Play en el control de audio para continuar la carpeta.';
@@ -1876,6 +1881,29 @@
   window.addEventListener('pagehide', function () {
     notifyNativePlaybackState(false);
     releasePlaybackUrl();
+  });
+
+  // ── VISIBILITYCHANGE: Reanudar reproducción cuando vuelve la app ──
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      // La app se minimizó: guardar si estaba reproduciendo
+      wasPlayingBeforeMinimize = !playerAudio.paused && state.currentSongId;
+    } else {
+      // La app volvió al primer plano
+      if (wasPlayingBeforeMinimize && state.currentSongId) {
+        // Intenta reanudar si estaba reproduciendo antes
+        playerAudio.play().catch(function (err) {
+          // Si falla, espera un poco e intenta de nuevo (algunos navegadores necesitan retraso)
+          setTimeout(function () {
+            playerAudio.play().catch(function () {
+              playerNote.textContent = 'Pulsa Play para continuar.';
+              wasPlayingBeforeMinimize = false;
+            });
+          }, 300);
+        });
+      }
+      wasPlayingBeforeMinimize = false;
+    }
   });
 
   loadState();
