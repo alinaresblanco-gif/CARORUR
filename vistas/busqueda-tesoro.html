@@ -197,6 +197,7 @@
 		.tesoro-actions {
 			display: flex;
 			justify-content: flex-end;
+			gap: 0.5rem;
 		}
 
 		.open-overlay {
@@ -434,6 +435,7 @@
 
 	<script>
 	(function () {
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz8GOmkweMJ9mpJvleaOOgaTxNWmUil04TvoBLERyQ1tqLzjW5IKmozkfqCp95Bifg7/exec';
 		var DB_NAME = 'carorur_busqueda_tesoro_db';
 		var DB_VERSION = 1;
 		var STORE_NAME = 'yincanas';
@@ -499,6 +501,15 @@
 			}, 2000);
 		}
 
+		function currentUserName() {
+			try {
+				var saved = localStorage.getItem('carorur_user_name');
+				if (saved) return String(saved).trim() || 'integrante';
+			} catch (e) {
+			}
+			return 'integrante';
+		}
+
 		function setSaving(flag) {
 			isSaving = !!flag;
 			btnGuardarYincana.disabled = isSaving;
@@ -525,7 +536,71 @@
 			});
 		}
 
-		async function loadYincanas() {
+		function fileToBase64(file) {
+			return new Promise(function (resolve, reject) {
+				if (!file) {
+					reject(new Error('Archivo no valido'));
+					return;
+				}
+				var reader = new FileReader();
+				reader.onload = function () {
+					var result = String(reader.result || '');
+					var commaIndex = result.indexOf(',');
+					if (commaIndex === -1) {
+						reject(new Error('No se pudo convertir archivo a base64'));
+						return;
+					}
+					resolve(result.slice(commaIndex + 1));
+				};
+				reader.onerror = function () {
+					reject(new Error('Error leyendo archivo'));
+				};
+				reader.readAsDataURL(file);
+			});
+		}
+
+		async function postAppsScript(payload) {
+			var response = await fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				mode: 'cors',
+				cache: 'no-store',
+				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+				body: JSON.stringify(payload)
+			});
+			var data = await response.json();
+			if (!data || !data.ok) {
+				throw new Error((data && data.error) || 'Error de sincronizacion');
+			}
+			return data;
+		}
+
+		async function loadYincanasCloud() {
+			var url = APPS_SCRIPT_URL + '?action=getYincanas&_ts=' + Date.now();
+			var response = await fetch(url, { cache: 'no-store' });
+			var data = await response.json();
+			if (!data || !data.ok) {
+				throw new Error((data && data.error) || 'No se pudieron cargar yincanas');
+			}
+
+			var rows = Array.isArray(data.yincanas) ? data.yincanas : [];
+			return rows.map(function (row) {
+				return {
+					id: String(row.id_yincana || ''),
+					nombre: String(row.nombre || ''),
+					descripcion: String(row.descripcion || ''),
+					createdAt: String(row.creada_en || ''),
+					mediaType: String(row.tipo_media || ''),
+					mediaDuration: Number(row.duracion_segundos || 0),
+					mediaUrl: String(row.url_media || ''),
+					driveFileId: String(row.drive_file_id || ''),
+					usuario: String(row.usuario || 'integrante')
+				};
+			}).filter(function (item) {
+				return !!item.id;
+			});
+		}
+
+		async function loadYincanasLocal() {
 			var db = await openDb();
 			var rows = await new Promise(function (resolve, reject) {
 				var tx = db.transaction(STORE_NAME, 'readonly');
@@ -545,6 +620,15 @@
 			yincanas = rows;
 		}
 
+		async function loadYincanas() {
+			try {
+				yincanas = await loadYincanasCloud();
+			} catch (cloudErr) {
+				await loadYincanasLocal();
+				showToast('Sin nube ahora: mostrando yincanas locales');
+			}
+		}
+
 		async function saveYincana(record) {
 			var db = await openDb();
 			await new Promise(function (resolve, reject) {
@@ -561,6 +645,21 @@
 			db.close();
 		}
 
+		async function deleteYincanaLocal(id) {
+			var db = await openDb();
+			await new Promise(function (resolve, reject) {
+				var tx = db.transaction(STORE_NAME, 'readwrite');
+				tx.objectStore(STORE_NAME).delete(id);
+				tx.oncomplete = function () {
+					resolve();
+				};
+				tx.onerror = function () {
+					reject(tx.error || new Error('No se pudo borrar la yincana local'));
+				};
+			});
+			db.close();
+		}
+
 		function revokePreviewUrls() {
 			Object.keys(previewUrlMap).forEach(function (key) {
 				try {
@@ -572,6 +671,7 @@
 		}
 
 		function buildPreviewUrl(item) {
+			if (item && item.mediaUrl) return item.mediaUrl;
 			if (!item || !item.mediaBlob) return '../imagenes/rustica-vista.svg';
 			if (!previewUrlMap[item.id]) {
 				previewUrlMap[item.id] = URL.createObjectURL(item.mediaBlob);
@@ -600,13 +700,42 @@
 					'<div class="tesoro-meta">' + humanDate(item.createdAt) + '</div>',
 					'<h2>' + escHtml(item.nombre || 'Yincana') + '</h2>',
 					'<p>' + escHtml(descripcionCorta || 'Sin descripcion') + '</p>',
-					'<div class="tesoro-actions"><button class="btn-principal" type="button">Abrir tarjeta</button></div>'
+					'<div class="tesoro-actions">' +
+						'<button class="btn-secundario" type="button" data-role="delete">Eliminar</button>' +
+						'<button class="btn-principal" type="button" data-role="open">Abrir tarjeta</button>' +
+					'</div>'
 				].join('');
-				card.querySelector('button').addEventListener('click', function () {
+				card.querySelector('button[data-role="open"]').addEventListener('click', function () {
 					openDetail(item.id);
+				});
+				card.querySelector('button[data-role="delete"]').addEventListener('click', function () {
+					deleteYincana(item).catch(function () {
+						showToast('No se pudo eliminar la yincana');
+					});
 				});
 				tesoroGrid.appendChild(card);
 			});
+		}
+
+		async function deleteYincana(item) {
+			if (!item || !item.id) return;
+			var ok = window.confirm('Eliminar la yincana "' + String(item.nombre || 'sin nombre') + '"?');
+			if (!ok) return;
+
+			if (item.mediaUrl) {
+				await postAppsScript({ action: 'deleteYincana', id_yincana: item.id });
+				await loadYincanas();
+				renderCards();
+				closeDetailModal();
+				showToast('Yincana eliminada');
+				return;
+			}
+
+			await deleteYincanaLocal(item.id);
+			await loadYincanasLocal();
+			renderCards();
+			closeDetailModal();
+			showToast('Yincana local eliminada');
 		}
 
 		function resetForm() {
@@ -669,6 +798,14 @@
 			}
 
 			var type = String(file.type || '');
+			if (type.indexOf('image/') !== 0 && type.indexOf('video/') !== 0) {
+				inputMediaYincana.value = '';
+				mediaSummary.textContent = 'Solo se permiten archivos de imagen o video.';
+				mediaSummary.className = 'media-summary';
+				showToast('Archivo no compatible');
+				return;
+			}
+
 			if (type.indexOf('video/') === 0) {
 				var duration = await getVideoDuration(file);
 				if (duration > 45) {
@@ -699,25 +836,42 @@
 				inputNombreYincana.focus();
 				return;
 			}
+			if (!currentMediaFile) {
+				showToast('Selecciona una imagen o video para compartir');
+				return;
+			}
 
 			setSaving(true);
 			try {
-				await saveYincana({
-					id: uid('YI'),
-					nombre: nombre,
-					descripcion: descripcion,
-					createdAt: Date.now(),
-					mediaType: currentMediaFile ? (String(currentMediaFile.type || '').indexOf('video/') === 0 ? 'video' : 'image') : '',
-					mediaName: currentMediaFile ? currentMediaFile.name : '',
-					mediaDuration: currentMediaDuration,
-					mediaBlob: currentMediaFile || null
+				var mediaBase64 = await fileToBase64(currentMediaFile);
+				var uploadResult = await postAppsScript({
+					action: 'uploadImage',
+					data: mediaBase64,
+					mimeType: currentMediaFile.type || 'application/octet-stream',
+					name: currentMediaFile.name || ('yincana_' + Date.now())
 				});
+
+				await postAppsScript({
+					action: 'saveYincana',
+					row: {
+						id_yincana: uid('YI'),
+						nombre: nombre,
+						descripcion: descripcion,
+						tipo_media: String(currentMediaFile.type || '').indexOf('video/') === 0 ? 'video' : 'image',
+						url_media: String(uploadResult.url || ''),
+						duracion_segundos: Math.ceil(currentMediaDuration || 0),
+						drive_file_id: String(uploadResult.file_id || ''),
+						usuario: currentUserName(),
+						compartida: true
+					}
+				});
+
 				await loadYincanas();
 				renderCards();
 				closeCreateModal();
-				showToast('Yincana creada');
+				showToast('Yincana compartida con la casa rural');
 			} catch (err) {
-				showToast('No se pudo guardar la yincana');
+				showToast('No se pudo guardar en la nube');
 			} finally {
 				setSaving(false);
 			}
@@ -732,7 +886,14 @@
 			detalleDescripcion.textContent = item.descripcion || 'Sin descripcion';
 			detalleMeta.textContent = humanDate(item.createdAt) + (item.mediaType === 'video' && item.mediaDuration ? ' · Video de ' + Math.ceil(item.mediaDuration) + ' s' : item.mediaType === 'image' ? ' · Imagen' : '');
 
-			if (item.mediaBlob) {
+			if (item.mediaUrl) {
+				detailUrl = '';
+				if (item.mediaType === 'video') {
+					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
+				} else {
+					detalleMedia.innerHTML = '<img src="' + escHtml(item.mediaUrl) + '" alt="Imagen de la yincana" />';
+				}
+			} else if (item.mediaBlob) {
 				detailUrl = URL.createObjectURL(item.mediaBlob);
 				if (item.mediaType === 'video') {
 					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(detailUrl) + '"></video>';

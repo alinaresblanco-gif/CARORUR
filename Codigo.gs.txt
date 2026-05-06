@@ -89,6 +89,21 @@ const MURO_RECUERDOS_FOTOS_HEADERS = [
   'deleted'
 ];
 
+const YINCANAS_SHEET_NAME = 'yincanas';
+const YINCANAS_HEADERS = [
+  'id_yincana',
+  'nombre',
+  'descripcion',
+  'tipo_media',
+  'url_media',
+  'duracion_segundos',
+  'drive_file_id',
+  'usuario',
+  'creada_en',
+  'actualizada_en',
+  'compartida'
+];
+
 
 function doGet(e) {
   try {
@@ -129,6 +144,10 @@ function doGet(e) {
 
     if (action === 'getMuroRecuerdos') {
       return jsonOut({ ok: true, recuerdos: getMuroRecuerdosRows() });
+    }
+
+    if (action === 'getYincanas') {
+      return jsonOut({ ok: true, yincanas: getYincanasRows() });
     }
 
     return jsonOut({ ok: false, error: 'Accion GET no soportada' });
@@ -324,6 +343,21 @@ function doPost(e) {
           id_recuerdo: result.idRecuerdo,
           removed_fotos: result.removedFotos
         });
+      }
+
+      if (action === 'saveYincana') {
+        const row = payload.row || payload.yincana || payload;
+        const saved = saveYincanaRow(row);
+        return jsonOut({ ok: true, action: 'saveYincana', yincana: saved });
+      }
+
+      if (action === 'deleteYincana') {
+        const idYincana = safeStr(payload.id_yincana || payload.id || payload.idYincana);
+        if (!idYincana) {
+          return jsonOut({ ok: false, error: 'Falta id_yincana' });
+        }
+        const removed = deleteYincanaRow(idYincana);
+        return jsonOut({ ok: true, action: 'deleteYincana', id_yincana: idYincana, removed_rows: removed });
       }
 
       return jsonOut({ ok: false, error: 'Accion POST no soportada' });
@@ -1129,6 +1163,143 @@ function saveCancionesRows(idPlaylist, rows) {
   sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, CANCIONES_HEADERS.length).setValues(toAppend);
 }
 
+function getYincanasRows() {
+  var sheet = getYincanasSheetReady();
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    var idYincana = safeStr(r[0]);
+    if (!idYincana) continue;
+
+    var item = {
+      id_yincana: idYincana,
+      nombre: safeStr(r[1]),
+      descripcion: safeStr(r[2]),
+      tipo_media: safeStr(r[3]),
+      url_media: safeStr(r[4]),
+      duracion_segundos: Number(r[5] || 0),
+      drive_file_id: safeStr(r[6]),
+      usuario: safeStr(r[7]),
+      creada_en: safeStr(r[8]),
+      actualizada_en: safeStr(r[9]),
+      compartida: toBool(r[10])
+    };
+
+    if (!item.compartida) continue;
+    out.push(item);
+  }
+
+  out.sort(function (a, b) {
+    var ta = new Date(a.creada_en || 0).getTime() || 0;
+    var tb = new Date(b.creada_en || 0).getTime() || 0;
+    return tb - ta;
+  });
+
+  return out;
+}
+
+function saveYincanaRow(row) {
+  var sheet = getYincanasSheetReady();
+  var idYincana = safeStr(row && row.id_yincana) || ('YI_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+  var nombre = safeStr(row && row.nombre);
+  var tipoMedia = safeStr(row && row.tipo_media);
+  var urlMedia = safeStr(row && row.url_media);
+
+  if (!nombre) {
+    throw new Error('Falta nombre');
+  }
+  if (tipoMedia !== 'image' && tipoMedia !== 'video') {
+    throw new Error('tipo_media invalido');
+  }
+  if (!urlMedia) {
+    throw new Error('Falta url_media');
+  }
+
+  var nowIso = new Date().toISOString();
+  var values = sheet.getDataRange().getValues();
+  var existingIdx = -1;
+  var createdAt = safeStr(row && row.creada_en) || nowIso;
+
+  for (var i = 1; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idYincana) {
+      existingIdx = i;
+      createdAt = safeStr(values[i][8]) || createdAt;
+      break;
+    }
+  }
+
+  var dataRow = [
+    idYincana,
+    nombre,
+    safeStr(row && row.descripcion),
+    tipoMedia,
+    urlMedia,
+    Number((row && row.duracion_segundos) || 0),
+    safeStr(row && row.drive_file_id),
+    safeStr(row && row.usuario) || 'anonimo',
+    createdAt,
+    nowIso,
+    row && row.compartida !== undefined ? (toBool(row.compartida) ? true : false) : true
+  ];
+
+  if (existingIdx >= 0) {
+    sheet.getRange(existingIdx + 1, 1, 1, YINCANAS_HEADERS.length).setValues([dataRow]);
+  } else {
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, YINCANAS_HEADERS.length).setValues([dataRow]);
+  }
+
+  return {
+    id_yincana: dataRow[0],
+    nombre: dataRow[1],
+    descripcion: dataRow[2],
+    tipo_media: dataRow[3],
+    url_media: dataRow[4],
+    duracion_segundos: dataRow[5],
+    drive_file_id: dataRow[6],
+    usuario: dataRow[7],
+    creada_en: dataRow[8],
+    actualizada_en: dataRow[9],
+    compartida: dataRow[10]
+  };
+}
+
+function deleteYincanaRow(idYincana) {
+  var sheet = getYincanasSheetReady();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  var range = sheet.getRange(2, 1, lastRow - 1, YINCANAS_HEADERS.length);
+  var values = range.getValues();
+  var keep = [];
+  var removed = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idYincana) {
+      removed += 1;
+      var fileId = safeStr(values[i][6]);
+      if (fileId) {
+        try {
+          DriveApp.getFileById(fileId).setTrashed(true);
+        } catch (e) {
+        }
+      }
+    } else {
+      keep.push(values[i]);
+    }
+  }
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, YINCANAS_HEADERS.length).setValues([YINCANAS_HEADERS]);
+  if (keep.length) {
+    sheet.getRange(2, 1, keep.length, YINCANAS_HEADERS.length).setValues(keep);
+  }
+
+  return removed;
+}
+
 function getPlaylistsSheetReady() {
   var ss = getSpreadsheetReady();
   var sheet = ss.getSheetByName(PLAYLISTS_SHEET_NAME);
@@ -1186,6 +1357,31 @@ function getCancionesSheetReady() {
   var currentHeaders = headerRange.getValues()[0].map(safeStr);
   var needsHeader = CANCIONES_HEADERS.some(function(h, i) { return currentHeaders[i] !== h; });
   if (needsHeader) { headerRange.setValues([CANCIONES_HEADERS]); }
+  return sheet;
+}
+
+function getYincanasSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(YINCANAS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(YINCANAS_SHEET_NAME);
+  }
+
+  var headerRange = sheet.getRange(1, 1, 1, YINCANAS_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var normalizedCurrent = currentHeaders.slice(0);
+  if (normalizedCurrent[5] === 'duracion_segunc') {
+    normalizedCurrent[5] = 'duracion_segundos';
+  }
+
+  var needsHeader = YINCANAS_HEADERS.some(function (h, i) {
+    return normalizedCurrent[i] !== h;
+  });
+
+  if (needsHeader) {
+    headerRange.setValues([YINCANAS_HEADERS]);
+  }
+
   return sheet;
 }
 
