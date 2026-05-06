@@ -436,6 +436,7 @@
 	<script>
 	(function () {
 		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz8GOmkweMJ9mpJvleaOOgaTxNWmUil04TvoBLERyQ1tqLzjW5IKmozkfqCp95Bifg7/exec';
+		var DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
 		var DB_NAME = 'carorur_busqueda_tesoro_db';
 		var DB_VERSION = 1;
 		var STORE_NAME = 'yincanas';
@@ -625,7 +626,7 @@
 				yincanas = await loadYincanasCloud();
 			} catch (cloudErr) {
 				await loadYincanasLocal();
-				showToast('Sin nube ahora: mostrando yincanas locales');
+				showToast('Sin nube ahora: ' + String(cloudErr && cloudErr.message ? cloudErr.message : cloudErr));
 			}
 		}
 
@@ -848,7 +849,8 @@
 					action: 'uploadImage',
 					data: mediaBase64,
 					mimeType: currentMediaFile.type || 'application/octet-stream',
-					name: currentMediaFile.name || ('yincana_' + Date.now())
+					name: currentMediaFile.name || ('yincana_' + Date.now()),
+					folderId: DRIVE_FOLDER_ID
 				});
 
 				await postAppsScript({
@@ -871,7 +873,7 @@
 				closeCreateModal();
 				showToast('Yincana compartida con la casa rural');
 			} catch (err) {
-				showToast('No se pudo guardar en la nube');
+				showToast('No se pudo guardar en nube: ' + String(err && err.message ? err.message : err));
 			} finally {
 				setSaving(false);
 			}
