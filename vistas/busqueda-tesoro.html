@@ -910,11 +910,10 @@
 			if (item.mediaUrl) {
 				detailUrl = '';
 				if (item.mediaType === 'video') {
-					if (item.driveFileId) {
-						detalleMedia.innerHTML = '<iframe src="https://drive.google.com/file/d/' + escHtml(item.driveFileId) + '/preview" allowfullscreen></iframe>';
-					} else {
-						detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
-					}
+					var videoSrc = item.driveFileId
+						? 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(item.driveFileId)
+						: item.mediaUrl;
+					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(videoSrc) + '"></video>';
 				} else {
 					detalleMedia.innerHTML = '<img src="' + escHtml(item.mediaUrl) + '" alt="Imagen de la yincana" />';
 				}
