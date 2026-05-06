@@ -918,24 +918,8 @@
 			if (item.mediaUrl) {
 				detailUrl = '';
 				if (item.mediaType === 'video' && item.driveFileId) {
-					detalleMedia.innerHTML = '<div class="video-loading">Cargando video&#8230;</div>';
-					modalDetalleYincana.hidden = false;
-					var proxyUrl = APPS_SCRIPT_URL + '?action=getYincanaMedia&file_id=' + encodeURIComponent(item.driveFileId) + '&_ts=' + Date.now();
-					fetch(proxyUrl, { cache: 'no-store' })
-						.then(function (r) { return r.json(); })
-						.then(function (data) {
-							if (!data || !data.ok || !data.data) throw new Error(data && data.error || 'Sin datos');
-							var byteChars = atob(data.data);
-							var byteNums = new Array(byteChars.length);
-							for (var i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
-							var blob = new Blob([new Uint8Array(byteNums)], { type: data.mimeType || 'video/mp4' });
-							detailUrl = URL.createObjectURL(blob);
-							detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(detailUrl) + '"></video>';
-						})
-						.catch(function (err) {
-							detalleMedia.innerHTML = '<div class="video-loading">No se pudo cargar el video</div>';
-						});
-					return;
+					var videoSrc = 'https://drive.google.com/uc?export=download&confirm=t&id=' + encodeURIComponent(item.driveFileId);
+					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(videoSrc) + '"></video>';
 				} else if (item.mediaType === 'video') {
 					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
 				} else {
