@@ -150,6 +150,19 @@ function doGet(e) {
       return jsonOut({ ok: true, yincanas: getYincanasRows() });
     }
 
+    if (action === 'getYincanaMedia') {
+      const fileId = safeStr(e && e.parameter && e.parameter.file_id);
+      if (!fileId) return jsonOut({ ok: false, error: 'Falta file_id' });
+      try {
+        const file = DriveApp.getFileById(fileId);
+        const blob = file.getBlob();
+        const base64 = Utilities.base64Encode(blob.getBytes());
+        return jsonOut({ ok: true, data: base64, mimeType: blob.getContentType(), name: file.getName() });
+      } catch (err) {
+        return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
+      }
+    }
+
     return jsonOut({ ok: false, error: 'Accion GET no soportada' });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });

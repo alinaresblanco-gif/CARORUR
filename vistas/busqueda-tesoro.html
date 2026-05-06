@@ -320,14 +320,22 @@
 			display: block;
 		}
 
-		.video-placeholder {
+		.video-placeholder,
+		.video-loading {
 			width: 100%;
 			height: 100%;
+			min-height: 180px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
+			font-size: 0.95rem;
+			color: rgba(111,74,44,0.65);
+			padding: 1rem;
+			box-sizing: border-box;
+		}
+
+		.video-placeholder {
 			font-size: 3rem;
-			color: rgba(111,74,44,0.45);
 		}
 
 		.detalle-texto {
@@ -909,11 +917,27 @@
 
 			if (item.mediaUrl) {
 				detailUrl = '';
-				if (item.mediaType === 'video') {
-					var videoSrc = item.driveFileId
-						? 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(item.driveFileId)
-						: item.mediaUrl;
-					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(videoSrc) + '"></video>';
+				if (item.mediaType === 'video' && item.driveFileId) {
+					detalleMedia.innerHTML = '<div class="video-loading">Cargando video&#8230;</div>';
+					modalDetalleYincana.hidden = false;
+					var proxyUrl = APPS_SCRIPT_URL + '?action=getYincanaMedia&file_id=' + encodeURIComponent(item.driveFileId) + '&_ts=' + Date.now();
+					fetch(proxyUrl, { cache: 'no-store' })
+						.then(function (r) { return r.json(); })
+						.then(function (data) {
+							if (!data || !data.ok || !data.data) throw new Error(data && data.error || 'Sin datos');
+							var byteChars = atob(data.data);
+							var byteNums = new Array(byteChars.length);
+							for (var i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
+							var blob = new Blob([new Uint8Array(byteNums)], { type: data.mimeType || 'video/mp4' });
+							detailUrl = URL.createObjectURL(blob);
+							detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(detailUrl) + '"></video>';
+						})
+						.catch(function (err) {
+							detalleMedia.innerHTML = '<div class="video-loading">No se pudo cargar el video</div>';
+						});
+					return;
+				} else if (item.mediaType === 'video') {
+					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
 				} else {
 					detalleMedia.innerHTML = '<img src="' + escHtml(item.mediaUrl) + '" alt="Imagen de la yincana" />';
 				}
