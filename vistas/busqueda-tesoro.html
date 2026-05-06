@@ -313,6 +313,23 @@
 			background: #1b120a;
 		}
 
+		.detalle-media iframe {
+			width: 100%;
+			aspect-ratio: 16 / 9;
+			border: none;
+			display: block;
+		}
+
+		.video-placeholder {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 3rem;
+			color: rgba(111,74,44,0.45);
+		}
+
 		.detalle-texto {
 			display: grid;
 			gap: 0.55rem;
@@ -690,7 +707,9 @@
 				card.className = 'tesoro-card';
 				var previewUrl = buildPreviewUrl(item);
 				var previewHtml = item.mediaType === 'video'
-					? '<video muted playsinline preload="metadata" src="' + escHtml(previewUrl) + '"></video><span class="media-badge">VIDEO</span>'
+				? (item.driveFileId
+					? '<div class="video-placeholder">&#9654;</div><span class="media-badge">VIDEO</span>'
+					: '<video muted playsinline preload="metadata" src="' + escHtml(previewUrl) + '"></video><span class="media-badge">VIDEO</span>')
 					: '<img src="' + escHtml(previewUrl) + '" alt="Vista previa de la yincana" />' + (item.mediaType === 'image' ? '<span class="media-badge">IMAGEN</span>' : '');
 				var descripcionCorta = String(item.descripcion || '').trim();
 				if (descripcionCorta.length > 110) {
@@ -891,7 +910,11 @@
 			if (item.mediaUrl) {
 				detailUrl = '';
 				if (item.mediaType === 'video') {
-					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
+					if (item.driveFileId) {
+						detalleMedia.innerHTML = '<iframe src="https://drive.google.com/file/d/' + escHtml(item.driveFileId) + '/preview" allowfullscreen></iframe>';
+					} else {
+						detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
+					}
 				} else {
 					detalleMedia.innerHTML = '<img src="' + escHtml(item.mediaUrl) + '" alt="Imagen de la yincana" />';
 				}
