@@ -338,6 +338,23 @@
 			font-size: 3rem;
 		}
 
+		.video-fallback {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 0.8rem;
+			padding: 1.5rem;
+			min-height: 180px;
+			text-align: center;
+		}
+
+		.video-fallback p {
+			margin: 0;
+			color: rgba(63,42,23,0.7);
+			font-size: 0.9rem;
+		}
+
 		.detalle-texto {
 			display: grid;
 			gap: 0.55rem;
@@ -918,8 +935,20 @@
 			if (item.mediaUrl) {
 				detailUrl = '';
 				if (item.mediaType === 'video' && item.driveFileId) {
-					var videoSrc = 'https://drive.google.com/uc?export=download&confirm=t&id=' + encodeURIComponent(item.driveFileId);
-					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(videoSrc) + '"></video>';
+					var vid = document.createElement('video');
+					vid.controls = true;
+					vid.setAttribute('playsinline', '');
+					vid.preload = 'metadata';
+					vid.src = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(item.driveFileId) + '&export=download&confirm=t';
+					vid.onerror = function () {
+						var fallback = document.createElement('div');
+						fallback.className = 'video-fallback';
+						fallback.innerHTML = '<p>No se puede reproducir aquí.</p><a href="https://drive.google.com/file/d/' + encodeURIComponent(item.driveFileId) + '/view" target="_blank" rel="noopener" class="btn-principal">Ver video en navegador</a>';
+						detalleMedia.innerHTML = '';
+						detalleMedia.appendChild(fallback);
+					};
+					detalleMedia.innerHTML = '';
+					detalleMedia.appendChild(vid);
 				} else if (item.mediaType === 'video') {
 					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
 				} else {
