@@ -870,12 +870,12 @@
 
 				await loadYincanas();
 				renderCards();
+				setSaving(false);
 				closeCreateModal();
 				showToast('Yincana compartida con la casa rural');
 			} catch (err) {
-				showToast('No se pudo guardar en nube: ' + String(err && err.message ? err.message : err));
-			} finally {
 				setSaving(false);
+				showToast('No se pudo guardar en nube: ' + String(err && err.message ? err.message : err));
 			}
 		}
 
