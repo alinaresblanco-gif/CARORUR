@@ -29,10 +29,16 @@
 			margin: 0 auto;
 		}
 
+		/* Permitir scroll vertical y anular place-items: center de vistas.css */
 		.vista-contenido {
 			display: grid;
+			align-items: start;
+			align-content: start;
+			justify-items: stretch;
 			gap: 1rem;
 			padding-bottom: 2rem;
+			overflow-y: auto;
+			overflow-x: hidden;
 		}
 
 		.tesoro-toolbar {
@@ -46,6 +52,9 @@
 			border: 1px solid var(--tesoro-borde);
 			border-radius: 20px;
 			box-shadow: var(--tesoro-sombra);
+			position: sticky;
+			top: 0;
+			z-index: 10;
 		}
 
 		.tesoro-copy {
