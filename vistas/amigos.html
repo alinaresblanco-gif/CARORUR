@@ -337,8 +337,286 @@
 
 	<script>
 	(function () {
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbnPAYQCb3H5sUF60KX1jgxp5g_hee8HYWvPyz2rNy1-eWrUaQqbOkPLn2yuCA7Eut/exec';
+
 		// ---- Botón volver ----
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
+		if (btnVolverCabecera) {
+			btnVolverCabecera.addEventListener('click', function (e) {
+				e.preventDefault();
+				try {
+					if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
+						window.top.carorurCloseVista();
+					} else if (window.top !== window && window.top.postMessage) {
+						window.top.postMessage('carorur:close-vista', '*');
+					} else {
+						window.location.href = '../index.html';
+					}
+				} catch (err) {
+					window.location.href = '../index.html';
+				}
+			});
+		}
+
+		// ---- Estado ----
+		var miembros = [];
+		var editandoId = null;
+		var fotoBase64 = null;
+		var fotoMimeType = null;
+		var fotoDriveId = null;
+		var guardando = false;
+
+		// ---- Refs DOM ----
+		var grid            = document.getElementById('amigosGrid');
+		var empty           = document.getElementById('amigosEmpty');
+		var modal           = document.getElementById('modalMiembro');
+		var modalTitulo     = document.getElementById('modalMiembroTitulo');
+		var inputNombre     = document.getElementById('inputNombre');
+		var inputFoto       = document.getElementById('inputFoto');
+		var fotoPreviewImg  = document.getElementById('fotoPreviewImg');
+		var fotoPlaceholder = modal.querySelector('.foto-placeholder');
+		var btnGuardar      = document.getElementById('btnGuardarMiembro');
+
+		// ---- Helpers ----
+		function driveImgUrl(fileId, size) {
+			return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=' + (size || 'w400');
+		}
+
+		function escHtml(str) {
+			return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+		}
+
+		function setBtnGuardar(cargando) {
+			btnGuardar.disabled = cargando;
+			btnGuardar.textContent = cargando ? 'Guardando…' : 'Guardar';
+		}
+
+		// ---- Render ----
+		function renderMiembros() {
+			grid.innerHTML = '';
+			var visibles = miembros.filter(function (m) { return !m.deleted; });
+			empty.style.display = visibles.length === 0 ? '' : 'none';
+			visibles.forEach(function (m) {
+				var card = document.createElement('div');
+				card.className = 'amigo-card';
+				card.dataset.id = m.id_miembro;
+
+				var avatarHtml = m.drive_file_id
+					? '<img src="' + driveImgUrl(m.drive_file_id) + '" alt="' + escHtml(m.nombre) + '" loading="lazy" />'
+					: '<div class="avatar-placeholder">👤</div>';
+
+				card.innerHTML =
+					'<div class="amigo-avatar">' + avatarHtml + '</div>' +
+					'<p class="amigo-nombre">' + escHtml(m.nombre) + '</p>' +
+					'<div class="amigo-acciones">' +
+						'<button class="btn-secundario btn-editar" data-id="' + m.id_miembro + '">✏️ Editar</button>' +
+						'<button class="btn-peligro btn-eliminar" data-id="' + m.id_miembro + '">🗑 Eliminar</button>' +
+					'</div>';
+				grid.appendChild(card);
+			});
+		}
+
+		// ---- Cargar desde la nube ----
+		function loadAmigosCloud() {
+			fetch(APPS_SCRIPT_URL + '?action=getAmigos')
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (data.ok && Array.isArray(data.miembros)) {
+						miembros = data.miembros;
+						renderMiembros();
+					}
+				})
+				.catch(function () {});
+		}
+
+		// ---- Subir imagen a Drive ----
+		function uploadImage(base64Full, mimeType, callback) {
+			var base64Data = base64Full.split(',')[1] || base64Full;
+			fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'uploadImage',
+					data: base64Data,
+					mimeType: mimeType || 'image/jpeg',
+					name: 'amigo_' + Date.now() + '.jpg'
+				})
+			})
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (data.ok) {
+					callback(null, data.file_id, data.url);
+				} else {
+					callback(data.error || 'Error subiendo imagen');
+				}
+			})
+			.catch(function (err) { callback(String(err)); });
+		}
+
+		// ---- Guardar miembro en la nube ----
+		function saveMiembroCloud(miembro, callback) {
+			fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'saveAmigo', row: miembro })
+			})
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (data.ok) {
+					callback(null, data.miembro);
+				} else {
+					callback(data.error || 'Error guardando miembro');
+				}
+			})
+			.catch(function (err) { callback(String(err)); });
+		}
+
+		// ---- Eliminar miembro en la nube ----
+		function deleteMiembroCloud(idMiembro, callback) {
+			fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'deleteAmigo', id_miembro: idMiembro })
+			})
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				callback(data.ok ? null : (data.error || 'Error eliminando'));
+			})
+			.catch(function (err) { callback(String(err)); });
+		}
+
+		// ---- Modal ----
+		function abrirModal(miembro) {
+			editandoId   = miembro ? miembro.id_miembro : null;
+			fotoBase64   = null;
+			fotoMimeType = null;
+			fotoDriveId  = miembro ? (miembro.drive_file_id || null) : null;
+			modalTitulo.textContent = miembro ? 'Editar miembro' : 'Nuevo miembro';
+			inputNombre.value = miembro ? (miembro.nombre || '') : '';
+			inputFoto.value = '';
+			setBtnGuardar(false);
+
+			if (fotoDriveId) {
+				fotoPreviewImg.src = driveImgUrl(fotoDriveId, 'w200');
+				fotoPreviewImg.style.display = '';
+				fotoPlaceholder.style.display = 'none';
+			} else {
+				fotoPreviewImg.src = '';
+				fotoPreviewImg.style.display = 'none';
+				fotoPlaceholder.style.display = '';
+			}
+
+			modal.style.display = 'flex';
+			inputNombre.focus();
+		}
+
+		function cerrarModal() {
+			modal.style.display = 'none';
+			editandoId = null;
+			fotoBase64 = null;
+			fotoMimeType = null;
+			fotoDriveId = null;
+		}
+
+		// ---- Selección de foto ----
+		inputFoto.addEventListener('change', function () {
+			var file = inputFoto.files[0];
+			if (!file) return;
+			fotoMimeType = file.type || 'image/jpeg';
+			var reader = new FileReader();
+			reader.onload = function (e) {
+				fotoBase64 = e.target.result;
+				fotoPreviewImg.src = fotoBase64;
+				fotoPreviewImg.style.display = '';
+				fotoPlaceholder.style.display = 'none';
+			};
+			reader.readAsDataURL(file);
+		});
+
+		// ---- Guardar ----
+		btnGuardar.addEventListener('click', function () {
+			if (guardando) return;
+			var nombre = inputNombre.value.trim();
+			if (!nombre) { inputNombre.focus(); return; }
+
+			guardando = true;
+			setBtnGuardar(true);
+
+			function finalizarGuardado(driveFileId, imagenUrl) {
+				var idMiembro = editandoId || ('AMG_' + Date.now() + '_' + Math.floor(Math.random() * 100000));
+				var miembroExistente = editandoId ? miembros.find(function (m) { return m.id_miembro === editandoId; }) : null;
+
+				var miembro = {
+					id_miembro:    idMiembro,
+					nombre:        nombre,
+					imagen_url:    imagenUrl || (miembroExistente ? miembroExistente.imagen_url : ''),
+					drive_file_id: driveFileId || (miembroExistente ? miembroExistente.drive_file_id : ''),
+					deleted:       false
+				};
+
+				saveMiembroCloud(miembro, function (err, saved) {
+					guardando = false;
+					setBtnGuardar(false);
+					if (err) { alert('Error: ' + err); return; }
+					if (editandoId) {
+						miembros = miembros.map(function (m) { return m.id_miembro === editandoId ? saved : m; });
+					} else {
+						miembros.push(saved);
+					}
+					renderMiembros();
+					cerrarModal();
+				});
+			}
+
+			if (fotoBase64) {
+				uploadImage(fotoBase64, fotoMimeType, function (err, fileId, url) {
+					if (err) { guardando = false; setBtnGuardar(false); alert('Error subiendo foto: ' + err); return; }
+					finalizarGuardado(fileId, url);
+				});
+			} else {
+				finalizarGuardado(fotoDriveId, null);
+			}
+		});
+
+		document.getElementById('btnCancelarMiembro').addEventListener('click', cerrarModal);
+
+		modal.addEventListener('click', function (e) {
+			if (e.target === modal) cerrarModal();
+		});
+
+		// ---- Botón nuevo ----
+		document.getElementById('btnNuevoMiembro').addEventListener('click', function () {
+			abrirModal(null);
+		});
+
+		// ---- Delegación: editar / eliminar ----
+		grid.addEventListener('click', function (e) {
+			var btnEditar   = e.target.closest('.btn-editar');
+			var btnEliminar = e.target.closest('.btn-eliminar');
+
+			if (btnEditar) {
+				var id = btnEditar.dataset.id;
+				var m = miembros.find(function (x) { return x.id_miembro === id; });
+				if (m) abrirModal(m);
+			} else if (btnEliminar) {
+				var id = btnEliminar.dataset.id;
+				if (!confirm('¿Eliminar este miembro?')) return;
+				btnEliminar.disabled = true;
+				deleteMiembroCloud(id, function (err) {
+					if (err) { alert('Error: ' + err); btnEliminar.disabled = false; return; }
+					miembros = miembros.filter(function (x) { return x.id_miembro !== id; });
+					renderMiembros();
+				});
+			}
+		});
+
+		// ---- Arranque ----
+		loadAmigosCloud();
+
+	})();
+	</script>
+</body>
+</html>
 		if (btnVolverCabecera) {
 			btnVolverCabecera.addEventListener('click', function (e) {
 				e.preventDefault();

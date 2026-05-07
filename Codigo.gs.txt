@@ -119,6 +119,17 @@ const NUESTRAS_RECETAS_HEADERS = [
   'deleted'
 ];
 
+const AMIGOS_SHEET_NAME = 'amigos';
+const AMIGOS_HEADERS = [
+  'id_miembro',
+  'nombre',
+  'imagen_url',
+  'drive_file_id',
+  'creada_en',
+  'actualizada_en',
+  'deleted'
+];
+
 
 function doGet(e) {
   try {
@@ -167,6 +178,10 @@ function doGet(e) {
 
     if (action === 'getNuestrasRecetas' || action === 'getRecetas') {
       return jsonOut({ ok: true, recetas: getNuestrasRecetasRows() });
+    }
+
+    if (action === 'getAmigos') {
+      return jsonOut({ ok: true, miembros: getAmigosRows() });
     }
 
     if (action === 'getYincanaMedia') {
@@ -411,6 +426,21 @@ function doPost(e) {
         }
         const removed = deleteNuestrasRecetaRow(idReceta);
         return jsonOut({ ok: true, action: 'deleteNuestrasReceta', id_receta: idReceta, removed_rows: removed });
+      }
+
+      if (action === 'saveAmigo') {
+        const row = payload.row || payload.miembro || payload;
+        const saved = saveAmigoRow(row);
+        return jsonOut({ ok: true, action: 'saveAmigo', miembro: saved });
+      }
+
+      if (action === 'deleteAmigo') {
+        const idMiembro = safeStr(payload.id_miembro || payload.id || payload.idMiembro);
+        if (!idMiembro) {
+          return jsonOut({ ok: false, error: 'Falta id_miembro' });
+        }
+        const removed = deleteAmigoRow(idMiembro);
+        return jsonOut({ ok: true, action: 'deleteAmigo', id_miembro: idMiembro, removed_rows: removed });
       }
 
       return jsonOut({ ok: false, error: 'Accion POST no soportada' });
@@ -1577,5 +1607,116 @@ function getNuestrasRecetasSheetReady() {
   }
 
   return sheet;
+}
+
+function getAmigosSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(AMIGOS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(AMIGOS_SHEET_NAME);
+  }
+  var headerRange = sheet.getRange(1, 1, 1, AMIGOS_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var needsHeader = AMIGOS_HEADERS.some(function (h, i) { return currentHeaders[i] !== h; });
+  if (needsHeader) {
+    headerRange.setValues([AMIGOS_HEADERS]);
+  }
+  return sheet;
+}
+
+function getAmigosRows() {
+  var sheet = getAmigosSheetReady();
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    var idMiembro = safeStr(r[0]);
+    if (!idMiembro) continue;
+    var item = {
+      id_miembro:    idMiembro,
+      nombre:        safeStr(r[1]),
+      imagen_url:    safeStr(r[2]),
+      drive_file_id: safeStr(r[3]),
+      creada_en:     safeStr(r[4]),
+      actualizada_en: safeStr(r[5]),
+      deleted:       toBool(r[6])
+    };
+    if (item.deleted) continue;
+    out.push(item);
+  }
+
+  out.sort(function (a, b) {
+    return String(a.nombre).localeCompare(String(b.nombre), 'es');
+  });
+
+  return out;
+}
+
+function saveAmigoRow(row) {
+  var sheet = getAmigosSheetReady();
+  var idMiembro = safeStr(row && row.id_miembro) || ('AMG_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+  var nombre = safeStr(row && row.nombre);
+  if (!nombre) throw new Error('Falta nombre');
+
+  var nowIso = new Date().toISOString();
+  var values = sheet.getDataRange().getValues();
+  var existingIdx = -1;
+  var createdAt = safeStr(row && row.creada_en) || nowIso;
+
+  for (var i = 1; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idMiembro) {
+      existingIdx = i;
+      createdAt = safeStr(values[i][4]) || createdAt;
+      break;
+    }
+  }
+
+  var dataRow = [
+    idMiembro,
+    nombre,
+    safeStr(row && row.imagen_url),
+    safeStr(row && row.drive_file_id),
+    createdAt,
+    nowIso,
+    row && row.deleted !== undefined ? (toBool(row.deleted) ? true : false) : false
+  ];
+
+  if (existingIdx >= 0) {
+    sheet.getRange(existingIdx + 1, 1, 1, AMIGOS_HEADERS.length).setValues([dataRow]);
+  } else {
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, AMIGOS_HEADERS.length).setValues([dataRow]);
+  }
+
+  return {
+    id_miembro:    dataRow[0],
+    nombre:        dataRow[1],
+    imagen_url:    dataRow[2],
+    drive_file_id: dataRow[3],
+    creada_en:     dataRow[4],
+    actualizada_en: dataRow[5],
+    deleted:       dataRow[6]
+  };
+}
+
+function deleteAmigoRow(idMiembro) {
+  var sheet = getAmigosSheetReady();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  var values = sheet.getRange(2, 1, lastRow - 1, AMIGOS_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) !== idMiembro) continue;
+    var rowNumber = i + 2;
+    var fileId = safeStr(values[i][3]);
+    sheet.getRange(rowNumber, 6).setValue(new Date().toISOString()); // actualizada_en
+    sheet.getRange(rowNumber, 7).setValue(true);                     // deleted
+    if (fileId) {
+      try { DriveApp.getFileById(fileId).setTrashed(true); } catch (e) {}
+    }
+    return 1;
+  }
+  return 0;
 }
 
