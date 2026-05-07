@@ -739,6 +739,101 @@
 			return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w' + (size || 600);
 		}
 
+		function buildVideoUrls(item) {
+			var urls = [];
+			if (item && item.driveFileId) {
+				urls.push('https://drive.usercontent.google.com/download?id=' + encodeURIComponent(item.driveFileId) + '&export=download&confirm=t');
+				urls.push('https://drive.google.com/uc?export=download&id=' + encodeURIComponent(item.driveFileId));
+			}
+			if (item && item.mediaUrl) {
+				urls.push(String(item.mediaUrl));
+			}
+			return urls.filter(function (url, index, arr) {
+				return !!url && arr.indexOf(url) === index;
+			});
+		}
+
+		function renderVideoFallback(item) {
+			var urls = buildVideoUrls(item);
+			var primary = urls[0] || '#';
+			var secondary = urls[1] || primary;
+			var fallback = document.createElement('div');
+			fallback.className = 'video-fallback';
+			fallback.innerHTML = '<p>No se puede reproducir aqui. Prueba una de estas opciones:</p>' +
+				'<a href="' + escHtml(primary) + '" target="_blank" rel="noopener" class="btn-principal">Abrir video (opcion 1)</a>' +
+				'<a href="' + escHtml(secondary) + '" target="_blank" rel="noopener" class="btn-secundario">Abrir video (opcion 2)</a>';
+			detalleMedia.innerHTML = '';
+			detalleMedia.appendChild(fallback);
+		}
+
+		function mountVideoWithFallback(item) {
+			var urls = buildVideoUrls(item);
+			if (!urls.length) {
+				renderVideoFallback(item);
+				return;
+			}
+
+			var vid = document.createElement('video');
+			vid.controls = true;
+			vid.setAttribute('playsinline', '');
+			vid.preload = 'metadata';
+			if (item && item.driveFileId) {
+				vid.poster = driveImgUrl(item.driveFileId, 1200);
+			}
+
+			var loading = document.createElement('div');
+			loading.className = 'video-loading';
+			loading.textContent = 'Cargando video...';
+
+			detalleMedia.innerHTML = '';
+			detalleMedia.appendChild(loading);
+			detalleMedia.appendChild(vid);
+
+			var current = 0;
+			var sourceTimer = null;
+
+			function clearSourceTimer() {
+				if (sourceTimer) {
+					window.clearTimeout(sourceTimer);
+					sourceTimer = null;
+				}
+			}
+
+			function hideLoading() {
+				if (loading && loading.parentNode) {
+					loading.parentNode.removeChild(loading);
+				}
+			}
+
+			function trySource(index) {
+				clearSourceTimer();
+				if (index >= urls.length) {
+					renderVideoFallback(item);
+					return;
+				}
+				current = index;
+				vid.src = urls[index];
+				vid.load();
+				sourceTimer = window.setTimeout(function () {
+					trySource(current + 1);
+				}, 9000);
+			}
+
+			vid.onloadedmetadata = function () {
+				clearSourceTimer();
+				hideLoading();
+			};
+			vid.oncanplay = function () {
+				clearSourceTimer();
+				hideLoading();
+			};
+			vid.onerror = function () {
+				trySource(current + 1);
+			};
+
+			trySource(0);
+		}
+
 		function buildPreviewUrl(item) {
 			if (item && item.driveFileId && item.mediaType === 'image') {
 				return driveImgUrl(item.driveFileId, 600);
@@ -881,6 +976,13 @@
 			}
 
 			if (type.indexOf('video/') === 0) {
+				if (Number(file.size || 0) > 30 * 1024 * 1024) {
+					inputMediaYincana.value = '';
+					mediaSummary.textContent = 'Ese video pesa mas de 30 MB. Reduce calidad o duracion para que cargue rapido.';
+					mediaSummary.className = 'media-summary';
+					showToast('Video demasiado pesado para una carga fluida');
+					return;
+				}
 				var duration = await getVideoDuration(file);
 				if (duration > 45) {
 					inputMediaYincana.value = '';
@@ -964,22 +1066,9 @@
 			if (item.mediaUrl) {
 				detailUrl = '';
 				if (item.mediaType === 'video' && item.driveFileId) {
-					var vid = document.createElement('video');
-					vid.controls = true;
-					vid.setAttribute('playsinline', '');
-					vid.preload = 'metadata';
-					vid.src = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(item.driveFileId) + '&export=download&confirm=t';
-					vid.onerror = function () {
-						var fallback = document.createElement('div');
-						fallback.className = 'video-fallback';
-						fallback.innerHTML = '<p>No se puede reproducir aquí.</p><a href="https://drive.google.com/file/d/' + encodeURIComponent(item.driveFileId) + '/view" target="_blank" rel="noopener" class="btn-principal">Ver video en navegador</a>';
-						detalleMedia.innerHTML = '';
-						detalleMedia.appendChild(fallback);
-					};
-					detalleMedia.innerHTML = '';
-					detalleMedia.appendChild(vid);
+					mountVideoWithFallback(item);
 				} else if (item.mediaType === 'video') {
-					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(item.mediaUrl) + '"></video>';
+					mountVideoWithFallback(item);
 				} else {
 					var imgSrc = item.driveFileId ? driveImgUrl(item.driveFileId, 1200) : escHtml(item.mediaUrl);
 					detalleMedia.innerHTML = '<img src="' + imgSrc + '" alt="Imagen de la yincana" />';

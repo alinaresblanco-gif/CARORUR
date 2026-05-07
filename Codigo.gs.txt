@@ -199,6 +199,12 @@ function doPost(e) {
 
       const file = folder.createFile(blob);
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      try {
+        if (typeof file.setSecurityUpdateEnabled === 'function') {
+          file.setSecurityUpdateEnabled(false);
+        }
+      } catch (e) {
+      }
 
       return jsonOut({
         ok: true,
