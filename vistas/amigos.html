@@ -418,71 +418,84 @@
 
 		// ---- Cargar desde la nube ----
 		function loadAmigosCloud() {
-			fetch(APPS_SCRIPT_URL + '?action=getAmigos')
-				.then(function (r) { return r.json(); })
-				.then(function (data) {
+			var xhr = new XMLHttpRequest();
+			xhr.open('GET', APPS_SCRIPT_URL + '?action=getAmigos', true);
+			xhr.onload = function () {
+				try {
+					var data = JSON.parse(xhr.responseText);
 					if (data.ok && Array.isArray(data.miembros)) {
 						miembros = data.miembros;
 						renderMiembros();
 					}
-				})
-				.catch(function () {});
+				} catch (e) {}
+			};
+			xhr.onerror = function () {};
+			xhr.send();
 		}
 
 		// ---- Subir imagen a Drive ----
 		function uploadImage(base64Full, mimeType, callback) {
 			var base64Data = base64Full.split(',')[1] || base64Full;
-			fetch(APPS_SCRIPT_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					action: 'uploadImage',
-					data: base64Data,
-					mimeType: mimeType || 'image/jpeg',
-					name: 'amigo_' + Date.now() + '.jpg'
-				})
-			})
-			.then(function (r) { return r.json(); })
-			.then(function (data) {
-				if (data.ok) {
-					callback(null, data.file_id, data.url);
-				} else {
-					callback(data.error || 'Error subiendo imagen');
+			var xhr = new XMLHttpRequest();
+			xhr.open('POST', APPS_SCRIPT_URL, true);
+			xhr.setRequestHeader('Content-Type', 'application/json');
+			xhr.onload = function () {
+				try {
+					var data = JSON.parse(xhr.responseText);
+					if (data.ok) {
+						callback(null, data.file_id, data.url);
+					} else {
+						callback(data.error || 'Error subiendo imagen');
+					}
+				} catch (e) {
+					callback('Respuesta inválida del servidor');
 				}
-			})
-			.catch(function (err) { callback(String(err)); });
+			};
+			xhr.onerror = function () { callback('Error de red al subir imagen'); };
+			xhr.send(JSON.stringify({
+				action: 'uploadImage',
+				data: base64Data,
+				mimeType: mimeType || 'image/jpeg',
+				name: 'amigo_' + Date.now() + '.jpg'
+			}));
 		}
 
 		// ---- Guardar miembro en la nube ----
 		function saveMiembroCloud(miembro, callback) {
-			fetch(APPS_SCRIPT_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'saveAmigo', row: miembro })
-			})
-			.then(function (r) { return r.json(); })
-			.then(function (data) {
-				if (data.ok) {
-					callback(null, data.miembro);
-				} else {
-					callback(data.error || 'Error guardando miembro');
+			var xhr = new XMLHttpRequest();
+			xhr.open('POST', APPS_SCRIPT_URL, true);
+			xhr.setRequestHeader('Content-Type', 'application/json');
+			xhr.onload = function () {
+				try {
+					var data = JSON.parse(xhr.responseText);
+					if (data.ok) {
+						callback(null, data.miembro);
+					} else {
+						callback(data.error || 'Error guardando miembro');
+					}
+				} catch (e) {
+					callback('Respuesta inválida del servidor');
 				}
-			})
-			.catch(function (err) { callback(String(err)); });
+			};
+			xhr.onerror = function () { callback('Error de red al guardar'); };
+			xhr.send(JSON.stringify({ action: 'saveAmigo', row: miembro }));
 		}
 
 		// ---- Eliminar miembro en la nube ----
 		function deleteMiembroCloud(idMiembro, callback) {
-			fetch(APPS_SCRIPT_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'deleteAmigo', id_miembro: idMiembro })
-			})
-			.then(function (r) { return r.json(); })
-			.then(function (data) {
-				callback(data.ok ? null : (data.error || 'Error eliminando'));
-			})
-			.catch(function (err) { callback(String(err)); });
+			var xhr = new XMLHttpRequest();
+			xhr.open('POST', APPS_SCRIPT_URL, true);
+			xhr.setRequestHeader('Content-Type', 'application/json');
+			xhr.onload = function () {
+				try {
+					var data = JSON.parse(xhr.responseText);
+					callback(data.ok ? null : (data.error || 'Error eliminando'));
+				} catch (e) {
+					callback('Respuesta inválida del servidor');
+				}
+			};
+			xhr.onerror = function () { callback('Error de red al eliminar'); };
+			xhr.send(JSON.stringify({ action: 'deleteAmigo', id_miembro: idMiembro }));
 		}
 
 		// ---- Modal ----
