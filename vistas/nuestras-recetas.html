@@ -455,7 +455,8 @@
 
 	<script>
 	(function () {
-		var STORAGE_KEY = 'carorur_recetas_local_v1';
+		var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_stt-k-oUdVUrEBiQbWmblrqdYnarv8HxYjouimPo7V3mDtKBNfcoO1wTyCOKqm69/exec';
+		var DRIVE_FOLDER_ID = '1Mz96pgbkiTVM3AWQ_uBTrsdZv2H-MwRe';
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
 		var btnNuevaReceta = document.getElementById('btnNuevaReceta');
 		var inputBuscarReceta = document.getElementById('inputBuscarReceta');
@@ -480,7 +481,9 @@
 		var recetas = [];
 		var recetaActivaId = '';
 		var editandoRecetaId = '';
-		var imagenTemporalDataUrl = '';
+		var imagenTemporalUrl = '';
+		var imagenTemporalFile = null;
+		var isSaving = false;
 		if (!btnVolverCabecera) return;
 
 		function uid() {
@@ -512,6 +515,15 @@
 				.trim();
 		}
 
+		function currentUserName() {
+			try {
+				var saved = localStorage.getItem('carorur_user_name');
+				if (saved) return String(saved).trim() || 'integrante';
+			} catch (e) {
+			}
+			return 'integrante';
+		}
+
 		function humanDate(value) {
 			var date = new Date(value || Date.now());
 			return date.toLocaleDateString('es-ES', {
@@ -531,6 +543,84 @@
 				.filter(function (item) { return !!item; });
 		}
 
+		function postAppsScript(payload) {
+			return fetch(APPS_SCRIPT_URL, {
+				method: 'POST',
+				mode: 'cors',
+				cache: 'no-store',
+				headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+				body: JSON.stringify(payload)
+			}).then(function (response) {
+				return response.json();
+			}).then(function (data) {
+				if (!data || !data.ok) {
+					throw new Error((data && data.error) || 'Error de sincronizacion');
+				}
+				return data;
+			});
+		}
+
+		function driveImgUrl(fileId, size) {
+			return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w' + (size || 900);
+		}
+
+		function buildImageUrl(item, size) {
+			if (item && item.driveFileId) return driveImgUrl(item.driveFileId, size || 900);
+			if (item && item.imagenUrl) return item.imagenUrl;
+			return '../imagenes/rustica-vista.svg';
+		}
+
+		function fileToBase64(file) {
+			return new Promise(function (resolve, reject) {
+				if (!file) {
+					reject(new Error('Archivo no valido'));
+					return;
+				}
+				var reader = new FileReader();
+				reader.onload = function () {
+					var result = String(reader.result || '');
+					var commaIndex = result.indexOf(',');
+					if (commaIndex === -1) {
+						reject(new Error('No se pudo convertir archivo a base64'));
+						return;
+					}
+					resolve(result.slice(commaIndex + 1));
+				};
+				reader.onerror = function () {
+					reject(new Error('Error leyendo archivo'));
+				};
+				reader.readAsDataURL(file);
+			});
+		}
+
+		function loadRecetasCloud() {
+			var url = APPS_SCRIPT_URL + '?action=getRecetas&_ts=' + Date.now();
+			return fetch(url, { cache: 'no-store' })
+				.then(function (response) { return response.json(); })
+				.then(function (data) {
+					if (!data || !data.ok) {
+						throw new Error((data && data.error) || 'No se pudieron cargar recetas');
+					}
+
+					var rows = Array.isArray(data.recetas) ? data.recetas : [];
+					recetas = rows.map(function (row) {
+						return {
+							id: String(row.id_receta || ''),
+							nombre: String(row.nombre || ''),
+							ingredientesTexto: String(row.ingredientes_texto || ''),
+							elaboracion: String(row.elaboracion || ''),
+							imagenUrl: String(row.imagen_url || ''),
+							driveFileId: String(row.drive_file_id || ''),
+							usuario: String(row.usuario || 'integrante'),
+							createdAt: String(row.creada_en || ''),
+							updatedAt: String(row.actualizada_en || '')
+						};
+					}).filter(function (item) {
+						return !!item.id;
+					});
+				});
+		}
+
 		function iconoIngrediente(nombre) {
 			var n = normalizeText(nombre);
 			if (/tomate|pimiento|zanahoria|cebolla|lechuga|ajo|patata/.test(n)) return '🥕';
@@ -542,28 +632,6 @@
 			if (/aceite|vinagre|sal|pimienta|pimenton|comino|oregano/.test(n)) return '🧂';
 			if (/limon|naranja|manzana|fruta/.test(n)) return '🍋';
 			return '🍽️';
-		}
-
-		function saveRecetasLocal() {
-			try {
-				localStorage.setItem(STORAGE_KEY, JSON.stringify(recetas));
-			} catch (e) {
-				showToast('No se pudo guardar en este dispositivo');
-			}
-		}
-
-		function loadRecetasLocal() {
-			try {
-				var raw = localStorage.getItem(STORAGE_KEY);
-				var arr = raw ? JSON.parse(raw) : [];
-				recetas = Array.isArray(arr) ? arr : [];
-			} catch (e) {
-				recetas = [];
-			}
-
-			recetas.sort(function (a, b) {
-				return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
-			});
 		}
 
 		function filtrarRecetas() {
@@ -589,7 +657,7 @@
 				card.className = 'receta-card';
 				var ingredientes = parseIngredientes(item.ingredientesTexto).slice(0, 3).join(' · ');
 				card.innerHTML = [
-					'<div class="receta-thumb"><img src="' + escHtml(item.imagenDataUrl || '../imagenes/rustica-vista.svg') + '" alt="Imagen de receta" /></div>',
+					'<div class="receta-thumb"><img src="' + escHtml(buildImageUrl(item, 700)) + '" alt="Imagen de receta" /></div>',
 					'<div class="receta-meta">' + escHtml(humanDate(item.updatedAt || item.createdAt)) + '</div>',
 					'<h2>' + escHtml(item.nombre || 'Receta') + '</h2>',
 					'<p class="receta-desc">' + escHtml(ingredientes || 'Sin ingredientes') + '</p>',
@@ -619,7 +687,8 @@
 
 		function resetCreateForm() {
 			editandoRecetaId = '';
-			imagenTemporalDataUrl = '';
+			imagenTemporalUrl = '';
+			imagenTemporalFile = null;
 			inputImagenReceta.value = '';
 			inputNombreReceta.value = '';
 			inputIngredientesReceta.value = '';
@@ -635,12 +704,12 @@
 				var receta = recetas.find(function (r) { return r.id === id; });
 				if (receta) {
 					editandoRecetaId = id;
-					imagenTemporalDataUrl = receta.imagenDataUrl || '';
+					imagenTemporalUrl = buildImageUrl(receta, 1200);
 					inputNombreReceta.value = receta.nombre || '';
 					inputIngredientesReceta.value = receta.ingredientesTexto || '';
 					inputElaboracionReceta.value = receta.elaboracion || '';
-					if (imagenTemporalDataUrl) {
-						previewImagenReceta.src = imagenTemporalDataUrl;
+					if (imagenTemporalUrl) {
+						previewImagenReceta.src = imagenTemporalUrl;
 						previewImagenReceta.hidden = false;
 					}
 					tituloModalReceta.textContent = 'EDITAR RECETA';
@@ -658,7 +727,7 @@
 			if (!receta) return;
 			recetaActivaId = id;
 
-			detalleMediaReceta.innerHTML = '<img src="' + escHtml(receta.imagenDataUrl || '../imagenes/rustica-vista.svg') + '" alt="Imagen de la receta" />';
+			detalleMediaReceta.innerHTML = '<img src="' + escHtml(buildImageUrl(receta, 1200)) + '" alt="Imagen de la receta" />';
 			detalleIngredientesReceta.innerHTML = '';
 
 			parseIngredientes(receta.ingredientesTexto).forEach(function (ingrediente) {
@@ -676,23 +745,19 @@
 			modalDetalleReceta.hidden = true;
 		}
 
-		function fileToDataUrl(file) {
-			return new Promise(function (resolve, reject) {
-				var reader = new FileReader();
-				reader.onload = function () {
-					resolve(String(reader.result || ''));
-				};
-				reader.onerror = function () {
-					reject(new Error('No se pudo leer la imagen'));
-				};
-				reader.readAsDataURL(file);
-			});
+		function setSaving(flag) {
+			isSaving = !!flag;
+			btnGuardarReceta.disabled = isSaving;
+			btnCancelarReceta.disabled = isSaving;
+			btnNuevaReceta.disabled = isSaving;
 		}
 
 		async function saveReceta() {
+			if (isSaving) return;
 			var nombre = String(inputNombreReceta.value || '').trim();
 			var ingredientesTexto = String(inputIngredientesReceta.value || '').trim();
 			var elaboracion = String(inputElaboracionReceta.value || '').trim();
+			var recetaActual = editandoRecetaId ? recetas.find(function (r) { return r.id === editandoRecetaId; }) : null;
 
 			if (!nombre) {
 				showToast('Escribe el nombre de la receta');
@@ -709,55 +774,72 @@
 				inputElaboracionReceta.focus();
 				return;
 			}
-			if (!imagenTemporalDataUrl && !editandoRecetaId) {
+			if (!imagenTemporalFile && !recetaActual) {
 				showToast('Selecciona una imagen para la receta');
 				return;
 			}
 
-			var nowIso = new Date().toISOString();
-			if (editandoRecetaId) {
-				recetas = recetas.map(function (item) {
-					if (item.id !== editandoRecetaId) return item;
-					return {
-						id: item.id,
-						nombre: nombre,
-						ingredientesTexto: ingredientesTexto,
-						elaboracion: elaboracion,
-						imagenDataUrl: imagenTemporalDataUrl || item.imagenDataUrl || '',
-						createdAt: item.createdAt || nowIso,
-						updatedAt: nowIso
-					};
-				});
-				showToast('Receta actualizada');
-			} else {
-				recetas.unshift({
-					id: uid(),
-					nombre: nombre,
-					ingredientesTexto: ingredientesTexto,
-					elaboracion: elaboracion,
-					imagenDataUrl: imagenTemporalDataUrl,
-					createdAt: nowIso,
-					updatedAt: nowIso
-				});
-				showToast('Receta guardada');
-			}
+			setSaving(true);
+			try {
+				var idReceta = recetaActual ? recetaActual.id : uid();
+				var imagenUrl = recetaActual ? (recetaActual.imagenUrl || '') : '';
+				var driveFileId = recetaActual ? (recetaActual.driveFileId || '') : '';
 
-			saveRecetasLocal();
-			closeCreateModal();
-			renderCards();
+				if (imagenTemporalFile) {
+					var mediaBase64 = await fileToBase64(imagenTemporalFile);
+					var uploadResult = await postAppsScript({
+						action: 'uploadImage',
+						data: mediaBase64,
+						mimeType: imagenTemporalFile.type || 'application/octet-stream',
+						name: imagenTemporalFile.name || ('receta_' + Date.now() + '.jpg'),
+						folderId: DRIVE_FOLDER_ID
+					});
+					imagenUrl = String(uploadResult.url || '');
+					driveFileId = String(uploadResult.file_id || '');
+				}
+
+				await postAppsScript({
+					action: 'saveReceta',
+					row: {
+						id_receta: idReceta,
+						nombre: nombre,
+						ingredientes_texto: ingredientesTexto,
+						elaboracion: elaboracion,
+						imagen_url: imagenUrl,
+						drive_file_id: driveFileId,
+						usuario: currentUserName(),
+						compartida: true,
+						deleted: false
+					}
+				});
+
+				await loadRecetasCloud();
+				renderCards();
+				closeCreateModal();
+				showToast(recetaActual ? 'Receta actualizada' : 'Receta guardada');
+			} catch (err) {
+				showToast('No se pudo guardar: ' + String(err && err.message ? err.message : err));
+			} finally {
+				setSaving(false);
+			}
 		}
 
-		function deleteReceta(id) {
+		async function deleteReceta(id) {
 			var receta = recetas.find(function (r) { return r.id === id; });
 			if (!receta) return;
 
 			var ok = window.confirm('Quieres borrar la receta "' + String(receta.nombre || '') + '"?');
 			if (!ok) return;
 
-			recetas = recetas.filter(function (item) { return item.id !== id; });
-			saveRecetasLocal();
-			renderCards();
-			showToast('Receta borrada');
+			try {
+				await postAppsScript({ action: 'deleteReceta', id_receta: id });
+				await loadRecetasCloud();
+				renderCards();
+				if (recetaActivaId === id) closeDetailModal();
+				showToast('Receta borrada');
+			} catch (err) {
+				showToast('No se pudo borrar: ' + String(err && err.message ? err.message : err));
+			}
 		}
 
 		btnVolverCabecera.addEventListener('click', function (e) {
@@ -796,18 +878,20 @@
 			if (String(file.type || '').indexOf('image/') !== 0) {
 				showToast('Selecciona una imagen valida');
 				inputImagenReceta.value = '';
+				imagenTemporalFile = null;
+				return;
+			}
+			if (Number(file.size || 0) > 8 * 1024 * 1024) {
+				showToast('La imagen no puede superar 8 MB');
+				inputImagenReceta.value = '';
+				imagenTemporalFile = null;
 				return;
 			}
 
-			fileToDataUrl(file)
-				.then(function (dataUrl) {
-					imagenTemporalDataUrl = dataUrl;
-					previewImagenReceta.src = dataUrl;
-					previewImagenReceta.hidden = false;
-				})
-				.catch(function () {
-					showToast('No se pudo cargar la imagen');
-				});
+			imagenTemporalFile = file;
+			imagenTemporalUrl = URL.createObjectURL(file);
+			previewImagenReceta.src = imagenTemporalUrl;
+			previewImagenReceta.hidden = false;
 		});
 
 		modalNuevaReceta.addEventListener('click', function (event) {
@@ -818,8 +902,11 @@
 			if (event.target === modalDetalleReceta) closeDetailModal();
 		});
 
-		loadRecetasLocal();
-		renderCards();
+		loadRecetasCloud()
+			.then(renderCards)
+			.catch(function (err) {
+				showToast('No se pudieron cargar recetas: ' + String(err && err.message ? err.message : err));
+			});
 	})();
 	</script>
 </body>

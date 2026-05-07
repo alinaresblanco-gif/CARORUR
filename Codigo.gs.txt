@@ -104,6 +104,21 @@ const YINCANAS_HEADERS = [
   'compartida'
 ];
 
+const NUESTRAS_RECETAS_SHEET_NAME = 'nuestras_recetas';
+const NUESTRAS_RECETAS_HEADERS = [
+  'id_receta',
+  'nombre',
+  'ingredientes_texto',
+  'elaboracion',
+  'imagen_url',
+  'drive_file_id',
+  'usuario',
+  'creada_en',
+  'actualizada_en',
+  'compartida',
+  'deleted'
+];
+
 
 function doGet(e) {
   try {
@@ -148,6 +163,10 @@ function doGet(e) {
 
     if (action === 'getYincanas') {
       return jsonOut({ ok: true, yincanas: getYincanasRows() });
+    }
+
+    if (action === 'getNuestrasRecetas' || action === 'getRecetas') {
+      return jsonOut({ ok: true, recetas: getNuestrasRecetasRows() });
     }
 
     if (action === 'getYincanaMedia') {
@@ -377,6 +396,21 @@ function doPost(e) {
         }
         const removed = deleteYincanaRow(idYincana);
         return jsonOut({ ok: true, action: 'deleteYincana', id_yincana: idYincana, removed_rows: removed });
+      }
+
+      if (action === 'saveNuestrasReceta' || action === 'saveReceta') {
+        const row = payload.row || payload.receta || payload;
+        const saved = saveNuestrasRecetaRow(row);
+        return jsonOut({ ok: true, action: 'saveNuestrasReceta', receta: saved });
+      }
+
+      if (action === 'deleteNuestrasReceta' || action === 'deleteReceta') {
+        const idReceta = safeStr(payload.id_receta || payload.id || payload.idReceta);
+        if (!idReceta) {
+          return jsonOut({ ok: false, error: 'Falta id_receta' });
+        }
+        const removed = deleteNuestrasRecetaRow(idReceta);
+        return jsonOut({ ok: true, action: 'deleteNuestrasReceta', id_receta: idReceta, removed_rows: removed });
       }
 
       return jsonOut({ ok: false, error: 'Accion POST no soportada' });
@@ -1319,6 +1353,127 @@ function deleteYincanaRow(idYincana) {
   return removed;
 }
 
+function getNuestrasRecetasRows() {
+  var sheet = getNuestrasRecetasSheetReady();
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    var idReceta = safeStr(r[0]);
+    if (!idReceta) continue;
+
+    var item = {
+      id_receta: idReceta,
+      nombre: safeStr(r[1]),
+      ingredientes_texto: safeStr(r[2]),
+      elaboracion: safeStr(r[3]),
+      imagen_url: safeStr(r[4]),
+      drive_file_id: safeStr(r[5]),
+      usuario: safeStr(r[6]),
+      creada_en: safeStr(r[7]),
+      actualizada_en: safeStr(r[8]),
+      compartida: toBool(r[9]),
+      deleted: toBool(r[10])
+    };
+
+    if (!item.compartida || item.deleted) continue;
+    out.push(item);
+  }
+
+  out.sort(function (a, b) {
+    var ta = new Date(a.actualizada_en || a.creada_en || 0).getTime() || 0;
+    var tb = new Date(b.actualizada_en || b.creada_en || 0).getTime() || 0;
+    return tb - ta;
+  });
+
+  return out;
+}
+
+function saveNuestrasRecetaRow(row) {
+  var sheet = getNuestrasRecetasSheetReady();
+  var idReceta = safeStr(row && row.id_receta) || ('REC_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+  var nombre = safeStr(row && row.nombre);
+  if (!nombre) {
+    throw new Error('Falta nombre');
+  }
+
+  var nowIso = new Date().toISOString();
+  var values = sheet.getDataRange().getValues();
+  var existingIdx = -1;
+  var createdAt = safeStr(row && row.creada_en) || nowIso;
+
+  for (var i = 1; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idReceta) {
+      existingIdx = i;
+      createdAt = safeStr(values[i][7]) || createdAt;
+      break;
+    }
+  }
+
+  var dataRow = [
+    idReceta,
+    nombre,
+    safeStr(row && row.ingredientes_texto),
+    safeStr(row && row.elaboracion),
+    safeStr(row && row.imagen_url),
+    safeStr(row && row.drive_file_id),
+    safeStr(row && row.usuario) || 'anonimo',
+    createdAt,
+    nowIso,
+    row && row.compartida !== undefined ? (toBool(row.compartida) ? true : false) : true,
+    row && row.deleted !== undefined ? (toBool(row.deleted) ? true : false) : false
+  ];
+
+  if (existingIdx >= 0) {
+    sheet.getRange(existingIdx + 1, 1, 1, NUESTRAS_RECETAS_HEADERS.length).setValues([dataRow]);
+  } else {
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, NUESTRAS_RECETAS_HEADERS.length).setValues([dataRow]);
+  }
+
+  return {
+    id_receta: dataRow[0],
+    nombre: dataRow[1],
+    ingredientes_texto: dataRow[2],
+    elaboracion: dataRow[3],
+    imagen_url: dataRow[4],
+    drive_file_id: dataRow[5],
+    usuario: dataRow[6],
+    creada_en: dataRow[7],
+    actualizada_en: dataRow[8],
+    compartida: dataRow[9],
+    deleted: dataRow[10]
+  };
+}
+
+function deleteNuestrasRecetaRow(idReceta) {
+  var sheet = getNuestrasRecetasSheetReady();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  var values = sheet.getRange(2, 1, lastRow - 1, NUESTRAS_RECETAS_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) !== idReceta) continue;
+
+    var rowNumber = i + 2;
+    var fileId = safeStr(values[i][5]);
+    sheet.getRange(rowNumber, 9).setValue(new Date().toISOString());
+    sheet.getRange(rowNumber, 10).setValue(false);
+    sheet.getRange(rowNumber, 11).setValue(true);
+
+    if (fileId) {
+      try {
+        DriveApp.getFileById(fileId).setTrashed(true);
+      } catch (e) {
+      }
+    }
+    return 1;
+  }
+
+  return 0;
+}
+
 function getPlaylistsSheetReady() {
   var ss = getSpreadsheetReady();
   var sheet = ss.getSheetByName(PLAYLISTS_SHEET_NAME);
@@ -1399,6 +1554,26 @@ function getYincanasSheetReady() {
 
   if (needsHeader) {
     headerRange.setValues([YINCANAS_HEADERS]);
+  }
+
+  return sheet;
+}
+
+function getNuestrasRecetasSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(NUESTRAS_RECETAS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(NUESTRAS_RECETAS_SHEET_NAME);
+  }
+
+  var headerRange = sheet.getRange(1, 1, 1, NUESTRAS_RECETAS_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var needsHeader = NUESTRAS_RECETAS_HEADERS.some(function (h, i) {
+    return currentHeaders[i] !== h;
+  });
+
+  if (needsHeader) {
+    headerRange.setValues([NUESTRAS_RECETAS_HEADERS]);
   }
 
   return sheet;
