@@ -8,6 +8,274 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="vistas.css" />
+	<style>
+		:root {
+			--amigo-papel:       #f8edd2;
+			--amigo-papel-suave: #fff7e7;
+			--amigo-borde:       rgba(112, 76, 40, 0.25);
+			--amigo-tinta:       #432913;
+			--amigo-marron:      #8b5d2f;
+			--amigo-sombra:      0 14px 26px rgba(57, 35, 16, 0.18);
+		}
+
+		.vista-contenido {
+			display: flex;
+			flex-direction: column;
+			gap: 0.6rem;
+			padding: 0.6rem !important;
+			overflow-y: auto !important;
+			overflow-x: hidden;
+		}
+
+		/* ---- SECCIÓN FIJA ---- */
+		.amigos-fixed {
+			position: sticky;
+			top: 0;
+			z-index: 14;
+			padding-bottom: 0.2rem;
+			background: linear-gradient(180deg, rgba(232, 210, 170, 0.96), rgba(232, 210, 170, 0.55) 82%, transparent);
+		}
+
+		.amigos-intro {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.6rem;
+			flex-wrap: wrap;
+			border: 1px solid var(--amigo-borde);
+			border-radius: 18px;
+			padding: 0.8rem 0.9rem;
+			background: linear-gradient(145deg, var(--amigo-papel-suave), var(--amigo-papel));
+			box-shadow: var(--amigo-sombra);
+		}
+
+		.amigos-intro p {
+			margin: 0;
+			font-size: 0.95rem;
+			line-height: 1.4;
+			color: var(--amigo-tinta);
+		}
+
+		/* ---- BOTONES ---- */
+		.btn-nuevo-miembro,
+		.btn-principal,
+		.btn-secundario,
+		.btn-peligro {
+			border: 0;
+			border-radius: 999px;
+			padding: 0.58rem 0.9rem;
+			font-family: 'Special Elite', serif;
+			font-size: 0.78rem;
+			cursor: pointer;
+			transition: transform 0.16s ease, opacity 0.16s ease;
+			white-space: nowrap;
+		}
+
+		.btn-nuevo-miembro,
+		.btn-principal {
+			background: linear-gradient(135deg, #7a4d27, #a87438);
+			color: #fff8ec;
+		}
+
+		.btn-secundario {
+			background: #efe1c1;
+			color: #5f3b1d;
+			border: 1px solid rgba(96, 58, 27, 0.22);
+		}
+
+		.btn-peligro {
+			background: #f5e8dd;
+			color: #853822;
+			border: 1px solid rgba(133, 56, 34, 0.26);
+		}
+
+		.btn-nuevo-miembro:hover,
+		.btn-principal:hover,
+		.btn-secundario:hover,
+		.btn-peligro:hover { transform: translateY(-1px); }
+
+		/* ---- GRID ---- */
+		.amigos-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.5rem;
+			align-items: start;
+		}
+
+		/* ---- TARJETA ---- */
+		.amigo-card {
+			display: grid;
+			gap: 0.45rem;
+			padding: 0.55rem;
+			border-radius: 14px;
+			background: linear-gradient(180deg, #fff9eb, #f4e2bd);
+			border: 1px solid var(--amigo-borde);
+			box-shadow: var(--amigo-sombra);
+			min-width: 0;
+			text-align: center;
+		}
+
+		.amigo-avatar {
+			width: 100%;
+			aspect-ratio: 1 / 1;
+			overflow: hidden;
+			border-radius: 50%;
+			background: linear-gradient(145deg, #ecdbb8, #f8eedc);
+			border: 3px solid rgba(139, 93, 47, 0.3);
+			margin: 0 auto;
+			max-width: 120px;
+		}
+
+		.amigo-avatar img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.amigo-avatar .avatar-placeholder {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 2.4rem;
+			color: var(--amigo-marron);
+		}
+
+		.amigo-nombre {
+			margin: 0;
+			font-family: 'Special Elite', serif;
+			font-size: 0.88rem;
+			color: var(--amigo-tinta);
+			word-break: break-word;
+		}
+
+		.amigo-acciones {
+			display: flex;
+			justify-content: center;
+			gap: 0.3rem;
+			flex-wrap: wrap;
+		}
+
+		/* ---- EMPTY ---- */
+		.amigos-empty {
+			margin-top: 0.3rem;
+			padding: 1.2rem;
+			border-radius: 16px;
+			border: 2px dashed rgba(122, 82, 48, 0.35);
+			background: rgba(255, 248, 235, 0.84);
+			text-align: center;
+			color: var(--amigo-marron);
+			font-size: 0.9rem;
+		}
+
+		/* ---- MODAL ---- */
+		.open-overlay {
+			position: fixed;
+			inset: 0;
+			z-index: 120;
+			background: rgba(35, 20, 10, 0.6);
+			backdrop-filter: blur(5px);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 1rem;
+		}
+
+		.modal-panel {
+			background: linear-gradient(160deg, #fffbf0, #f6e8cb);
+			border: 1px solid var(--amigo-borde);
+			border-radius: 20px;
+			padding: 1.2rem 1rem;
+			width: 100%;
+			max-width: 360px;
+			max-height: 90vh;
+			overflow-y: auto;
+			display: grid;
+			gap: 0.9rem;
+			box-shadow: 0 24px 48px rgba(40, 22, 8, 0.3);
+		}
+
+		.modal-titulo {
+			margin: 0;
+			font-family: 'Special Elite', serif;
+			font-size: 1.1rem;
+			color: var(--amigo-tinta);
+			text-align: center;
+		}
+
+		/* ---- FOTO PREVIEW ---- */
+		.foto-preview-wrap {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 0.6rem;
+		}
+
+		.foto-preview {
+			width: 100px;
+			height: 100px;
+			border-radius: 50%;
+			overflow: hidden;
+			background: linear-gradient(145deg, #ecdbb8, #f8eedc);
+			border: 3px solid rgba(139, 93, 47, 0.3);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.foto-placeholder { font-size: 2.2rem; }
+
+		.foto-preview img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.btn-seleccionar-foto {
+			background: #efe1c1;
+			color: #5f3b1d;
+			border: 1px solid rgba(96, 58, 27, 0.22);
+			border-radius: 999px;
+			padding: 0.5rem 0.9rem;
+			font-family: 'Special Elite', serif;
+			font-size: 0.78rem;
+			cursor: pointer;
+		}
+
+		/* ---- CAMPOS ---- */
+		.campo-grupo {
+			display: grid;
+			gap: 0.3rem;
+		}
+
+		.campo-label {
+			font-size: 0.75rem;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: var(--amigo-marron);
+		}
+
+		.campo-input {
+			width: 100%;
+			padding: 0.65rem 0.75rem;
+			border-radius: 10px;
+			border: 1px solid rgba(113, 74, 37, 0.28);
+			font: inherit;
+			font-size: 0.9rem;
+			background: #fffdf8;
+			color: var(--amigo-tinta);
+			box-sizing: border-box;
+		}
+
+		/* ---- MODAL ACCIONES ---- */
+		.modal-acciones {
+			display: flex;
+			gap: 0.5rem;
+			justify-content: flex-end;
+		}
+	</style>
 </head>
 <body>
 	<div class="vista-app">
@@ -15,39 +283,238 @@
 			<a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio" id="btnVolverCabecera">
 				<img src="../iconos/volver.png" alt="Volver" />
 			</a>
-			<h1>Somos Nosotros</h1>
+			<h1>SOMOS NOSOTROS</h1>
 			<div class="header-espaciador" aria-hidden="true"></div>
 		</header>
 
 		<main class="vista-contenido">
-			<section class="tarjeta-construccion" aria-label="Vista en construccion">
-				<h2>Vista en construccion</h2>
-				<p>Pronto añadiremos contenido rural para esta seccion.</p>
-				<img class="img-rustica" src="../imagenes/rustica-vista.svg" alt="Ilustracion rustica de campo" />
-			</section>
+
+			<!-- Sección fija: intro + botón -->
+			<div class="amigos-fixed">
+				<div class="amigos-intro">
+					<p>🏡 Estos somos los amigos de <strong>CARORUR</strong></p>
+					<button class="btn-nuevo-miembro" id="btnNuevoMiembro">＋ Nuevo miembro</button>
+				</div>
+			</div>
+
+			<!-- Grid de tarjetas -->
+			<div class="amigos-grid" id="amigosGrid">
+				<!-- Las tarjetas se generan por JS -->
+			</div>
+
+			<div class="amigos-empty" id="amigosEmpty" style="display:none;">
+				<p>Todavía no hay miembros. ¡Añade el primero!</p>
+			</div>
+
 		</main>
+	</div>
+
+	<!-- ===== MODAL: NUEVO / EDITAR MIEMBRO ===== -->
+	<div class="open-overlay" id="modalMiembro" role="dialog" aria-modal="true" aria-label="Nuevo miembro" style="display:none;">
+		<div class="modal-panel" id="modalMiembroPanel">
+			<h2 class="modal-titulo" id="modalMiembroTitulo">Nuevo miembro</h2>
+
+			<div class="foto-preview-wrap">
+				<div class="foto-preview" id="fotoPreview">
+					<span class="foto-placeholder">📷</span>
+					<img id="fotoPreviewImg" src="" alt="Vista previa" style="display:none;" />
+				</div>
+				<label class="btn-seleccionar-foto" for="inputFoto">Seleccionar foto</label>
+				<input type="file" id="inputFoto" accept="image/*" style="display:none;" />
+			</div>
+
+			<div class="campo-grupo">
+				<label class="campo-label" for="inputNombre">Nombre</label>
+				<input type="text" id="inputNombre" class="campo-input" placeholder="Nombre del miembro" maxlength="60" autocomplete="off" />
+			</div>
+
+			<div class="modal-acciones">
+				<button class="btn-principal" id="btnGuardarMiembro">Guardar</button>
+				<button class="btn-secundario" id="btnCancelarMiembro">Cancelar</button>
+			</div>
+		</div>
 	</div>
 
 	<script>
 	(function () {
+		// ---- Botón volver ----
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
-		if (!btnVolverCabecera) return;
-
-		btnVolverCabecera.addEventListener('click', function (e) {
-			e.preventDefault();
-			try {
-				if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
-					window.top.carorurCloseVista();
-				} else if (window.top !== window && window.top.postMessage) {
-					window.top.postMessage('carorur:close-vista', '*');
-				} else {
+		if (btnVolverCabecera) {
+			btnVolverCabecera.addEventListener('click', function (e) {
+				e.preventDefault();
+				try {
+					if (window.top !== window && typeof window.top.carorurCloseVista === 'function') {
+						window.top.carorurCloseVista();
+					} else if (window.top !== window && window.top.postMessage) {
+						window.top.postMessage('carorur:close-vista', '*');
+					} else {
+						window.location.href = '../index.html';
+					}
+				} catch (err) {
 					window.location.href = '../index.html';
 				}
-			} catch (err) {
-				window.location.href = '../index.html';
+			});
+		}
+
+		// ---- Estado ----
+		var miembros = [];       // se llenará desde la nube
+		var editandoId = null;   // null = nuevo, string = editar
+		var fotoBase64 = null;   // foto seleccionada localmente
+		var fotoDriveId = null;  // id drive del miembro editado
+
+		// ---- Refs DOM ----
+		var grid       = document.getElementById('amigosGrid');
+		var empty      = document.getElementById('amigosEmpty');
+		var modal      = document.getElementById('modalMiembro');
+		var modalTitulo = document.getElementById('modalMiembroTitulo');
+		var inputNombre = document.getElementById('inputNombre');
+		var inputFoto   = document.getElementById('inputFoto');
+		var fotoPreviewImg = document.getElementById('fotoPreviewImg');
+		var fotoPlaceholder = modal.querySelector('.foto-placeholder');
+
+		// ---- Render ----
+		function driveImgUrl(fileId, size) {
+			return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=' + (size || 'w400');
+		}
+
+		function renderMiembros() {
+			grid.innerHTML = '';
+			var visibles = miembros.filter(function (m) { return !m.deleted; });
+			empty.style.display = visibles.length === 0 ? '' : 'none';
+			visibles.forEach(function (m) {
+				var card = document.createElement('div');
+				card.className = 'amigo-card';
+				card.dataset.id = m.id_miembro;
+
+				var avatarHtml = m.drive_file_id
+					? '<img src="' + driveImgUrl(m.drive_file_id) + '" alt="' + escHtml(m.nombre) + '" loading="lazy" />'
+					: '<div class="avatar-placeholder">👤</div>';
+
+				card.innerHTML =
+					'<div class="amigo-avatar">' + avatarHtml + '</div>' +
+					'<p class="amigo-nombre">' + escHtml(m.nombre) + '</p>' +
+					'<div class="amigo-acciones">' +
+						'<button class="btn-secundario btn-editar" data-id="' + m.id_miembro + '">✏️ Editar</button>' +
+						'<button class="btn-peligro btn-eliminar" data-id="' + m.id_miembro + '">🗑 Eliminar</button>' +
+					'</div>';
+				grid.appendChild(card);
+			});
+		}
+
+		function escHtml(str) {
+			return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+		}
+
+		// ---- Abrir modal ----
+		function abrirModal(miembro) {
+			editandoId    = miembro ? miembro.id_miembro : null;
+			fotoBase64    = null;
+			fotoDriveId   = miembro ? (miembro.drive_file_id || null) : null;
+			modalTitulo.textContent = miembro ? 'Editar miembro' : 'Nuevo miembro';
+			inputNombre.value = miembro ? (miembro.nombre || '') : '';
+			inputFoto.value = '';
+
+			if (fotoDriveId) {
+				fotoPreviewImg.src = driveImgUrl(fotoDriveId, 'w200');
+				fotoPreviewImg.style.display = '';
+				fotoPlaceholder.style.display = 'none';
+			} else {
+				fotoPreviewImg.src = '';
+				fotoPreviewImg.style.display = 'none';
+				fotoPlaceholder.style.display = '';
+			}
+
+			modal.style.display = 'flex';
+			inputNombre.focus();
+		}
+
+		function cerrarModal() {
+			modal.style.display = 'none';
+			editandoId = null;
+			fotoBase64 = null;
+			fotoDriveId = null;
+		}
+
+		// ---- Selección de foto ----
+		inputFoto.addEventListener('change', function () {
+			var file = inputFoto.files[0];
+			if (!file) return;
+			var reader = new FileReader();
+			reader.onload = function (e) {
+				fotoBase64 = e.target.result;
+				fotoPreviewImg.src = fotoBase64;
+				fotoPreviewImg.style.display = '';
+				fotoPlaceholder.style.display = 'none';
+			};
+			reader.readAsDataURL(file);
+		});
+
+		// ---- Guardar (solo interfaz, sin backend aún) ----
+		document.getElementById('btnGuardarMiembro').addEventListener('click', function () {
+			var nombre = inputNombre.value.trim();
+			if (!nombre) { inputNombre.focus(); return; }
+
+			if (editandoId) {
+				// Editar existente
+				var m = miembros.find(function (x) { return x.id_miembro === editandoId; });
+				if (m) {
+					m.nombre = nombre;
+					// Si hay nueva foto local, se mostrará en preview; la subida al Drive se hará con el backend
+					if (fotoBase64) m._fotoBase64Pendiente = fotoBase64;
+				}
+			} else {
+				// Nuevo miembro
+				var nuevo = {
+					id_miembro: 'tmp_' + Date.now(),
+					nombre: nombre,
+					drive_file_id: null,
+					imagen_url: null,
+					_fotoBase64Pendiente: fotoBase64 || null,
+					deleted: false
+				};
+				miembros.push(nuevo);
+			}
+
+			renderMiembros();
+			cerrarModal();
+		});
+
+		document.getElementById('btnCancelarMiembro').addEventListener('click', cerrarModal);
+
+		// Cerrar modal al click fuera
+		modal.addEventListener('click', function (e) {
+			if (e.target === modal) cerrarModal();
+		});
+
+		// ---- Botón nuevo miembro ----
+		document.getElementById('btnNuevoMiembro').addEventListener('click', function () {
+			abrirModal(null);
+		});
+
+		// ---- Delegación en grid (editar / eliminar) ----
+		grid.addEventListener('click', function (e) {
+			var btnEditar   = e.target.closest('.btn-editar');
+			var btnEliminar = e.target.closest('.btn-eliminar');
+			if (btnEditar) {
+				var id = btnEditar.dataset.id;
+				var m = miembros.find(function (x) { return x.id_miembro === id; });
+				if (m) abrirModal(m);
+			} else if (btnEliminar) {
+				var id = btnEliminar.dataset.id;
+				if (confirm('¿Eliminar este miembro?')) {
+					miembros = miembros.filter(function (x) { return x.id_miembro !== id; });
+					renderMiembros();
+				}
 			}
 		});
+
+		// ---- Render inicial ----
+		renderMiembros();
+
 	})();
+	</script>
+</body>
+</html>
 	</script>
 </body>
 </html>
