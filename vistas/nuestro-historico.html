@@ -408,8 +408,9 @@
 
 		var menus = [];
 		var portadaTemporalData = '';
-		var pdfTemporalData = '';
+		var pdfTemporalBlob = null;
 		var pdfTemporalName = '';
+		var pdfBlobUrls = {}; // Almacenar URLs temporales de PDFs por ID de menu
 		if (!btnVolverCabecera) return;
 
 		function uid() {
@@ -471,10 +472,22 @@
 
 		function saveMenusStorage() {
 			try {
-				localStorage.setItem(STORAGE_KEY, JSON.stringify(menus));
+				// Preparar menus para guardar: excluir los Blobs de PDF
+				var menusSave = menus.map(function (m) {
+					return {
+						id: m.id,
+						imagenData: m.imagenData,
+						texto: m.texto,
+						pdfName: m.pdfName,
+						hasPdf: !!m.pdfBlob,
+						createdAt: m.createdAt,
+						updatedAt: m.updatedAt
+					};
+				});
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(menusSave));
 				return true;
 			} catch (err) {
-				showToast('No se pudo guardar. Prueba con un PDF o imagen mas ligeros.');
+				showToast('No se pudo guardar. La imagen es demasiado pesada. Intenta con una mas ligera.');
 				return false;
 			}
 		}
@@ -483,7 +496,17 @@
 			try {
 				var raw = localStorage.getItem(STORAGE_KEY);
 				var parsed = raw ? JSON.parse(raw) : [];
-				menus = Array.isArray(parsed) ? parsed : [];
+				menus = Array.isArray(parsed) ? parsed.map(function (item) {
+					return {
+						id: item.id,
+						imagenData: item.imagenData,
+						texto: item.texto,
+						pdfBlob: null,
+						pdfName: item.pdfName,
+						createdAt: item.createdAt,
+						updatedAt: item.updatedAt
+					};
+				}) : [];
 			} catch (err) {
 				menus = [];
 			}
@@ -519,7 +542,7 @@
 
 		function resetCreateForm() {
 			portadaTemporalData = '';
-			pdfTemporalData = '';
+			pdfTemporalBlob = null;
 			pdfTemporalName = '';
 			inputImagenMenu.value = '';
 			inputTextoMenu.value = '';
@@ -545,9 +568,13 @@
 			detalleMediaMenu.innerHTML = '<img src="' + escHtml(menu.imagenData || IMG_FALLBACK) + '" alt="Imagen del menu" />';
 			detalleTextoMenu.textContent = menu.texto || '';
 
-			if (menu.pdfData && menu.pdfName) {
+			if (menu.pdfBlob && menu.pdfName) {
 				btnDescargarPdfMenu.hidden = false;
-				btnDescargarPdfMenu.href = menu.pdfData;
+				// Crear Blob URL temporal solo cuando se abre el detalle
+				if (!pdfBlobUrls[id]) {
+					pdfBlobUrls[id] = URL.createObjectURL(menu.pdfBlob);
+				}
+				btnDescargarPdfMenu.href = pdfBlobUrls[id];
 				btnDescargarPdfMenu.download = menu.pdfName;
 			} else {
 				btnDescargarPdfMenu.hidden = true;
@@ -558,6 +585,11 @@
 		}
 
 		function closeDetailModal() {
+			// Limpiar Blob URLs para liberar memoria
+			Object.keys(pdfBlobUrls).forEach(function (id) {
+				URL.revokeObjectURL(pdfBlobUrls[id]);
+				delete pdfBlobUrls[id];
+			});
 			modalDetalleMenu.hidden = true;
 		}
 
@@ -573,21 +605,22 @@
 				inputTextoMenu.focus();
 				return;
 			}
-			if (!pdfTemporalData) {
+			if (!pdfTemporalBlob) {
 				showToast('Selecciona un archivo PDF para descargar');
 				return;
 			}
 
 			var now = new Date().toISOString();
-			menus.unshift({
+			var nuevoMenu = {
 				id: uid(),
 				imagenData: portadaTemporalData,
 				texto: texto,
-				pdfData: pdfTemporalData,
+				pdfBlob: pdfTemporalBlob,
 				pdfName: pdfTemporalName || ('menu_' + Date.now() + '.pdf'),
 				createdAt: now,
 				updatedAt: now
-			});
+			};
+			menus.unshift(nuevoMenu);
 
 			if (!saveMenusStorage()) {
 				menus.shift();
@@ -627,8 +660,8 @@
 				inputImagenMenu.value = '';
 				return;
 			}
-			if (Number(file.size || 0) > 3 * 1024 * 1024) {
-				showToast('La imagen no puede superar 3 MB');
+			if (Number(file.size || 0) > 5 * 1024 * 1024) {
+				showToast('La imagen no puede superar 5 MB');
 				inputImagenMenu.value = '';
 				return;
 			}
@@ -652,21 +685,16 @@
 				inputPdfMenu.value = '';
 				return;
 			}
-			if (Number(file.size || 0) > 3 * 1024 * 1024) {
-				showToast('El PDF no puede superar 3 MB');
+			if (Number(file.size || 0) > 8 * 1024 * 1024) {
+				showToast('El PDF no puede superar 8 MB');
 				inputPdfMenu.value = '';
 				return;
 			}
 
-			toDataUrl(file)
-				.then(function (dataUrl) {
-					pdfTemporalData = dataUrl;
-					pdfTemporalName = String(file.name || 'menu.pdf');
-					nombrePdfMenu.textContent = 'PDF seleccionado: ' + pdfTemporalName;
-				})
-				.catch(function () {
-					showToast('No se pudo cargar el PDF');
-				});
+			// Guardar el PDF como Blob en memoria (sin convertir a data URL)
+			pdfTemporalBlob = file;
+			pdfTemporalName = String(file.name || 'menu.pdf');
+			nombrePdfMenu.textContent = 'PDF seleccionado: ' + pdfTemporalName + ' (' + (Math.round(file.size / 1024)) + ' KB)';
 		});
 
 		modalNuevoMenu.addEventListener('click', function (event) {
