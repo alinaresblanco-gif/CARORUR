@@ -385,7 +385,7 @@
 
 	<script>
 	(function () {
-		var STORAGE_KEY = 'carorur_menus_historico_v1';
+		var API_URL = 'https://script.google.com/macros/s/1DuUwG7AeyrblPHzWHvxvPvcZnFowsV46E4LJmEQmxDs/usercopy';
 		var IMG_FALLBACK = '../imagenes/rustica-vista.svg';
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
 		var btnNuevoMenu = document.getElementById('btnNuevoMenu');
@@ -408,9 +408,11 @@
 
 		var menus = [];
 		var portadaTemporalData = '';
+		var portadaTemporalFile = null;
 		var pdfTemporalBlob = null;
 		var pdfTemporalName = '';
 		var pdfBlobUrls = {}; // Almacenar URLs temporales de PDFs por ID de menu
+		var isLoading = false;
 		if (!btnVolverCabecera) return;
 
 		function uid() {
@@ -470,46 +472,104 @@
 			});
 		}
 
-		function saveMenusStorage() {
-			try {
-				// Preparar menus para guardar: excluir los Blobs de PDF
-				var menusSave = menus.map(function (m) {
-					return {
-						id: m.id,
-						imagenData: m.imagenData,
-						texto: m.texto,
-						pdfName: m.pdfName,
-						hasPdf: !!m.pdfBlob,
-						createdAt: m.createdAt,
-						updatedAt: m.updatedAt
-					};
-				});
-				localStorage.setItem(STORAGE_KEY, JSON.stringify(menusSave));
-				return true;
-			} catch (err) {
-				showToast('No se pudo guardar. La imagen es demasiado pesada. Intenta con una mas ligera.');
-				return false;
-			}
+		function apiCall(method, action, payload) {
+			return new Promise(function (resolve, reject) {
+				var fullPayload = Object.assign({ action: action }, payload || {});
+
+				if (method === 'GET') {
+					var queryString = Object.keys(fullPayload)
+						.map(function (key) { return encodeURIComponent(key) + '=' + encodeURIComponent(fullPayload[key]); })
+						.join('&');
+					var url = API_URL + '?' + queryString;
+
+					fetch(url)
+						.then(function (res) { return res.json(); })
+						.then(function (data) {
+							if (data.ok) {
+								resolve(data);
+							} else {
+								reject(new Error(data.error || 'API error'));
+							}
+						})
+						.catch(reject);
+				} else if (method === 'POST') {
+					fetch(API_URL, {
+						method: 'POST',
+						body: JSON.stringify(fullPayload)
+					})
+						.then(function (res) { return res.json(); })
+						.then(function (data) {
+							if (data.ok) {
+								resolve(data);
+							} else {
+								reject(new Error(data.error || 'API error'));
+							}
+						})
+						.catch(reject);
+				} else {
+					reject(new Error('Metodo no soportado: ' + method));
+				}
+			});
 		}
 
-		function loadMenusStorage() {
-			try {
-				var raw = localStorage.getItem(STORAGE_KEY);
-				var parsed = raw ? JSON.parse(raw) : [];
-				menus = Array.isArray(parsed) ? parsed.map(function (item) {
-					return {
-						id: item.id,
-						imagenData: item.imagenData,
-						texto: item.texto,
-						pdfBlob: null,
-						pdfName: item.pdfName,
-						createdAt: item.createdAt,
-						updatedAt: item.updatedAt
-					};
-				}) : [];
-			} catch (err) {
-				menus = [];
-			}
+		function uploadImageToGoogleDrive(file) {
+			return new Promise(function (resolve, reject) {
+				toDataUrl(file)
+					.then(function (dataUrl) {
+						var base64Data = dataUrl.split(',')[1];
+						return apiCall('POST', 'uploadImage', {
+							data: base64Data,
+							mimeType: file.type || 'image/jpeg',
+							name: 'historico_' + Date.now() + '.jpg'
+						});
+					})
+					.then(function (result) {
+						resolve({ file_id: result.file_id, foto_url: result.url });
+					})
+					.catch(reject);
+			});
+		}
+
+		function uploadPdfToGoogleDrive(file) {
+			return new Promise(function (resolve, reject) {
+				var reader = new FileReader();
+				reader.onload = function () {
+					var base64Data = reader.result.split(',')[1];
+					apiCall('POST', 'uploadImage', {
+						data: base64Data,
+						mimeType: 'application/pdf',
+						name: 'menu_' + Date.now() + '.pdf'
+					})
+						.then(function (result) {
+							resolve({ file_id: result.file_id });
+						})
+						.catch(reject);
+				};
+				reader.onerror = function () {
+					reject(new Error('No se pudo leer el PDF'));
+				};
+				reader.readAsDataURL(file);
+			});
+		}
+
+		function loadMenusFromSheets() {
+			isLoading = true;
+			btnNuevoMenu.disabled = true;
+
+			apiCall('GET', 'getNuestroHistorico', {})
+				.then(function (result) {
+					menus = result.menus || [];
+					renderCards();
+				})
+				.catch(function (err) {
+					showToast('Error al cargar menus: ' + (err.message || err));
+					menus = [];
+					renderCards();
+				})
+				.finally(function () {
+					isLoading = false;
+					btnNuevoMenu.disabled = false;
+				});
 		}
 
 		function renderCards() {
@@ -519,21 +579,22 @@
 			menus.forEach(function (item) {
 				var card = document.createElement('article');
 				card.className = 'menu-card';
+				var fotoUrl = item.foto_url || IMG_FALLBACK;
 				card.innerHTML = [
-					'<div class="menu-thumb"><img src="' + escHtml(item.imagenData || IMG_FALLBACK) + '" alt="Portada de menu" /></div>',
-					'<div class="menu-meta">' + escHtml(humanDate(item.updatedAt || item.createdAt)) + '</div>',
+					'<div class="menu-thumb"><img src="' + escHtml(fotoUrl) + '" alt="Portada de menu" /></div>',
+					'<div class="menu-meta">' + escHtml(humanDate(item.updated_at || item.created_at)) + '</div>',
 					'<h2>MENU GUARDADO</h2>',
-					'<p class="menu-texto">' + escHtml(textoResumen(item.texto)) + '</p>',
+					'<p class="menu-texto">' + escHtml(textoResumen(item.texto_largo)) + '</p>',
 					'<div class="card-actions"><button class="btn-abrir-menu" type="button">Abrir menu</button></div>'
 				].join('');
 
 				card.addEventListener('click', function () {
-					openDetail(item.id);
+					openDetail(item.id_menu);
 				});
 
 				card.querySelector('.btn-abrir-menu').addEventListener('click', function (ev) {
 					ev.stopPropagation();
-					openDetail(item.id);
+					openDetail(item.id_menu);
 				});
 
 				menusGrid.appendChild(card);
@@ -542,6 +603,7 @@
 
 		function resetCreateForm() {
 			portadaTemporalData = '';
+			portadaTemporalFile = null;
 			pdfTemporalBlob = null;
 			pdfTemporalName = '';
 			inputImagenMenu.value = '';
@@ -562,20 +624,16 @@
 		}
 
 		function openDetail(id) {
-			var menu = menus.find(function (item) { return item.id === id; });
+			var menu = menus.find(function (item) { return item.id_menu === id; });
 			if (!menu) return;
 
-			detalleMediaMenu.innerHTML = '<img src="' + escHtml(menu.imagenData || IMG_FALLBACK) + '" alt="Imagen del menu" />';
-			detalleTextoMenu.textContent = menu.texto || '';
+			detalleMediaMenu.innerHTML = '<img src="' + escHtml(menu.foto_url || IMG_FALLBACK) + '" alt="Imagen del menu" />';
+			detalleTextoMenu.textContent = menu.texto_largo || '';
 
-			if (menu.pdfBlob && menu.pdfName) {
+			if (menu.pdf_file_id) {
 				btnDescargarPdfMenu.hidden = false;
-				// Crear Blob URL temporal solo cuando se abre el detalle
-				if (!pdfBlobUrls[id]) {
-					pdfBlobUrls[id] = URL.createObjectURL(menu.pdfBlob);
-				}
-				btnDescargarPdfMenu.href = pdfBlobUrls[id];
-				btnDescargarPdfMenu.download = menu.pdfName;
+				btnDescargarPdfMenu.href = 'https://drive.google.com/uc?export=download&id=' + menu.pdf_file_id;
+				btnDescargarPdfMenu.download = menu.nombre_menu + '.pdf';
 			} else {
 				btnDescargarPdfMenu.hidden = true;
 				btnDescargarPdfMenu.href = '#';
@@ -610,26 +668,47 @@
 				return;
 			}
 
-			var now = new Date().toISOString();
-			var nuevoMenu = {
-				id: uid(),
-				imagenData: portadaTemporalData,
-				texto: texto,
-				pdfBlob: pdfTemporalBlob,
-				pdfName: pdfTemporalName || ('menu_' + Date.now() + '.pdf'),
-				createdAt: now,
-				updatedAt: now
-			};
-			menus.unshift(nuevoMenu);
+			btnGuardarMenu.disabled = true;
 
-			if (!saveMenusStorage()) {
-				menus.shift();
-				return;
-			}
+			var fotoUploadPromise, pdfUploadPromise;
 
-			renderCards();
-			closeCreateModal();
-			showToast('Menu guardado correctamente');
+			// Subir imagen
+			fotoUploadPromise = uploadImageToGoogleDrive(portadaTemporalFile);
+
+			// Subir PDF
+			pdfUploadPromise = uploadPdfToGoogleDrive(pdfTemporalBlob);
+
+			Promise.all([fotoUploadPromise, pdfUploadPromise])
+				.then(function (results) {
+					var fotoResult = results[0];
+					var pdfResult = results[1];
+
+					var newMenu = {
+						id_menu: uid(),
+						nombre_menu: 'MENU GUARDADO',
+						texto_largo: texto,
+						foto_file_id: fotoResult.file_id,
+						foto_url: fotoResult.foto_url,
+						pdf_file_id: pdfResult.file_id,
+						created_at: new Date().toISOString(),
+						updated_at: new Date().toISOString(),
+						deleted: false,
+						orden: menus.length + 1
+					};
+
+					return apiCall('POST', 'saveNuestroHistoricoMenu', { row: newMenu });
+				})
+				.then(function (result) {
+					loadMenusFromSheets();
+					closeCreateModal();
+					showToast('Menu guardado correctamente');
+				})
+				.catch(function (err) {
+					showToast('Error al guardar: ' + (err.message || err));
+				})
+				.finally(function () {
+					btnGuardarMenu.disabled = false;
+				});
 		}
 
 		btnVolverCabecera.addEventListener('click', function (e) {
@@ -666,6 +745,7 @@
 				return;
 			}
 
+			portadaTemporalFile = file;
 			toDataUrl(file)
 				.then(function (dataUrl) {
 					portadaTemporalData = dataUrl;
@@ -705,8 +785,7 @@
 			if (event.target === modalDetalleMenu) closeDetailModal();
 		});
 
-		loadMenusStorage();
-		renderCards();
+		loadMenusFromSheets();
 	})();
 	</script>
 </body>

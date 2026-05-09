@@ -130,6 +130,20 @@ const AMIGOS_HEADERS = [
   'deleted'
 ];
 
+const NUESTRO_HISTORICO_SHEET_NAME = 'nuestro_historico';
+const NUESTRO_HISTORICO_HEADERS = [
+  'id_menu',
+  'nombre_menu',
+  'texto_largo',
+  'foto_file_id',
+  'foto_url',
+  'pdf_file_id',
+  'created_at',
+  'updated_at',
+  'deleted',
+  'orden'
+];
+
 
 function doGet(e) {
   try {
@@ -182,6 +196,10 @@ function doGet(e) {
 
     if (action === 'getAmigos') {
       return jsonOut({ ok: true, miembros: getAmigosRows() });
+    }
+
+    if (action === 'getNuestroHistorico') {
+      return jsonOut({ ok: true, menus: getNuestroHistoricoRows() });
     }
 
     if (action === 'getYincanaMedia') {
@@ -441,6 +459,21 @@ function doPost(e) {
         }
         const removed = deleteAmigoRow(idMiembro);
         return jsonOut({ ok: true, action: 'deleteAmigo', id_miembro: idMiembro, removed_rows: removed });
+      }
+
+      if (action === 'saveNuestroHistoricoMenu') {
+        const row = payload.row || payload.menu || payload;
+        const saved = saveNuestroHistoricoMenuRow(row);
+        return jsonOut({ ok: true, action: 'saveNuestroHistoricoMenu', menu: saved });
+      }
+
+      if (action === 'deleteNuestroHistoricoMenu') {
+        const idMenu = safeStr(payload.id_menu || payload.id || payload.idMenu);
+        if (!idMenu) {
+          return jsonOut({ ok: false, error: 'Falta id_menu' });
+        }
+        const removed = deleteNuestroHistoricoMenuRow(idMenu);
+        return jsonOut({ ok: true, action: 'deleteNuestroHistoricoMenu', id_menu: idMenu, removed_rows: removed });
       }
 
       return jsonOut({ ok: false, error: 'Accion POST no soportada' });
@@ -1719,4 +1752,132 @@ function deleteAmigoRow(idMiembro) {
   }
   return 0;
 }
+
+function getNuestroHistoricoSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(NUESTRO_HISTORICO_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(NUESTRO_HISTORICO_SHEET_NAME);
+  }
+  var headerRange = sheet.getRange(1, 1, 1, NUESTRO_HISTORICO_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var needsHeader = NUESTRO_HISTORICO_HEADERS.some(function (h, i) { return currentHeaders[i] !== h; });
+  if (needsHeader) {
+    headerRange.setValues([NUESTRO_HISTORICO_HEADERS]);
+  }
+  return sheet;
+}
+
+function getNuestroHistoricoRows() {
+  var sheet = getNuestroHistoricoSheetReady();
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    var idMenu = safeStr(r[0]);
+    if (!idMenu) continue;
+    var item = {
+      id_menu:      idMenu,
+      nombre_menu:  safeStr(r[1]),
+      texto_largo:  safeStr(r[2]),
+      foto_file_id: safeStr(r[3]),
+      foto_url:     safeStr(r[4]),
+      pdf_file_id:  safeStr(r[5]),
+      created_at:   safeStr(r[6]),
+      updated_at:   safeStr(r[7]),
+      deleted:      toBool(r[8]),
+      orden:        Number(r[9] || 0)
+    };
+    if (item.deleted) continue;
+    out.push(item);
+  }
+
+  out.sort(function (a, b) {
+    return (b.orden || 0) - (a.orden || 0);
+  });
+
+  return out;
+}
+
+function saveNuestroHistoricoMenuRow(row) {
+  var sheet = getNuestroHistoricoSheetReady();
+  var idMenu = safeStr(row && row.id_menu) || ('MENU_' + new Date().getTime() + '_' + Math.floor(Math.random() * 100000));
+  var textoLargo = safeStr(row && row.texto_largo);
+  if (!textoLargo) throw new Error('Falta texto_largo');
+
+  var nowIso = new Date().toISOString();
+  var values = sheet.getDataRange().getValues();
+  var existingIdx = -1;
+  var createdAt = safeStr(row && row.created_at) || nowIso;
+
+  for (var i = 1; i < values.length; i++) {
+    if (safeStr(values[i][0]) === idMenu) {
+      existingIdx = i;
+      createdAt = safeStr(values[i][6]) || createdAt;
+      break;
+    }
+  }
+
+  var dataRow = [
+    idMenu,
+    safeStr(row && row.nombre_menu) || 'MENU GUARDADO',
+    textoLargo,
+    safeStr(row && row.foto_file_id),
+    safeStr(row && row.foto_url),
+    safeStr(row && row.pdf_file_id),
+    createdAt,
+    nowIso,
+    row && row.deleted !== undefined ? (toBool(row.deleted) ? true : false) : false,
+    Number(row && row.orden || 0)
+  ];
+
+  if (existingIdx >= 0) {
+    sheet.getRange(existingIdx + 1, 1, 1, NUESTRO_HISTORICO_HEADERS.length).setValues([dataRow]);
+  } else {
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, NUESTRO_HISTORICO_HEADERS.length).setValues([dataRow]);
+  }
+
+  return {
+    id_menu:      dataRow[0],
+    nombre_menu:  dataRow[1],
+    texto_largo:  dataRow[2],
+    foto_file_id: dataRow[3],
+    foto_url:     dataRow[4],
+    pdf_file_id:  dataRow[5],
+    created_at:   dataRow[6],
+    updated_at:   dataRow[7],
+    deleted:      dataRow[8],
+    orden:        dataRow[9]
+  };
+}
+
+function deleteNuestroHistoricoMenuRow(idMenu) {
+  var sheet = getNuestroHistoricoSheetReady();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  var values = sheet.getRange(2, 1, lastRow - 1, NUESTRO_HISTORICO_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (safeStr(values[i][0]) !== idMenu) continue;
+    var rowNumber = i + 2;
+    var fotoFileId = safeStr(values[i][3]);
+    var pdfFileId = safeStr(values[i][5]);
+    
+    sheet.getRange(rowNumber, 8).setValue(new Date().toISOString()); // updated_at
+    sheet.getRange(rowNumber, 9).setValue(true);                     // deleted
+    
+    // Intentar borrar archivos del Drive
+    if (fotoFileId) {
+      try { DriveApp.getFileById(fotoFileId).setTrashed(true); } catch (e) {}
+    }
+    if (pdfFileId) {
+      try { DriveApp.getFileById(pdfFileId).setTrashed(true); } catch (e) {}
+    }
+    return 1;
+  }
+  return 0;
+}
+
 
