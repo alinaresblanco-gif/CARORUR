@@ -3,11 +3,314 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Coleccion De Nuestros Menus</title>
+	<title>NUESTRO HISTORICO</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="vistas.css" />
+	<style>
+		:root {
+			--menu-papel: #f4e5c3;
+			--menu-papel-suave: #fff7e6;
+			--menu-cafe: #6a4020;
+			--menu-cafe-oscuro: #3a200d;
+			--menu-borde: rgba(98, 64, 33, 0.28);
+			--menu-sombra: 0 14px 28px rgba(58, 34, 14, 0.2);
+		}
+
+		.vista-contenido {
+			display: flex;
+			flex-direction: column;
+			gap: 0.7rem;
+			padding: 0.7rem !important;
+			overflow-y: auto !important;
+			overflow-x: hidden;
+		}
+
+		.historico-fixed {
+			position: sticky;
+			top: 0;
+			z-index: 15;
+			padding-bottom: 0.3rem;
+			background: linear-gradient(180deg, rgba(228, 200, 152, 0.96), rgba(228, 200, 152, 0.58) 85%, transparent);
+		}
+
+		.btn-nuevo-menu {
+			width: 100%;
+			border: 0;
+			border-radius: 999px;
+			padding: 0.85rem 1rem;
+			font-family: 'Special Elite', serif;
+			font-size: 0.98rem;
+			letter-spacing: 0.05em;
+			color: #fff8e8;
+			cursor: pointer;
+			background:
+				radial-gradient(circle at 20% 28%, rgba(255, 238, 196, 0.28), transparent 40%),
+				linear-gradient(135deg, #5d371a, #8a562a 48%, #b1793f);
+			border: 2px solid rgba(255, 229, 175, 0.34);
+			box-shadow: 0 10px 20px rgba(52, 28, 10, 0.25), inset 0 0 0 1px rgba(255, 241, 212, 0.2);
+			transition: transform 0.16s ease, filter 0.16s ease;
+		}
+
+		.btn-nuevo-menu:hover {
+			transform: translateY(-1px);
+			filter: saturate(1.08);
+		}
+
+		.historico-empty {
+			margin-top: 0.2rem;
+			padding: 1rem;
+			border-radius: 15px;
+			text-align: center;
+			border: 2px dashed rgba(113, 73, 39, 0.35);
+			background: rgba(255, 246, 229, 0.84);
+		}
+
+		.menu-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.6rem;
+			align-items: start;
+		}
+
+		.menu-card {
+			display: grid;
+			gap: 0.5rem;
+			padding: 0.5rem;
+			border-radius: 14px;
+			background: linear-gradient(180deg, #fff9ea, #f1dcaf);
+			border: 1px solid var(--menu-borde);
+			box-shadow: var(--menu-sombra);
+			cursor: pointer;
+			transition: transform 0.16s ease;
+		}
+
+		.menu-card:hover {
+			transform: translateY(-1px);
+		}
+
+		.menu-thumb {
+			width: 100%;
+			aspect-ratio: 4 / 3;
+			overflow: hidden;
+			border-radius: 10px;
+			background: linear-gradient(145deg, #ecd7ad, #fff0d3);
+			border: 1px solid rgba(109, 70, 37, 0.2);
+		}
+
+		.menu-thumb img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.menu-meta {
+			font-size: 0.62rem;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+			color: #8a5d31;
+		}
+
+		.menu-card h2 {
+			margin: 0;
+			font-size: 0.86rem;
+			line-height: 1.18;
+			color: #3f250f;
+		}
+
+		.menu-texto {
+			margin: 0;
+			font-size: 0.75rem;
+			line-height: 1.38;
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+
+		.card-actions {
+			display: flex;
+			justify-content: flex-end;
+		}
+
+		.btn-abrir-menu,
+		.btn-principal,
+		.btn-secundario {
+			border: 0;
+			border-radius: 999px;
+			padding: 0.58rem 0.88rem;
+			font-family: 'Special Elite', serif;
+			font-size: 0.78rem;
+			cursor: pointer;
+			transition: transform 0.14s ease;
+		}
+
+		.btn-abrir-menu,
+		.btn-principal {
+			background: linear-gradient(135deg, #6f441f, #a06d39);
+			color: #fff7e8;
+		}
+
+		.btn-secundario {
+			background: #efe1c2;
+			color: #5d381b;
+			border: 1px solid rgba(96, 57, 26, 0.24);
+		}
+
+		.btn-abrir-menu:hover,
+		.btn-principal:hover,
+		.btn-secundario:hover {
+			transform: translateY(-1px);
+		}
+
+		.open-overlay {
+			position: fixed;
+			inset: 0;
+			z-index: 120;
+			background: rgba(30, 17, 8, 0.62);
+			backdrop-filter: blur(4px);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 0.8rem;
+		}
+
+		.open-overlay[hidden] {
+			display: none;
+		}
+
+		.dialog {
+			width: min(740px, 100%);
+			max-height: 92vh;
+			overflow: auto;
+			padding: 0.95rem;
+			border-radius: 18px;
+			background: linear-gradient(180deg, #fffaf0, #efdbb2);
+			border: 1px solid rgba(112, 74, 41, 0.26);
+			box-shadow: 0 28px 56px rgba(35, 20, 9, 0.26);
+		}
+
+		.dialog h2 {
+			margin: 0 0 0.8rem;
+			font-size: 1.05rem;
+			color: var(--menu-cafe-oscuro);
+		}
+
+		.form-grid,
+		.field-block {
+			display: grid;
+			gap: 0.6rem;
+		}
+
+		.field-label {
+			font-size: 0.84rem;
+			font-weight: 700;
+		}
+
+		.field-input,
+		.field-textarea {
+			width: 100%;
+			box-sizing: border-box;
+			border: 1px solid rgba(109, 74, 47, 0.24);
+			border-radius: 12px;
+			background: rgba(255, 252, 246, 0.98);
+			padding: 0.72rem 0.82rem;
+			font: inherit;
+			color: #3f2a17;
+		}
+
+		.field-textarea {
+			min-height: 220px;
+			resize: vertical;
+		}
+
+		.img-preview {
+			width: 100%;
+			max-height: 220px;
+			object-fit: cover;
+			border-radius: 12px;
+			border: 1px solid rgba(111, 74, 44, 0.26);
+			background: #f0debb;
+		}
+
+		.img-preview[hidden] {
+			display: none;
+		}
+
+		.file-name {
+			font-size: 0.82rem;
+			color: #6f4723;
+		}
+
+		.dialog-actions {
+			display: flex;
+			justify-content: flex-end;
+			gap: 0.45rem;
+			margin-top: 0.85rem;
+			flex-wrap: wrap;
+		}
+
+		.detalle-shell {
+			display: grid;
+			gap: 0.8rem;
+		}
+
+		.detalle-media {
+			border-radius: 12px;
+			overflow: hidden;
+			background: linear-gradient(145deg, #e8d2a5, #fff5df);
+			min-height: 200px;
+		}
+
+		.detalle-media img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.detalle-texto {
+			margin: 0;
+			padding: 0.75rem;
+			border-radius: 12px;
+			background: rgba(255, 250, 238, 0.86);
+			border: 1px solid rgba(110, 72, 38, 0.24);
+			font-size: 0.92rem;
+			line-height: 1.56;
+			text-align: justify;
+			white-space: pre-line;
+		}
+
+		.toast-msg {
+			position: fixed;
+			left: 50%;
+			bottom: 1rem;
+			transform: translateX(-50%);
+			z-index: 140;
+			background: #3e2a15;
+			color: #fff7e7;
+			border-radius: 999px;
+			padding: 0.5rem 0.78rem;
+			font-size: 0.78rem;
+			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+		}
+
+		.toast-msg[hidden] {
+			display: none;
+		}
+
+		@media (max-width: 700px) {
+			.menu-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.dialog-actions button {
+				flex: 1 1 100%;
+			}
+		}
+	</style>
 </head>
 <body>
 	<div class="vista-app">
@@ -15,23 +318,286 @@
 			<a class="btn-volver" href="../index.html" target="_top" aria-label="Volver al inicio" id="btnVolverCabecera">
 				<img src="../iconos/volver.png" alt="Volver" />
 			</a>
-			<h1>Coleccion De Nuestros Menus</h1>
+			<h1>NUESTRO HISTORICO</h1>
 			<div class="header-espaciador" aria-hidden="true"></div>
 		</header>
 
 		<main class="vista-contenido">
-			<section class="tarjeta-construccion" aria-label="Vista en construccion">
-				<h2>Vista en construccion</h2>
-				<p>Pronto añadiremos contenido rural para esta seccion.</p>
-				<img class="img-rustica" src="../imagenes/rustica-vista.svg" alt="Ilustracion rustica de campo" />
+			<div class="historico-fixed">
+				<button id="btnNuevoMenu" class="btn-nuevo-menu" type="button">AÑADIR UN NUEVO MENÚ</button>
+			</div>
+
+			<section id="emptyMenus" class="historico-empty" hidden>
+				<strong>No hay menus guardados aun</strong>
+				<div>Pulsa en AÑADIR UN NUEVO MENÚ para crear la primera tarjeta.</div>
 			</section>
+
+			<section id="menusGrid" class="menu-grid" aria-label="Tarjetas de menus guardados"></section>
 		</main>
 	</div>
 
+	<div id="modalNuevoMenu" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Crear nuevo menu">
+			<h2>NUEVO MENU</h2>
+			<div class="form-grid">
+				<div class="field-block">
+					<span class="field-label">Imagen de portada</span>
+					<input id="inputImagenMenu" class="field-input" type="file" accept="image/*" />
+					<img id="previewImagenMenu" class="img-preview" src="" alt="Previsualizacion de portada" hidden />
+				</div>
+
+				<label class="field-block">
+					<span class="field-label">Texto largo del menu</span>
+					<textarea id="inputTextoMenu" class="field-textarea" maxlength="18000" placeholder="Escribe aqui todo el detalle del menu: platos, notas, historia del encuentro, sensaciones, etc."></textarea>
+				</label>
+
+				<div class="field-block">
+					<span class="field-label">Archivo PDF descargable</span>
+					<input id="inputPdfMenu" class="field-input" type="file" accept="application/pdf" />
+					<div id="nombrePdfMenu" class="file-name">Sin PDF seleccionado</div>
+				</div>
+			</div>
+
+			<div class="dialog-actions">
+				<button id="btnCancelarMenu" type="button" class="btn-secundario">Cancelar</button>
+				<button id="btnGuardarMenu" type="button" class="btn-principal">Guardar menu</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="modalDetalleMenu" class="open-overlay" hidden>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label="Detalle del menu">
+			<div class="detalle-shell">
+				<div id="detalleMediaMenu" class="detalle-media"></div>
+				<div>
+					<a id="btnDescargarPdfMenu" class="btn-principal" href="#" download>Descargar PDF</a>
+				</div>
+				<p id="detalleTextoMenu" class="detalle-texto"></p>
+			</div>
+
+			<div class="dialog-actions">
+				<button id="btnCerrarDetalleMenu" type="button" class="btn-principal">Cerrar</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="toastMsg" class="toast-msg" hidden></div>
+
 	<script>
 	(function () {
+		var STORAGE_KEY = 'carorur_menus_historico_v1';
+		var IMG_FALLBACK = '../imagenes/rustica-vista.svg';
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
+		var btnNuevoMenu = document.getElementById('btnNuevoMenu');
+		var emptyMenus = document.getElementById('emptyMenus');
+		var menusGrid = document.getElementById('menusGrid');
+		var modalNuevoMenu = document.getElementById('modalNuevoMenu');
+		var inputImagenMenu = document.getElementById('inputImagenMenu');
+		var previewImagenMenu = document.getElementById('previewImagenMenu');
+		var inputTextoMenu = document.getElementById('inputTextoMenu');
+		var inputPdfMenu = document.getElementById('inputPdfMenu');
+		var nombrePdfMenu = document.getElementById('nombrePdfMenu');
+		var btnCancelarMenu = document.getElementById('btnCancelarMenu');
+		var btnGuardarMenu = document.getElementById('btnGuardarMenu');
+		var modalDetalleMenu = document.getElementById('modalDetalleMenu');
+		var detalleMediaMenu = document.getElementById('detalleMediaMenu');
+		var btnDescargarPdfMenu = document.getElementById('btnDescargarPdfMenu');
+		var detalleTextoMenu = document.getElementById('detalleTextoMenu');
+		var btnCerrarDetalleMenu = document.getElementById('btnCerrarDetalleMenu');
+		var toastMsg = document.getElementById('toastMsg');
+
+		var menus = [];
+		var portadaTemporalData = '';
+		var pdfTemporalData = '';
+		var pdfTemporalName = '';
 		if (!btnVolverCabecera) return;
+
+		function uid() {
+			return 'MENU_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+		}
+
+		function escHtml(value) {
+			return String(value || '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;');
+		}
+
+		function showToast(message) {
+			toastMsg.textContent = String(message || '');
+			toastMsg.hidden = false;
+			window.clearTimeout(showToast.timer);
+			showToast.timer = window.setTimeout(function () {
+				toastMsg.hidden = true;
+			}, 2400);
+		}
+
+		function humanDate(value) {
+			var date = new Date(value || Date.now());
+			return date.toLocaleDateString('es-ES', {
+				day: '2-digit',
+				month: '2-digit',
+				year: 'numeric'
+			}) + ' · ' + date.toLocaleTimeString('es-ES', {
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		}
+
+		function textoResumen(value) {
+			var txt = String(value || '').replace(/\s+/g, ' ').trim();
+			if (!txt) return 'Sin texto guardado';
+			if (txt.length <= 140) return txt;
+			return txt.slice(0, 140) + '...';
+		}
+
+		function toDataUrl(file) {
+			return new Promise(function (resolve, reject) {
+				if (!file) {
+					reject(new Error('Archivo no valido'));
+					return;
+				}
+				var reader = new FileReader();
+				reader.onload = function () {
+					resolve(String(reader.result || ''));
+				};
+				reader.onerror = function () {
+					reject(new Error('No se pudo leer el archivo'));
+				};
+				reader.readAsDataURL(file);
+			});
+		}
+
+		function saveMenusStorage() {
+			try {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(menus));
+				return true;
+			} catch (err) {
+				showToast('No se pudo guardar. Prueba con un PDF o imagen mas ligeros.');
+				return false;
+			}
+		}
+
+		function loadMenusStorage() {
+			try {
+				var raw = localStorage.getItem(STORAGE_KEY);
+				var parsed = raw ? JSON.parse(raw) : [];
+				menus = Array.isArray(parsed) ? parsed : [];
+			} catch (err) {
+				menus = [];
+			}
+		}
+
+		function renderCards() {
+			menusGrid.innerHTML = '';
+			emptyMenus.hidden = menus.length > 0;
+
+			menus.forEach(function (item) {
+				var card = document.createElement('article');
+				card.className = 'menu-card';
+				card.innerHTML = [
+					'<div class="menu-thumb"><img src="' + escHtml(item.imagenData || IMG_FALLBACK) + '" alt="Portada de menu" /></div>',
+					'<div class="menu-meta">' + escHtml(humanDate(item.updatedAt || item.createdAt)) + '</div>',
+					'<h2>MENU GUARDADO</h2>',
+					'<p class="menu-texto">' + escHtml(textoResumen(item.texto)) + '</p>',
+					'<div class="card-actions"><button class="btn-abrir-menu" type="button">Abrir menu</button></div>'
+				].join('');
+
+				card.addEventListener('click', function () {
+					openDetail(item.id);
+				});
+
+				card.querySelector('.btn-abrir-menu').addEventListener('click', function (ev) {
+					ev.stopPropagation();
+					openDetail(item.id);
+				});
+
+				menusGrid.appendChild(card);
+			});
+		}
+
+		function resetCreateForm() {
+			portadaTemporalData = '';
+			pdfTemporalData = '';
+			pdfTemporalName = '';
+			inputImagenMenu.value = '';
+			inputTextoMenu.value = '';
+			inputPdfMenu.value = '';
+			previewImagenMenu.src = '';
+			previewImagenMenu.hidden = true;
+			nombrePdfMenu.textContent = 'Sin PDF seleccionado';
+		}
+
+		function openCreateModal() {
+			resetCreateForm();
+			modalNuevoMenu.hidden = false;
+		}
+
+		function closeCreateModal() {
+			modalNuevoMenu.hidden = true;
+		}
+
+		function openDetail(id) {
+			var menu = menus.find(function (item) { return item.id === id; });
+			if (!menu) return;
+
+			detalleMediaMenu.innerHTML = '<img src="' + escHtml(menu.imagenData || IMG_FALLBACK) + '" alt="Imagen del menu" />';
+			detalleTextoMenu.textContent = menu.texto || '';
+
+			if (menu.pdfData && menu.pdfName) {
+				btnDescargarPdfMenu.hidden = false;
+				btnDescargarPdfMenu.href = menu.pdfData;
+				btnDescargarPdfMenu.download = menu.pdfName;
+			} else {
+				btnDescargarPdfMenu.hidden = true;
+				btnDescargarPdfMenu.href = '#';
+			}
+
+			modalDetalleMenu.hidden = false;
+		}
+
+		function closeDetailModal() {
+			modalDetalleMenu.hidden = true;
+		}
+
+		function saveMenu() {
+			var texto = String(inputTextoMenu.value || '').trim();
+
+			if (!portadaTemporalData) {
+				showToast('Selecciona una imagen de portada');
+				return;
+			}
+			if (!texto) {
+				showToast('Introduce el texto largo del menu');
+				inputTextoMenu.focus();
+				return;
+			}
+			if (!pdfTemporalData) {
+				showToast('Selecciona un archivo PDF para descargar');
+				return;
+			}
+
+			var now = new Date().toISOString();
+			menus.unshift({
+				id: uid(),
+				imagenData: portadaTemporalData,
+				texto: texto,
+				pdfData: pdfTemporalData,
+				pdfName: pdfTemporalName || ('menu_' + Date.now() + '.pdf'),
+				createdAt: now,
+				updatedAt: now
+			});
+
+			if (!saveMenusStorage()) {
+				menus.shift();
+				return;
+			}
+
+			renderCards();
+			closeCreateModal();
+			showToast('Menu guardado correctamente');
+		}
 
 		btnVolverCabecera.addEventListener('click', function (e) {
 			e.preventDefault();
@@ -47,6 +613,72 @@
 				window.location.href = '../index.html';
 			}
 		});
+
+		btnNuevoMenu.addEventListener('click', openCreateModal);
+		btnCancelarMenu.addEventListener('click', closeCreateModal);
+		btnGuardarMenu.addEventListener('click', saveMenu);
+		btnCerrarDetalleMenu.addEventListener('click', closeDetailModal);
+
+		inputImagenMenu.addEventListener('change', function () {
+			var file = inputImagenMenu.files && inputImagenMenu.files[0];
+			if (!file) return;
+			if (String(file.type || '').indexOf('image/') !== 0) {
+				showToast('Selecciona una imagen valida');
+				inputImagenMenu.value = '';
+				return;
+			}
+			if (Number(file.size || 0) > 3 * 1024 * 1024) {
+				showToast('La imagen no puede superar 3 MB');
+				inputImagenMenu.value = '';
+				return;
+			}
+
+			toDataUrl(file)
+				.then(function (dataUrl) {
+					portadaTemporalData = dataUrl;
+					previewImagenMenu.src = dataUrl;
+					previewImagenMenu.hidden = false;
+				})
+				.catch(function () {
+					showToast('No se pudo cargar la imagen');
+				});
+		});
+
+		inputPdfMenu.addEventListener('change', function () {
+			var file = inputPdfMenu.files && inputPdfMenu.files[0];
+			if (!file) return;
+			if (String(file.type || '') !== 'application/pdf') {
+				showToast('Selecciona un archivo PDF valido');
+				inputPdfMenu.value = '';
+				return;
+			}
+			if (Number(file.size || 0) > 3 * 1024 * 1024) {
+				showToast('El PDF no puede superar 3 MB');
+				inputPdfMenu.value = '';
+				return;
+			}
+
+			toDataUrl(file)
+				.then(function (dataUrl) {
+					pdfTemporalData = dataUrl;
+					pdfTemporalName = String(file.name || 'menu.pdf');
+					nombrePdfMenu.textContent = 'PDF seleccionado: ' + pdfTemporalName;
+				})
+				.catch(function () {
+					showToast('No se pudo cargar el PDF');
+				});
+		});
+
+		modalNuevoMenu.addEventListener('click', function (event) {
+			if (event.target === modalNuevoMenu) closeCreateModal();
+		});
+
+		modalDetalleMenu.addEventListener('click', function (event) {
+			if (event.target === modalDetalleMenu) closeDetailModal();
+		});
+
+		loadMenusStorage();
+		renderCards();
 	})();
 	</script>
 </body>
