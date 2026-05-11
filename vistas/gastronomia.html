@@ -363,6 +363,94 @@
 		body.modo-lectura .comida-input {
 			background: rgba(244, 239, 229, 0.95);
 		}
+
+		.modal-acceso {
+			position: fixed;
+			inset: 0;
+			z-index: 160;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 16px;
+			background: rgba(26, 12, 4, 0.62);
+			backdrop-filter: blur(4px);
+		}
+
+		.modal-acceso[hidden] {
+			display: none;
+		}
+
+		.modal-acceso-box {
+			width: min(420px, 100%);
+			display: grid;
+			gap: 12px;
+			padding: 18px;
+			border-radius: 12px;
+			background: linear-gradient(180deg, #fff7e8, #eed7af);
+			border: 1px solid rgba(72, 36, 10, 0.28);
+			box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+		}
+
+		.modal-acceso-box h2 {
+			margin: 0;
+			font-family: 'Special Elite', serif;
+			font-size: 1rem;
+			color: #4a2a12;
+		}
+
+		.modal-acceso-box p {
+			margin: 0;
+			font-family: 'Crimson Text', serif;
+			font-size: 0.98rem;
+			line-height: 1.35;
+			color: #4a2a12;
+		}
+
+		.modal-acceso-input {
+			width: 100%;
+			box-sizing: border-box;
+			padding: 10px 12px;
+			border-radius: 8px;
+			border: 1px solid rgba(90, 52, 24, 0.3);
+			background: rgba(255, 253, 248, 0.98);
+			font: inherit;
+			color: #3d1f0c;
+		}
+
+		.modal-acceso-error {
+			min-height: 1.1em;
+			font-family: 'Crimson Text', serif;
+			font-size: 0.92rem;
+			color: #9a2f19;
+		}
+
+		.modal-acceso-acciones {
+			display: flex;
+			justify-content: flex-end;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.btn-acceso-secundario,
+		.btn-acceso-principal {
+			border: none;
+			border-radius: 999px;
+			padding: 10px 14px;
+			font-family: 'Special Elite', serif;
+			font-size: 0.8rem;
+			cursor: pointer;
+		}
+
+		.btn-acceso-secundario {
+			background: #efe1c1;
+			color: #5f3b1d;
+			border: 1px solid rgba(96, 58, 27, 0.22);
+		}
+
+		.btn-acceso-principal {
+			background: linear-gradient(135deg, #7a4d27, #a87438);
+			color: #fff8ec;
+		}
 	</style>
 </head>
 <body>
@@ -394,6 +482,19 @@
 		</main>
 	</div>
 
+	<div id="modal-acceso-chef" class="modal-acceso" hidden>
+		<div class="modal-acceso-box" role="dialog" aria-modal="true" aria-labelledby="titulo-acceso-chef">
+			<h2 id="titulo-acceso-chef">Acceso Chef</h2>
+			<p>Introduce la clave para habilitar la edición de esta vista.</p>
+			<input id="input-clave-chef" class="modal-acceso-input" type="password" placeholder="Clave Chef" autocomplete="current-password" />
+			<div id="mensaje-acceso-chef" class="modal-acceso-error"></div>
+			<div class="modal-acceso-acciones">
+				<button id="btn-cancelar-acceso-chef" class="btn-acceso-secundario" type="button">Cancelar</button>
+				<button id="btn-confirmar-acceso-chef" class="btn-acceso-principal" type="button">Desbloquear</button>
+			</div>
+		</div>
+	</div>
+
 	<script>
 	(function () {
 		'use strict';
@@ -415,8 +516,14 @@
 		var btnVolverCabecera = document.getElementById('btnVolverCabecera');
 		var contenido  = document.getElementById('contenido-gastronomia');
 		var textoAccesoChefs = document.getElementById('texto-acceso-chefs');
+		var modalAccesoChef = document.getElementById('modal-acceso-chef');
+		var inputClaveChef = document.getElementById('input-clave-chef');
+		var mensajeAccesoChef = document.getElementById('mensaje-acceso-chef');
+		var btnCancelarAccesoChef = document.getElementById('btn-cancelar-acceso-chef');
+		var btnConfirmarAccesoChef = document.getElementById('btn-confirmar-acceso-chef');
 		var seleccionActiva = null;
 		var edicionDesbloqueada = false;
+		var accionPendienteEdicion = null;
 
 		btnVolverCabecera.addEventListener('click', function (e) {
 			e.preventDefault();
@@ -455,12 +562,42 @@
 			}
 		}
 
-		function pedirAccesoEdicion() {
-			if (edicionDesbloqueada) return true;
-			var clave = window.prompt('Modo protegido. Introduce la clave de Chef para editar y guardar.');
+		function cerrarModalAccesoChef() {
+			if (!modalAccesoChef) return;
+			modalAccesoChef.hidden = true;
+			mensajeAccesoChef.textContent = '';
+			inputClaveChef.value = '';
+		}
+
+		function abrirModalAccesoChef(onSuccess) {
+			accionPendienteEdicion = typeof onSuccess === 'function' ? onSuccess : null;
+			if (!modalAccesoChef) return false;
+			mensajeAccesoChef.textContent = '';
+			inputClaveChef.value = '';
+			modalAccesoChef.hidden = false;
+			window.setTimeout(function () {
+				inputClaveChef.focus();
+			}, 0);
+			return false;
+		}
+
+		function pedirAccesoEdicion(onSuccess) {
+			if (edicionDesbloqueada) {
+				if (typeof onSuccess === 'function') onSuccess();
+				return true;
+			}
+
+			var clave = '';
+			try {
+				clave = window.prompt('Modo protegido. Introduce la clave de Chef para editar y guardar.');
+			} catch (err) {
+				return abrirModalAccesoChef(onSuccess);
+			}
+
 			if (clave && clave === CHEF_ACCESS_KEY) {
 				edicionDesbloqueada = true;
 				actualizarEstadoEdicion();
+				if (typeof onSuccess === 'function') onSuccess();
 				return true;
 			}
 			alert(SOLO_CHEFS_MSG);
@@ -859,7 +996,7 @@ return data;
 							mimeType: uploadPayload.mimeType,
 							name: uploadPayload.name,
 							folderId: uploadPayload.folderId
-						}), true);
+						}, true);
 						var fileId = data.file_id || extraerDriveFileId(data.url || '');
 						arrFotos[itemSel] = fileId
 							? ('https://lh3.googleusercontent.com/d/' + fileId + '=w1200')
@@ -1016,16 +1153,18 @@ return data;
 		}
 
 		btnAgregar.addEventListener('click', function () {
-			if (!pedirAccesoEdicion()) return;
-			days.push(crearDia());
-			guardarDatos();
-			render();
-			contenido.scrollTop = contenido.scrollHeight;
+			if (!pedirAccesoEdicion(function () {
+				days.push(crearDia());
+				guardarDatos();
+				render();
+				contenido.scrollTop = contenido.scrollHeight;
+			})) return;
 		});
 
 		btnGuardar.addEventListener('click', function () {
-			if (!pedirAccesoEdicion()) return;
-			guardarMenuNube();
+			if (!pedirAccesoEdicion(function () {
+				guardarMenuNube();
+			})) return;
 		});
 
 		btnBorrar.addEventListener('click', async function () {
@@ -1046,6 +1185,47 @@ return data;
 		cargarMenuNube()
 			.then(function () { render(); })
 			.catch(function () { render(); });
+
+		btnCancelarAccesoChef.addEventListener('click', function () {
+			accionPendienteEdicion = null;
+			cerrarModalAccesoChef();
+		});
+
+		btnConfirmarAccesoChef.addEventListener('click', function () {
+			var clave = String(inputClaveChef.value || '').trim();
+			if (clave !== CHEF_ACCESS_KEY) {
+				mensajeAccesoChef.textContent = 'Clave incorrecta.';
+				inputClaveChef.focus();
+				inputClaveChef.select();
+				return;
+			}
+			edicionDesbloqueada = true;
+			actualizarEstadoEdicion();
+			cerrarModalAccesoChef();
+			if (typeof accionPendienteEdicion === 'function') {
+				var fn = accionPendienteEdicion;
+				accionPendienteEdicion = null;
+				fn();
+			}
+		});
+
+		inputClaveChef.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				btnConfirmarAccesoChef.click();
+			}
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				accionPendienteEdicion = null;
+				cerrarModalAccesoChef();
+			}
+		});
+
+		modalAccesoChef.addEventListener('click', function (e) {
+			if (e.target !== modalAccesoChef) return;
+			accionPendienteEdicion = null;
+			cerrarModalAccesoChef();
+		});
 
 		actualizarEstadoEdicion();
 	})();
