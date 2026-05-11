@@ -335,8 +335,13 @@
 
 	<div id="modalNuevoMenu" class="open-overlay" hidden>
 		<div class="dialog" role="dialog" aria-modal="true" aria-label="Crear nuevo menu">
-			<h2>NUEVO MENU</h2>
+			<h2 id="tituloModalMenu">NUEVO MENU</h2>
 			<div class="form-grid">
+				<label class="field-block">
+					<span class="field-label">Nombre del menu</span>
+					<input id="inputNombreMenu" class="field-input" type="text" maxlength="120" placeholder="Escribe el nombre del menu" />
+				</label>
+
 				<div class="field-block">
 					<span class="field-label">Imagen de portada</span>
 					<input id="inputImagenMenu" class="field-input" type="file" accept="image/*" />
@@ -389,6 +394,8 @@
 		var emptyMenus = document.getElementById('emptyMenus');
 		var menusGrid = document.getElementById('menusGrid');
 		var modalNuevoMenu = document.getElementById('modalNuevoMenu');
+		var tituloModalMenu = document.getElementById('tituloModalMenu');
+		var inputNombreMenu = document.getElementById('inputNombreMenu');
 		var inputImagenMenu = document.getElementById('inputImagenMenu');
 		var previewImagenMenu = document.getElementById('previewImagenMenu');
 		var inputTextoMenu = document.getElementById('inputTextoMenu');
@@ -408,6 +415,7 @@
 		var portadaTemporalFile = null;
 		var pdfTemporalBlob = null;
 		var pdfTemporalName = '';
+		var editingMenu = null;
 		var pdfBlobUrls = {}; // Almacenar URLs temporales de PDFs por ID de menu
 		var isLoading = false;
 		if (!btnVolverCabecera) return;
@@ -632,12 +640,13 @@
 			menus.forEach(function (item) {
 				var card = document.createElement('article');
 				card.className = 'menu-card';
+				var nombreMenu = String(item.nombre_menu || 'MENU GUARDADO').trim() || 'MENU GUARDADO';
 				card.innerHTML = [
 					'<div class="menu-thumb"><img alt="Portada de menu" /></div>',
 					'<div class="menu-meta">' + escHtml(humanDate(item.updated_at || item.created_at)) + '</div>',
-					'<h2>MENU GUARDADO</h2>',
+					'<h2>' + escHtml(nombreMenu) + '</h2>',
 					'<p class="menu-texto">' + escHtml(textoResumen(item.texto_largo)) + '</p>',
-					'<div class="card-actions"><button class="btn-abrir-menu" type="button">Abrir menu</button></div>'
+					'<div class="card-actions"><button class="btn-secundario btn-editar-menu" type="button">Editar menu</button><button class="btn-abrir-menu" type="button">Abrir menu</button></div>'
 				].join('');
 
 				attachImageFallback(card.querySelector('.menu-thumb img'), item);
@@ -651,15 +660,24 @@
 					openDetail(item.id_menu);
 				});
 
+				card.querySelector('.btn-editar-menu').addEventListener('click', function (ev) {
+					ev.stopPropagation();
+					openEditModal(item.id_menu);
+				});
+
 				menusGrid.appendChild(card);
 			});
 		}
 
 		function resetCreateForm() {
+			editingMenu = null;
 			portadaTemporalData = '';
 			portadaTemporalFile = null;
 			pdfTemporalBlob = null;
 			pdfTemporalName = '';
+			tituloModalMenu.textContent = 'NUEVO MENU';
+			btnGuardarMenu.textContent = 'Guardar menu';
+			inputNombreMenu.value = '';
 			inputImagenMenu.value = '';
 			inputTextoMenu.value = '';
 			inputPdfMenu.value = '';
@@ -670,6 +688,22 @@
 
 		function openCreateModal() {
 			resetCreateForm();
+			modalNuevoMenu.hidden = false;
+		}
+
+		function openEditModal(id) {
+			var menu = menus.find(function (item) { return item.id_menu === id; });
+			if (!menu) return;
+
+			resetCreateForm();
+			editingMenu = menu;
+			tituloModalMenu.textContent = 'EDITAR MENU';
+			btnGuardarMenu.textContent = 'Guardar cambios';
+			inputNombreMenu.value = menu.nombre_menu || '';
+			inputTextoMenu.value = menu.texto_largo || '';
+			previewImagenMenu.src = buildImageCandidates(menu)[0] || IMG_FALLBACK;
+			previewImagenMenu.hidden = false;
+			nombrePdfMenu.textContent = menu.pdf_file_id ? 'PDF actual disponible' : 'Sin PDF seleccionado';
 			modalNuevoMenu.hidden = false;
 		}
 
@@ -707,9 +741,22 @@
 		}
 
 		function saveMenu() {
+			var nombreMenu = String(inputNombreMenu.value || '').trim();
 			var texto = String(inputTextoMenu.value || '').trim();
+			var existingImageInfo = editingMenu ? {
+				file_id: String(editingMenu.foto_file_id || '').trim(),
+				foto_url: String(editingMenu.foto_url || '').trim()
+			} : null;
+			var existingPdfInfo = editingMenu ? {
+				file_id: String(editingMenu.pdf_file_id || '').trim()
+			} : null;
 
-			if (!portadaTemporalData) {
+			if (!nombreMenu) {
+				showToast('Introduce el nombre del menu');
+				inputNombreMenu.focus();
+				return;
+			}
+			if (!portadaTemporalData && !(existingImageInfo && (existingImageInfo.file_id || existingImageInfo.foto_url))) {
 				showToast('Selecciona una imagen de portada');
 				return;
 			}
@@ -718,7 +765,7 @@
 				inputTextoMenu.focus();
 				return;
 			}
-			if (!pdfTemporalBlob) {
+			if (!pdfTemporalBlob && !(existingPdfInfo && existingPdfInfo.file_id)) {
 				showToast('Selecciona un archivo PDF para descargar');
 				return;
 			}
@@ -727,11 +774,15 @@
 
 			var fotoUploadPromise, pdfUploadPromise;
 
-			// Subir imagen (reutiliza la data URL ya cargada en la previsualizacion)
-			fotoUploadPromise = uploadImageToGoogleDrive(portadaTemporalFile, portadaTemporalData);
+			// Subir imagen solo si se ha elegido una nueva; si no, conservar la actual
+			fotoUploadPromise = portadaTemporalFile
+				? uploadImageToGoogleDrive(portadaTemporalFile, portadaTemporalData)
+				: Promise.resolve(existingImageInfo || { file_id: '', foto_url: '' });
 
-			// Subir PDF
-			pdfUploadPromise = uploadPdfToGoogleDrive(pdfTemporalBlob);
+			// Subir PDF solo si se ha elegido uno nuevo; si no, conservar el actual
+			pdfUploadPromise = pdfTemporalBlob
+				? uploadPdfToGoogleDrive(pdfTemporalBlob)
+				: Promise.resolve(existingPdfInfo || { file_id: '' });
 
 			Promise.all([fotoUploadPromise, pdfUploadPromise])
 				.then(function (results) {
@@ -739,16 +790,16 @@
 					var pdfResult = results[1];
 
 					var newMenu = {
-						id_menu: uid(),
-						nombre_menu: 'MENU GUARDADO',
+						id_menu: editingMenu ? editingMenu.id_menu : uid(),
+						nombre_menu: nombreMenu,
 						texto_largo: texto,
 						foto_file_id: fotoResult.file_id,
 						foto_url: fotoResult.foto_url,
 						pdf_file_id: pdfResult.file_id,
-						created_at: new Date().toISOString(),
+						created_at: editingMenu ? editingMenu.created_at : new Date().toISOString(),
 						updated_at: new Date().toISOString(),
 						deleted: false,
-						orden: menus.length + 1
+						orden: editingMenu ? editingMenu.orden : menus.length + 1
 					};
 
 					return apiCall('POST', 'saveNuestroHistoricoMenu', { row: newMenu });
@@ -756,7 +807,7 @@
 				.then(function (result) {
 					loadMenusFromSheets();
 					closeCreateModal();
-					showToast('Menu guardado correctamente');
+					showToast(editingMenu ? 'Menu actualizado correctamente' : 'Menu guardado correctamente');
 				})
 				.catch(function (err) {
 					showToast('Error al guardar: ' + (err.message || err));
