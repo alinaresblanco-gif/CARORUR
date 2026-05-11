@@ -82,6 +82,7 @@
 			background: linear-gradient(180deg, #fff9ea, #f1dcaf);
 			border: 1px solid var(--menu-borde);
 			box-shadow: var(--menu-sombra);
+			min-width: 0;
 			cursor: pointer;
 			transition: transform 0.16s ease;
 		}
@@ -301,11 +302,7 @@
 			display: none;
 		}
 
-		@media (max-width: 700px) {
-			.menu-grid {
-				grid-template-columns: 1fr;
-			}
-
+		@media (max-width: 640px) {
 			.dialog-actions button {
 				flex: 1 1 100%;
 			}
