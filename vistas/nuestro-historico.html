@@ -512,11 +512,18 @@
 			});
 		}
 
-		function uploadImageToGoogleDrive(file) {
+		function uploadImageToGoogleDrive(file, preloadedDataUrl) {
 			return new Promise(function (resolve, reject) {
-				toDataUrl(file)
+				var dataUrlPromise = preloadedDataUrl
+					? Promise.resolve(String(preloadedDataUrl))
+					: toDataUrl(file);
+
+				dataUrlPromise
 					.then(function (dataUrl) {
 						var base64Data = dataUrl.split(',')[1];
+						if (!base64Data) {
+							throw new Error('No se pudo preparar la imagen');
+						}
 						return apiCall('POST', 'uploadImage', {
 							data: base64Data,
 							mimeType: file.type || 'image/jpeg',
@@ -672,8 +679,8 @@
 
 			var fotoUploadPromise, pdfUploadPromise;
 
-			// Subir imagen
-			fotoUploadPromise = uploadImageToGoogleDrive(portadaTemporalFile);
+			// Subir imagen (reutiliza la data URL ya cargada en la previsualizacion)
+			fotoUploadPromise = uploadImageToGoogleDrive(portadaTemporalFile, portadaTemporalData);
 
 			// Subir PDF
 			pdfUploadPromise = uploadPdfToGoogleDrive(pdfTemporalBlob);
