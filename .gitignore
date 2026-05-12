@@ -1,1 +1,7 @@
 android-foreground-service/android-studio-panda3-patch1-windows.exe
+android-foreground-service/keystore.properties
+android-foreground-service/*.jks
+android-foreground-service/*.keystore
+android-foreground-service/.gradle/
+android-foreground-service/build/
+android-foreground-service/app/build/
