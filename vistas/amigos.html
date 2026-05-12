@@ -379,7 +379,39 @@
 
 		// ---- Helpers ----
 		function driveImgUrl(fileId, size) {
-			return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=' + (size || 'w400');
+			var w = String(size || 'w400');
+			if (w.charAt(0) !== 'w') w = 'w' + w;
+			return 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(fileId) + '=' + w;
+		}
+
+		function buildDriveImageCandidates(fileId, size) {
+			var id = String(fileId || '').trim();
+			if (!id) return ['../imagenes/rustica-vista.svg'];
+			var w = String(size || 'w400');
+			if (w.charAt(0) !== 'w') w = 'w' + w;
+			return [
+				'https://lh3.googleusercontent.com/d/' + encodeURIComponent(id) + '=' + w,
+				'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=' + w,
+				'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(id),
+				'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id),
+				'../imagenes/rustica-vista.svg'
+			];
+		}
+
+		function setImageWithFallback(img, fileId, size) {
+			if (!img) return;
+			img.referrerPolicy = 'no-referrer';
+			var candidates = buildDriveImageCandidates(fileId, size);
+			var idx = 0;
+			img.onerror = function () {
+				idx += 1;
+				if (idx >= candidates.length) {
+					img.onerror = null;
+					return;
+				}
+				img.src = candidates[idx];
+			};
+			img.src = candidates[idx];
 		}
 
 		function escHtml(str) {
@@ -402,7 +434,7 @@
 				card.dataset.id = m.id_miembro;
 
 				var avatarHtml = m.drive_file_id
-					? '<img src="' + driveImgUrl(m.drive_file_id) + '" alt="' + escHtml(m.nombre) + '" loading="lazy" />'
+					? '<img alt="' + escHtml(m.nombre) + '" loading="lazy" />'
 					: '<div class="avatar-placeholder">👤</div>';
 
 				card.innerHTML =
@@ -412,6 +444,9 @@
 						'<button class="btn-secundario btn-editar" data-id="' + m.id_miembro + '">✏️ Editar</button>' +
 						'<button class="btn-peligro btn-eliminar" data-id="' + m.id_miembro + '">🗑 Eliminar</button>' +
 					'</div>';
+				if (m.drive_file_id) {
+					setImageWithFallback(card.querySelector('.amigo-avatar img'), m.drive_file_id, 'w400');
+				}
 				grid.appendChild(card);
 			});
 		}
@@ -507,7 +542,7 @@
 			setBtnGuardar(false);
 
 			if (fotoDriveId) {
-				fotoPreviewImg.src = driveImgUrl(fotoDriveId, 'w200');
+				setImageWithFallback(fotoPreviewImg, fotoDriveId, 'w200');
 				fotoPreviewImg.style.display = '';
 				fotoPlaceholder.style.display = 'none';
 			} else {

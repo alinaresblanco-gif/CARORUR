@@ -491,16 +491,18 @@
 			if (!id) {
 				return raw ? [raw] : ['../imagenes/rustica-vista.svg'];
 			}
+			var idEnc = encodeURIComponent(id);
 			return [
-				'https://lh3.googleusercontent.com/d/' + encodeURIComponent(id) + '=w1200',
-				'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w1200',
-				'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(id),
-				'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id)
+				'https://lh3.googleusercontent.com/d/' + idEnc + '=w1200',
+				'https://drive.google.com/thumbnail?id=' + idEnc + '&sz=w1200',
+				'https://drive.google.com/uc?export=view&id=' + idEnc,
+				'https://drive.google.com/uc?export=download&id=' + idEnc
 			];
 		}
 
 		function setImageWithFallback(img, fileOrUrl) {
 			if (!img) return;
+			img.referrerPolicy = 'no-referrer';
 			var candidates = buildDriveImageCandidates(fileOrUrl);
 			var idx = 0;
 			img.onerror = function () {

@@ -736,7 +736,39 @@
 		}
 
 		function driveImgUrl(fileId, size) {
-			return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w' + (size || 600);
+			return 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(fileId) + '=w' + (size || 600);
+		}
+
+		function buildImageUrls(item, size) {
+			var list = [];
+			var w = String(size || 600);
+			if (item && item.driveFileId) {
+				list.push('https://lh3.googleusercontent.com/d/' + encodeURIComponent(item.driveFileId) + '=w' + w);
+				list.push('https://drive.google.com/thumbnail?id=' + encodeURIComponent(item.driveFileId) + '&sz=w' + w);
+				list.push('https://drive.google.com/uc?export=view&id=' + encodeURIComponent(item.driveFileId));
+				list.push('https://drive.google.com/uc?export=download&id=' + encodeURIComponent(item.driveFileId));
+			}
+			if (item && item.mediaUrl) list.push(String(item.mediaUrl));
+			list.push('../imagenes/rustica-vista.svg');
+			return list.filter(function (url, index, arr) {
+				return !!url && arr.indexOf(url) === index;
+			});
+		}
+
+		function setImageWithFallback(img, item, size) {
+			if (!img) return;
+			img.referrerPolicy = 'no-referrer';
+			var urls = buildImageUrls(item, size);
+			var idx = 0;
+			img.onerror = function () {
+				idx += 1;
+				if (idx >= urls.length) {
+					img.onerror = null;
+					return;
+				}
+				img.src = urls[idx];
+			};
+			img.src = urls[0];
 		}
 
 		function buildVideoUrls(item) {
@@ -836,7 +868,7 @@
 
 		function buildPreviewUrl(item) {
 			if (item && item.driveFileId && item.mediaType === 'image') {
-				return driveImgUrl(item.driveFileId, 600);
+				return buildImageUrls(item, 600)[0];
 			}
 			if (item && item.mediaUrl) return item.mediaUrl;
 			if (!item || !item.mediaBlob) return '../imagenes/rustica-vista.svg';
@@ -859,7 +891,7 @@
 				? (item.driveFileId
 					? '<div class="video-placeholder">&#9654;</div><span class="media-badge">VIDEO</span>'
 					: '<video muted playsinline preload="metadata" src="' + escHtml(previewUrl) + '"></video><span class="media-badge">VIDEO</span>')
-					: '<img src="' + escHtml(previewUrl) + '" alt="Vista previa de la yincana" />' + (item.mediaType === 'image' ? '<span class="media-badge">IMAGEN</span>' : '');
+					: '<img alt="Vista previa de la yincana" />' + (item.mediaType === 'image' ? '<span class="media-badge">IMAGEN</span>' : '');
 				var descripcionCorta = String(item.descripcion || '').trim();
 				if (descripcionCorta.length > 110) {
 					descripcionCorta = descripcionCorta.slice(0, 107) + '...';
@@ -882,6 +914,9 @@
 						showToast('No se pudo eliminar la yincana');
 					});
 				});
+				if (item.mediaType === 'image') {
+					setImageWithFallback(card.querySelector('.tesoro-preview img'), item, 600);
+				}
 				tesoroGrid.appendChild(card);
 			});
 		}
@@ -1070,8 +1105,8 @@
 				} else if (item.mediaType === 'video') {
 					mountVideoWithFallback(item);
 				} else {
-					var imgSrc = item.driveFileId ? driveImgUrl(item.driveFileId, 1200) : escHtml(item.mediaUrl);
-					detalleMedia.innerHTML = '<img src="' + imgSrc + '" alt="Imagen de la yincana" />';
+					detalleMedia.innerHTML = '<img alt="Imagen de la yincana" />';
+					setImageWithFallback(detalleMedia.querySelector('img'), item, 1200);
 				}
 			} else if (item.mediaBlob) {
 				detailUrl = URL.createObjectURL(item.mediaBlob);

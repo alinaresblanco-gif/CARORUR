@@ -474,11 +474,14 @@
 			var list = [];
 			var fileId = String(item && item.foto_file_id || '').trim();
 			var rawUrl = normalizeDriveImageUrl(item && item.foto_url);
+			var fileIdEnc = encodeURIComponent(fileId);
 
 			if (rawUrl) list.push(rawUrl);
 			if (fileId) {
-				list.push('https://drive.google.com/uc?export=view&id=' + fileId);
-				list.push('https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600');
+				list.push('https://lh3.googleusercontent.com/d/' + fileIdEnc + '=w1600');
+				list.push('https://drive.google.com/thumbnail?id=' + fileIdEnc + '&sz=w1600');
+				list.push('https://drive.google.com/uc?export=view&id=' + fileIdEnc);
+				list.push('https://drive.google.com/uc?export=download&id=' + fileIdEnc);
 			}
 			list.push(IMG_FALLBACK);
 
@@ -489,6 +492,7 @@
 
 		function attachImageFallback(img, item) {
 			if (!img) return;
+			img.referrerPolicy = 'no-referrer';
 			var candidates = buildImageCandidates(item);
 			var idx = 0;
 

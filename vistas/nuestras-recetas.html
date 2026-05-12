@@ -561,13 +561,67 @@
 		}
 
 		function driveImgUrl(fileId, size) {
-			return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w' + (size || 900);
+			return 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(fileId) + '=w' + (size || 900);
+		}
+
+		function extractDriveFileId(value) {
+			var txt = String(value || '').trim();
+			if (!txt) return '';
+			if (/^[a-zA-Z0-9_-]{20,}$/.test(txt)) return txt;
+			var m = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			m = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
+			if (m && m[1]) return m[1];
+			return '';
+		}
+
+		function buildImageCandidates(item, size) {
+			var w = String(size || 900);
+			var list = [];
+			var fileId = String(item && item.driveFileId || '').trim();
+			var rawUrl = String(item && item.imagenUrl || '').trim();
+
+			if (fileId) {
+				list.push('https://lh3.googleusercontent.com/d/' + encodeURIComponent(fileId) + '=w' + w);
+				list.push('https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w' + w);
+				list.push('https://drive.google.com/uc?export=view&id=' + encodeURIComponent(fileId));
+				list.push('https://drive.google.com/uc?export=download&id=' + encodeURIComponent(fileId));
+			}
+
+			if (rawUrl) {
+				list.push(rawUrl);
+				var rawId = extractDriveFileId(rawUrl);
+				if (rawId) {
+					list.push('https://lh3.googleusercontent.com/d/' + encodeURIComponent(rawId) + '=w' + w);
+					list.push('https://drive.google.com/thumbnail?id=' + encodeURIComponent(rawId) + '&sz=w' + w);
+					list.push('https://drive.google.com/uc?export=view&id=' + encodeURIComponent(rawId));
+				}
+			}
+
+			list.push('../imagenes/rustica-vista.svg');
+			return list.filter(function (url, idx, arr) {
+				return !!url && arr.indexOf(url) === idx;
+			});
+		}
+
+		function setImageWithFallback(img, item, size) {
+			if (!img) return;
+			img.referrerPolicy = 'no-referrer';
+			var candidates = buildImageCandidates(item, size);
+			var idx = 0;
+			img.onerror = function () {
+				idx += 1;
+				if (idx >= candidates.length) {
+					img.onerror = null;
+					return;
+				}
+				img.src = candidates[idx];
+			};
+			img.src = candidates[0];
 		}
 
 		function buildImageUrl(item, size) {
-			if (item && item.driveFileId) return driveImgUrl(item.driveFileId, size || 900);
-			if (item && item.imagenUrl) return item.imagenUrl;
-			return '../imagenes/rustica-vista.svg';
+			return buildImageCandidates(item, size || 900)[0] || '../imagenes/rustica-vista.svg';
 		}
 
 		function fileToBase64(file) {
@@ -657,7 +711,7 @@
 				card.className = 'receta-card';
 				var ingredientes = parseIngredientes(item.ingredientesTexto).slice(0, 3).join(' · ');
 				card.innerHTML = [
-					'<div class="receta-thumb"><img src="' + escHtml(buildImageUrl(item, 700)) + '" alt="Imagen de receta" /></div>',
+					'<div class="receta-thumb"><img alt="Imagen de receta" /></div>',
 					'<div class="receta-meta">' + escHtml(humanDate(item.updatedAt || item.createdAt)) + '</div>',
 					'<h2>' + escHtml(item.nombre || 'Receta') + '</h2>',
 					'<p class="receta-desc">' + escHtml(ingredientes || 'Sin ingredientes') + '</p>',
@@ -680,6 +734,8 @@
 					ev.stopPropagation();
 					deleteReceta(item.id);
 				});
+
+				setImageWithFallback(card.querySelector('.receta-thumb img'), item, 700);
 
 				recetasGrid.appendChild(card);
 			});
@@ -727,7 +783,8 @@
 			if (!receta) return;
 			recetaActivaId = id;
 
-			detalleMediaReceta.innerHTML = '<img src="' + escHtml(buildImageUrl(receta, 1200)) + '" alt="Imagen de la receta" />';
+			detalleMediaReceta.innerHTML = '<img alt="Imagen de la receta" />';
+			setImageWithFallback(detalleMediaReceta.querySelector('img'), receta, 1200);
 			detalleIngredientesReceta.innerHTML = '';
 
 			parseIngredientes(receta.ingredientesTexto).forEach(function (ingrediente) {
