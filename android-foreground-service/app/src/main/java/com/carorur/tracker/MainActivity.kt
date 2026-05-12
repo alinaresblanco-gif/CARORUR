@@ -2,6 +2,7 @@ package com.carorur.tracker
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
@@ -19,6 +20,7 @@ import android.webkit.WebStorage
 import android.webkit.WebView
 import android.widget.Button
 import android.widget.EditText
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -139,6 +141,8 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         val btnSetTestUrl: Button = findViewById(R.id.btnSetTestUrl)
         val btnClearCacheReload: Button = findViewById(R.id.btnClearCacheReload)
+        val debugToolsContainer: View = findViewById(R.id.debugToolsContainer)
+        val isDebugBuild = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -210,8 +214,15 @@ class MainActivity : AppCompatActivity() {
         }
         webView.addJavascriptInterface(NativeMusicBridge(this), "CarorurNativeMusic")
 
-        btnSetTestUrl.setOnClickListener { showTestUrlDialog() }
-        btnClearCacheReload.setOnClickListener { clearCacheAndReload() }
+        if (isDebugBuild) {
+            debugToolsContainer.visibility = View.VISIBLE
+            btnSetTestUrl.setOnClickListener { showTestUrlDialog() }
+            btnClearCacheReload.setOnClickListener { clearCacheAndReload() }
+        } else {
+            debugToolsContainer.visibility = View.GONE
+            // En release siempre usamos el contenido empaquetado para evitar rutas remotas rotas.
+            prefs.edit().remove(PREF_TEST_URL).apply()
+        }
 
         loadConfiguredUrl()
     }
@@ -252,6 +263,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadConfiguredUrl() {
+        val isDebugBuild = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!isDebugBuild) {
+            webView.loadUrl(LOCAL_ASSET_URL)
+            return
+        }
         val remoteUrl = prefs.getString(PREF_TEST_URL, "")?.trim().orEmpty()
         if (remoteUrl.startsWith("http://") || remoteUrl.startsWith("https://")) {
             webView.loadUrl(remoteUrl)
