@@ -528,6 +528,7 @@
 		var currentMediaDuration = 0;
 		var isSaving = false;
 		var previewUrlMap = {};
+		var previewVideoUrlMap = {};
 		var detailUrl = '';
 
 		if (!btnVolverCabecera) return;
@@ -622,6 +623,29 @@
 				};
 				reader.readAsDataURL(file);
 			});
+		}
+
+		function base64ToBlob(base64, mimeType) {
+			var binary = atob(String(base64 || ''));
+			var length = binary.length;
+			var bytes = new Uint8Array(length);
+			for (var i = 0; i < length; i++) {
+				bytes[i] = binary.charCodeAt(i);
+			}
+			return new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+		}
+
+		async function fetchYincanaMediaBlob(fileId) {
+			var url = APPS_SCRIPT_URL + '?action=getYincanaMedia&file_id=' + encodeURIComponent(fileId) + '&_ts=' + Date.now();
+			var response = await fetch(url, { cache: 'no-store' });
+			var data = await response.json();
+			if (!data || !data.ok || !data.data) {
+				throw new Error((data && data.error) || 'No se pudo cargar el video');
+			}
+			return {
+				blob: base64ToBlob(data.data, data.mimeType || 'video/mp4'),
+				mimeType: String(data.mimeType || 'video/mp4')
+			};
 		}
 
 		async function postAppsScript(payload) {
@@ -733,6 +757,14 @@
 				}
 			});
 			previewUrlMap = {};
+
+			Object.keys(previewVideoUrlMap).forEach(function (key) {
+				try {
+					URL.revokeObjectURL(previewVideoUrlMap[key]);
+				} catch (e) {
+				}
+			});
+			previewVideoUrlMap = {};
 		}
 
 		function driveImgUrl(fileId, size) {
@@ -798,7 +830,7 @@
 			detalleMedia.appendChild(fallback);
 		}
 
-		function mountVideoWithFallback(item) {
+		function renderVideoFromUrls(item) {
 			var urls = buildVideoUrls(item);
 			if (!urls.length) {
 				renderVideoFallback(item);
@@ -866,6 +898,22 @@
 			trySource(0);
 		}
 
+		async function mountVideoWithFallback(item) {
+			if (item && item.driveFileId) {
+				detalleMedia.innerHTML = '<div class="video-loading">Cargando video...</div>';
+				try {
+					var media = await fetchYincanaMediaBlob(item.driveFileId);
+					detailUrl = URL.createObjectURL(media.blob);
+					detalleMedia.innerHTML = '<video controls playsinline preload="metadata" src="' + escHtml(detailUrl) + '"></video>';
+					return;
+				} catch (err) {
+					detailUrl = '';
+				}
+			}
+
+			renderVideoFromUrls(item);
+		}
+
 		function buildPreviewUrl(item) {
 			if (item && item.driveFileId && item.mediaType === 'image') {
 				return buildImageUrls(item, 600)[0];
@@ -878,6 +926,33 @@
 			return previewUrlMap[item.id];
 		}
 
+		async function loadVideoPreview(item, videoEl) {
+			if (!item || !item.id || !videoEl) return;
+			if (previewVideoUrlMap[item.id]) {
+				videoEl.src = previewVideoUrlMap[item.id];
+				videoEl.load();
+				return;
+			}
+
+			try {
+				if (item.mediaBlob) {
+					previewVideoUrlMap[item.id] = URL.createObjectURL(item.mediaBlob);
+					videoEl.src = previewVideoUrlMap[item.id];
+					videoEl.load();
+					return;
+				}
+
+				if (item.driveFileId) {
+					var media = await fetchYincanaMediaBlob(item.driveFileId);
+					previewVideoUrlMap[item.id] = URL.createObjectURL(media.blob);
+					videoEl.src = previewVideoUrlMap[item.id];
+					videoEl.load();
+				}
+			} catch (err) {
+				videoEl.setAttribute('poster', driveImgUrl(item.driveFileId, 600));
+			}
+		}
+
 		function renderCards() {
 			revokePreviewUrls();
 			tesoroGrid.innerHTML = '';
@@ -888,9 +963,7 @@
 				card.className = 'tesoro-card';
 				var previewUrl = buildPreviewUrl(item);
 				var previewHtml = item.mediaType === 'video'
-				? (item.driveFileId
-					? '<div class="video-placeholder">&#9654;</div><span class="media-badge">VIDEO</span>'
-					: '<video muted playsinline preload="metadata" src="' + escHtml(previewUrl) + '"></video><span class="media-badge">VIDEO</span>')
+				? '<video muted playsinline preload="metadata"' + (item.driveFileId ? ' poster="' + escHtml(driveImgUrl(item.driveFileId, 600)) + '"' : ' src="' + escHtml(previewUrl) + '"') + '></video><span class="media-badge">VIDEO</span>'
 					: '<img alt="Vista previa de la yincana" />' + (item.mediaType === 'image' ? '<span class="media-badge">IMAGEN</span>' : '');
 				var descripcionCorta = String(item.descripcion || '').trim();
 				if (descripcionCorta.length > 110) {
@@ -916,6 +989,8 @@
 				});
 				if (item.mediaType === 'image') {
 					setImageWithFallback(card.querySelector('.tesoro-preview img'), item, 600);
+				} else if (item.mediaType === 'video') {
+					loadVideoPreview(item, card.querySelector('.tesoro-preview video'));
 				}
 				tesoroGrid.appendChild(card);
 			});
