@@ -191,14 +191,20 @@
 
 		.comida-input {
 			width: 100%;
+			box-sizing: border-box;
 			background: rgba(255, 252, 242, 0.9);
 			border: 1px solid rgba(100, 64, 28, 0.28);
 			border-radius: 4px;
 			padding: 7px 10px;
 			font-family: 'Crimson Text', serif;
 			font-size: clamp(1rem, 3vw, 1.1rem);
+			line-height: 1.45;
 			color: #3d1f0c;
 			outline: none;
+			resize: none;
+			overflow: hidden;
+			min-height: 36px;
+			display: block;
 			transition: border-color 0.15s, background 0.15s;
 		}
 
@@ -362,6 +368,7 @@
 
 		body.modo-lectura .comida-input {
 			background: rgba(244, 239, 229, 0.95);
+			cursor: default;
 		}
 
 		.modal-acceso {
@@ -1047,6 +1054,11 @@ return data;
 			});
 		}
 
+		function autoResize(el) {
+			el.style.height = 'auto';
+			el.style.height = el.scrollHeight + 'px';
+		}
+
 		function crearInput(dia, idx, momento, iItem, val, fotoVal, body) {
 			var item = document.createElement('div');
 			item.className = 'ingrediente-item';
@@ -1056,17 +1068,26 @@ return data;
 				item.classList.add('seleccionado');
 			}
 
-			var input = document.createElement('input');
-			input.type      = 'text';
+			var input = document.createElement('textarea');
 			input.className = 'comida-input';
+			input.rows = 1;
 			input.value     = val;
 			input.readOnly  = !edicionDesbloqueada;
 			input.placeholder = iItem === 0
 				? 'Añadir ' + momento.charAt(0) + momento.slice(1).toLowerCase() + '…'
 				: 'Añadir otro…';
 
+			/* Evitar saltos de línea: Enter no inserta \n */
+			input.addEventListener('keydown', function (e) {
+				if (e.key === 'Enter') { e.preventDefault(); }
+			});
+
+			/* Altura inicial según contenido ya cargado */
+			window.requestAnimationFrame(function () { autoResize(input); });
+
 			input.addEventListener('input', function () {
 				if (!edicionDesbloqueada) return;
+				autoResize(input);
 				var arr = dia.comidas[momento];
 				var arrFotos = dia.fotos[momento];
 				arr[iItem] = input.value;
