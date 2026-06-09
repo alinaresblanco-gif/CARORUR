@@ -6,6 +6,7 @@ Contenedor Android nativo para ejecutar la web de CARORUR dentro de la app.
 
 - WebView nativo que carga la app web desde assets locales del APK
 - Copia automatica de index/js/css/vistas/iconos/imagenes al paquete Android en build
+- Push notifications gratuitas con Firebase Cloud Messaging (FCM)
 
 ## Como probar
 
@@ -19,6 +20,19 @@ Contenedor Android nativo para ejecutar la web de CARORUR dentro de la app.
 ## Permisos requeridos
 
 - INTERNET
+- POST_NOTIFICATIONS (Android 13+)
+
+## Configuracion gratuita de push (obligatoria)
+
+1. Crea un proyecto en Firebase (plan gratuito Spark).
+2. Registra la app Android con package: `com.carorur.tracker`.
+3. Descarga `google-services.json` y guardalo en `android-foreground-service/app/google-services.json`.
+4. En Firebase Console, genera la clave Server key para FCM legacy API.
+5. En Google Apps Script, abre `Project Settings > Script properties` y crea:
+	- `FCM_SERVER_KEY` = tu Server key de Firebase.
+6. Publica una nueva version del Web App de Apps Script para aplicar los cambios.
+
+Sin estos pasos, la app compila pero no enviara push.
 
 ## Nota importante
 
@@ -30,4 +44,4 @@ Para maxima continuidad:
 
 ## Limitaciones actuales
 
-- En este entorno no se ha podido ejecutar una compilacion porque el repo no incluye gradlew.bat ni hay Gradle disponible en PATH.
+- En este entorno no se ejecuto compilacion final del APK/AAB por limitaciones de toolchain local.

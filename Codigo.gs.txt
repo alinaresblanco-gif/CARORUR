@@ -144,6 +144,20 @@ const NUESTRO_HISTORICO_HEADERS = [
   'orden'
 ];
 
+const DEVICE_TOKENS_SHEET_NAME = 'device_tokens';
+const DEVICE_TOKENS_HEADERS = [
+  'token',
+  'platform',
+  'device_id',
+  'app_version',
+  'created_at',
+  'updated_at',
+  'active'
+];
+
+const FCM_LEGACY_ENDPOINT = 'https://fcm.googleapis.com/fcm/send';
+const SCRIPT_PROP_FCM_SERVER_KEY = 'FCM_SERVER_KEY';
+
 
 function doGet(e) {
   try {
@@ -226,6 +240,11 @@ function doPost(e) {
     const payload = parseJsonBody(e);
     const action = safeStr(payload.action || payload.accion);
 
+    if (action === 'registerDevice') {
+      const result = registerDeviceToken(payload);
+      return jsonOut({ ok: true, action: 'registerDevice', token_saved: result.token_saved });
+    }
+
     if (action === 'uploadImage') {
       if (!payload.data || !payload.mimeType) {
         return jsonOut({ ok: false, error: 'Faltan campos: data, mimeType' });
@@ -278,6 +297,7 @@ function doPost(e) {
         const rows = Array.isArray(payload.rows) ? payload.rows : [];
 
         replaceMenuRows(menuId, rows, updatedBy);
+        notifyChangeSafe('saveMenu', payload);
 
         return jsonOut({
           ok: true,
@@ -290,6 +310,7 @@ function doPost(e) {
       if (action === 'clearMenu') {
         const menuId = payload.menu_id || DEFAULT_MENU_ID;
         clearMenuRows(menuId);
+        notifyChangeSafe('clearMenu', payload);
 
         return jsonOut({
           ok: true,
@@ -303,6 +324,7 @@ function doPost(e) {
         const rows = Array.isArray(payload.rows) ? payload.rows : [];
 
         replaceLudotecaRows(rows, updatedBy);
+        notifyChangeSafe('saveLudoteca', payload);
 
         return jsonOut({
           ok: true,
@@ -315,6 +337,7 @@ function doPost(e) {
         const rutaEntrada = payload.datos || payload.ruta || payload.row || payload;
         const ruta = normalizeAventuraRow(rutaEntrada);
         saveAventuraRuta(ruta);
+        notifyChangeSafe('guardarRuta', payload);
 
         return jsonOut({
           ok: true,
@@ -330,6 +353,7 @@ function doPost(e) {
         }
 
         const removed = deleteAventuraRuta(idRuta);
+        if (removed > 0) notifyChangeSafe('eliminarRuta', payload);
         return jsonOut({
           ok: true,
           action: 'eliminarRuta',
@@ -341,12 +365,14 @@ function doPost(e) {
       if (action === 'savePlaylists') {
         const rows = Array.isArray(payload.playlists) ? payload.playlists : [];
         savePlaylistsRows(rows);
+        notifyChangeSafe('savePlaylists', payload);
         return jsonOut({ ok: true, action: 'savePlaylists', saved: rows.length });
       }
 
       if (action === 'savePlaylistEmbed') {
         const row = payload.row || payload.playlist || payload;
         const saved = savePlaylistEmbedRow(row);
+        notifyChangeSafe('savePlaylistEmbed', payload);
         return jsonOut({ ok: true, action: 'savePlaylistEmbed', id_playlist: saved.id_playlist });
       }
 
@@ -356,6 +382,7 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_playlist' });
         }
         const removed = deletePlaylistEmbedRow(idPlaylist);
+        if (removed > 0) notifyChangeSafe('deletePlaylistEmbed', payload);
         return jsonOut({ ok: true, action: 'deletePlaylistEmbed', id_playlist: idPlaylist, removed_rows: removed });
       }
 
@@ -366,12 +393,14 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_playlist' });
         }
         saveCancionesRows(idPlaylist, rows);
+        notifyChangeSafe('saveCanciones', payload);
         return jsonOut({ ok: true, action: 'saveCanciones', id_playlist: idPlaylist, saved: rows.length });
       }
 
       if (action === 'saveMuroRecuerdo') {
         const row = payload.row || payload.recuerdo || payload;
         const saved = saveMuroRecuerdoRow(row);
+        notifyChangeSafe('saveMuroRecuerdo', payload);
         return jsonOut({ ok: true, action: 'saveMuroRecuerdo', recuerdo: saved });
       }
 
@@ -382,6 +411,7 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_recuerdo' });
         }
         const added = addMuroRecuerdoFotos(idRecuerdo, fotos);
+        if (added > 0) notifyChangeSafe('addMuroRecuerdoFotos', payload);
         return jsonOut({ ok: true, action: 'addMuroRecuerdoFotos', id_recuerdo: idRecuerdo, added: added });
       }
 
@@ -391,6 +421,7 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_recuerdo' });
         }
         const result = deleteMuroRecuerdo(idRecuerdo);
+        if (result.removedRecuerdos > 0 || result.removedFotos > 0) notifyChangeSafe('deleteMuroRecuerdo', payload);
         return jsonOut({
           ok: true,
           action: 'deleteMuroRecuerdo',
@@ -407,6 +438,7 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_foto' });
         }
         const result = deleteMuroFoto(idFoto, idRecuerdo);
+        if (result.removedFotos > 0) notifyChangeSafe('deleteMuroFoto', payload);
         return jsonOut({
           ok: true,
           action: 'deleteMuroFoto',
@@ -419,6 +451,7 @@ function doPost(e) {
       if (action === 'saveYincana') {
         const row = payload.row || payload.yincana || payload;
         const saved = saveYincanaRow(row);
+        notifyChangeSafe('saveYincana', payload);
         return jsonOut({ ok: true, action: 'saveYincana', yincana: saved });
       }
 
@@ -428,12 +461,14 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_yincana' });
         }
         const removed = deleteYincanaRow(idYincana);
+        if (removed > 0) notifyChangeSafe('deleteYincana', payload);
         return jsonOut({ ok: true, action: 'deleteYincana', id_yincana: idYincana, removed_rows: removed });
       }
 
       if (action === 'saveNuestrasReceta' || action === 'saveReceta') {
         const row = payload.row || payload.receta || payload;
         const saved = saveNuestrasRecetaRow(row);
+        notifyChangeSafe('saveReceta', payload);
         return jsonOut({ ok: true, action: 'saveNuestrasReceta', receta: saved });
       }
 
@@ -443,12 +478,14 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_receta' });
         }
         const removed = deleteNuestrasRecetaRow(idReceta);
+        if (removed > 0) notifyChangeSafe('deleteReceta', payload);
         return jsonOut({ ok: true, action: 'deleteNuestrasReceta', id_receta: idReceta, removed_rows: removed });
       }
 
       if (action === 'saveAmigo') {
         const row = payload.row || payload.miembro || payload;
         const saved = saveAmigoRow(row);
+        notifyChangeSafe('saveAmigo', payload);
         return jsonOut({ ok: true, action: 'saveAmigo', miembro: saved });
       }
 
@@ -458,12 +495,14 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_miembro' });
         }
         const removed = deleteAmigoRow(idMiembro);
+        if (removed > 0) notifyChangeSafe('deleteAmigo', payload);
         return jsonOut({ ok: true, action: 'deleteAmigo', id_miembro: idMiembro, removed_rows: removed });
       }
 
       if (action === 'saveNuestroHistoricoMenu') {
         const row = payload.row || payload.menu || payload;
         const saved = saveNuestroHistoricoMenuRow(row);
+        notifyChangeSafe('saveNuestroHistoricoMenu', payload);
         return jsonOut({ ok: true, action: 'saveNuestroHistoricoMenu', menu: saved });
       }
 
@@ -473,6 +512,7 @@ function doPost(e) {
           return jsonOut({ ok: false, error: 'Falta id_menu' });
         }
         const removed = deleteNuestroHistoricoMenuRow(idMenu);
+        if (removed > 0) notifyChangeSafe('deleteNuestroHistoricoMenu', payload);
         return jsonOut({ ok: true, action: 'deleteNuestroHistoricoMenu', id_menu: idMenu, removed_rows: removed });
       }
 
@@ -1878,6 +1918,179 @@ function deleteNuestroHistoricoMenuRow(idMenu) {
     return 1;
   }
   return 0;
+}
+
+function getDeviceTokensSheetReady() {
+  var ss = getSpreadsheetReady();
+  var sheet = ss.getSheetByName(DEVICE_TOKENS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(DEVICE_TOKENS_SHEET_NAME);
+  }
+
+  var headerRange = sheet.getRange(1, 1, 1, DEVICE_TOKENS_HEADERS.length);
+  var currentHeaders = headerRange.getValues()[0].map(safeStr);
+  var needsHeader = DEVICE_TOKENS_HEADERS.some(function (h, i) {
+    return currentHeaders[i] !== h;
+  });
+  if (needsHeader) {
+    headerRange.setValues([DEVICE_TOKENS_HEADERS]);
+  }
+  return sheet;
+}
+
+function registerDeviceToken(payload) {
+  var token = safeStr(payload && payload.token);
+  if (!token) {
+    throw new Error('Falta token');
+  }
+
+  var sheet = getDeviceTokensSheetReady();
+  var nowIso = new Date().toISOString();
+  var rows = sheet.getDataRange().getValues();
+
+  var rowData = [
+    token,
+    safeStr(payload && payload.platform) || 'android',
+    safeStr(payload && payload.device_id),
+    safeStr(payload && payload.app_version),
+    nowIso,
+    nowIso,
+    true
+  ];
+
+  for (var i = 1; i < rows.length; i++) {
+    if (safeStr(rows[i][0]) !== token) continue;
+    rowData[4] = safeStr(rows[i][4]) || nowIso;
+    sheet.getRange(i + 1, 1, 1, DEVICE_TOKENS_HEADERS.length).setValues([rowData]);
+    return { token_saved: true, updated: true };
+  }
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, DEVICE_TOKENS_HEADERS.length).setValues([rowData]);
+  return { token_saved: true, updated: false };
+}
+
+function notifyChangeSafe(action, payload) {
+  try {
+    var meta = buildPushMeta(action, payload);
+    sendPushToRegisteredDevices(meta.title, meta.body, {
+      action: action,
+      ts: new Date().toISOString()
+    });
+  } catch (err) {
+    Logger.log('Push warning: ' + String(err && err.message ? err.message : err));
+  }
+}
+
+function buildPushMeta(action, payload) {
+  var actor = safeStr(payload && (payload.updated_by || payload.usuario || payload.user || payload.autor));
+  if (!actor) actor = 'Un amigo';
+
+  var actionTextByType = {
+    saveMenu: 'actualizo el menu',
+    clearMenu: 'borro el menu',
+    saveLudoteca: 'actualizo la ludoteca',
+    guardarRuta: 'subio una ruta nueva',
+    eliminarRuta: 'elimino una ruta',
+    savePlaylists: 'actualizo playlists',
+    savePlaylistEmbed: 'compartio una playlist',
+    deletePlaylistEmbed: 'elimino una playlist',
+    saveCanciones: 'actualizo canciones',
+    saveMuroRecuerdo: 'publico un recuerdo',
+    addMuroRecuerdoFotos: 'anadio fotos a un recuerdo',
+    deleteMuroRecuerdo: 'elimino un recuerdo',
+    deleteMuroFoto: 'elimino una foto del muro',
+    saveYincana: 'publico una yincana',
+    deleteYincana: 'elimino una yincana',
+    saveReceta: 'subio o edito una receta',
+    deleteReceta: 'elimino una receta',
+    saveAmigo: 'actualizo amigos',
+    deleteAmigo: 'elimino un amigo',
+    saveNuestroHistoricoMenu: 'actualizo el historico',
+    deleteNuestroHistoricoMenu: 'elimino un menu historico'
+  };
+
+  var actionText = actionTextByType[action] || 'realizo un cambio';
+  return {
+    title: 'CARORUR: nuevo cambio',
+    body: actor + ' ' + actionText
+  };
+}
+
+function sendPushToRegisteredDevices(title, body, dataObj) {
+  var serverKey = safeStr(PropertiesService.getScriptProperties().getProperty(SCRIPT_PROP_FCM_SERVER_KEY));
+  if (!serverKey) {
+    return { ok: false, reason: 'FCM_SERVER_KEY no configurada' };
+  }
+
+  var sheet = getDeviceTokensSheetReady();
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) {
+    return { ok: true, sent: 0 };
+  }
+
+  var sent = 0;
+  for (var i = 1; i < rows.length; i++) {
+    var token = safeStr(rows[i][0]);
+    var isActive = toBool(rows[i][6]);
+    if (!token || !isActive) continue;
+
+    var result = sendSingleFcmLegacy(serverKey, token, title, body, dataObj);
+    if (result.ok) {
+      sent += 1;
+      sheet.getRange(i + 1, 6).setValue(new Date().toISOString());
+      continue;
+    }
+
+    if (result.invalidateToken) {
+      sheet.getRange(i + 1, 7).setValue(false);
+      sheet.getRange(i + 1, 6).setValue(new Date().toISOString());
+    }
+  }
+
+  return { ok: true, sent: sent };
+}
+
+function sendSingleFcmLegacy(serverKey, token, title, body, dataObj) {
+  var payload = {
+    to: token,
+    priority: 'high',
+    notification: {
+      title: title,
+      body: body,
+      sound: 'default'
+    },
+    data: dataObj || {}
+  };
+
+  var res = UrlFetchApp.fetch(FCM_LEGACY_ENDPOINT, {
+    method: 'post',
+    contentType: 'application/json; charset=utf-8',
+    muteHttpExceptions: true,
+    headers: {
+      Authorization: 'key=' + serverKey
+    },
+    payload: JSON.stringify(payload)
+  });
+
+  var status = Number(res.getResponseCode() || 0);
+  var text = safeStr(res.getContentText());
+  if (status >= 200 && status < 300) {
+    try {
+      var parsed = JSON.parse(text || '{}');
+      var first = parsed && parsed.results && parsed.results[0] ? parsed.results[0] : null;
+      var err = first && first.error ? String(first.error) : '';
+      if (!err) {
+        return { ok: true };
+      }
+      var invalid = (err === 'NotRegistered' || err === 'InvalidRegistration');
+      return { ok: false, invalidateToken: invalid, error: err };
+    } catch (e) {
+      return { ok: true };
+    }
+  }
+
+  var invalidHttp = (status === 404 || status === 410);
+  return { ok: false, invalidateToken: invalidHttp, error: 'HTTP ' + status };
 }
 
 

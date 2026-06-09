@@ -1,8 +1,10 @@
 package com.carorur.tracker
 
 import android.annotation.SuppressLint
+import android.Manifest
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
@@ -29,6 +31,7 @@ import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
+import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -52,6 +55,11 @@ class MainActivity : AppCompatActivity() {
     private var nativeMusicMode: String? = null
     private var isNativePickerOpen = false
     private var nativeFolderCounter = 0
+
+    private val notifPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            fetchAndRegisterPushToken()
+        }
 
     private data class NativeAudioItem(
         val uri: Uri,
@@ -225,6 +233,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         loadConfiguredUrl()
+        requestNotificationPermissionIfNeeded()
+        fetchAndRegisterPushToken()
     }
 
     override fun onDestroy() {
@@ -315,6 +325,23 @@ class MainActivity : AppCompatActivity() {
         }
         loadConfiguredUrl()
         Toast.makeText(this, "Cache limpiada y vista recargada", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun fetchAndRegisterPushToken() {
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token ->
+                CarorurPushRegistrar.syncToken(this, token)
+            }
+            .addOnFailureListener {
+            }
     }
 
     private fun launchNativeAudioPicker(mode: String) {
