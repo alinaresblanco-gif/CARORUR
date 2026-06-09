@@ -82,7 +82,7 @@ class CarorurFirebaseMessagingService : FirebaseMessagingService() {
 }
 
 object CarorurPushRegistrar {
-    private const val REGISTER_URL = "https://script.google.com/macros/s/AKfycbxjeWlcxlj_gIQ-d1tPLzQgw59hztWuQgZVqEaL5KY7mhXnKriI4A4hgIf1_uvfYrg/exec"
+    private const val REGISTER_URL = "https://script.google.com/macros/s/AKfycbylzFYAHLS28fs99udXE_PRan2hxPRHRN14-5n0shkHqXiawXJInk_F8JqEKvwZiZwF/exec"
 
     fun syncToken(context: Context, token: String) {
         if (token.isBlank()) return
